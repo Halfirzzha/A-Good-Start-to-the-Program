@@ -1,0 +1,38 @@
+<?php
+
+return [
+    'enabled' => env('AUDIT_LOG_ENABLED', true),
+    'admin_path' => env('AUDIT_LOG_ADMIN_PATH', 'admin'),
+    'log_admin' => env('AUDIT_LOG_ADMIN_ALL', true),
+    'http_methods' => array_values(array_filter(array_map('trim', explode(',', env('AUDIT_LOG_METHODS', 'POST,PUT,PATCH,DELETE'))))),
+    'ignore_paths' => [
+        'up',
+    ],
+    'sensitive_keys' => [
+        'password',
+        'password_confirmation',
+        'current_password',
+        'new_password',
+        'token',
+        '_token',
+        'remember_token',
+        'api_key',
+        'secret',
+        'authorization',
+        'cookie',
+    ],
+    'header_allowlist' => [
+        'accept',
+        'content-type',
+        'user-agent',
+        'referer',
+        'origin',
+        'x-request-id',
+    ],
+    'cache_store' => env('AUDIT_CACHE_STORE', null),
+    'last_seen_ttl_seconds' => (int) env('AUDIT_LAST_SEEN_TTL', 300),
+    'log_errors' => env('AUDIT_LOG_ERRORS', true),
+    'error_min_status' => (int) env('AUDIT_ERROR_MIN_STATUS', 400),
+    'verify_chunk' => (int) env('AUDIT_VERIFY_CHUNK', 500),
+    'rehash_chunk' => (int) env('AUDIT_REHASH_CHUNK', 500),
+];
