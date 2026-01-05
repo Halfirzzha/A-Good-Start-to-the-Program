@@ -39,6 +39,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'security.stamp' => \App\Http\Middleware\EnsureSecurityStampIsValid::class,
             'role.admin' => \App\Http\Middleware\EnsureUserHasRole::class,
         ]);
+
+        $middleware->preventRequestsDuringMaintenance([
+            '/maintenance/status',
+            '/maintenance/stream',
+            '/maintenance/bypass',
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->report(function (Throwable $exception): void {

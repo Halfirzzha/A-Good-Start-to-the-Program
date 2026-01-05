@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\Auditable;
 use App\Support\AuditLogWriter;
+use App\Support\MaintenanceService;
 use App\Support\SecurityAlert;
 use App\Support\SystemSettings;
 use Illuminate\Database\Eloquent\Model;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class SystemSetting extends Model
 {
@@ -93,7 +95,11 @@ class SystemSetting extends Model
 
     private function recordVersion(string $action): void
     {
-        if (! Schema::hasTable('system_setting_versions')) {
+        try {
+            if (! Schema::hasTable('system_setting_versions')) {
+                return;
+            }
+        } catch (\Throwable) {
             return;
         }
 
@@ -112,6 +118,11 @@ class SystemSetting extends Model
 
         $request = request();
         $actorId = Auth::id();
+        $sessionId = $request && $request->hasSession() ? $request->session()->getId() : null;
+        $maintenanceChanges = array_values(array_filter(
+            $dataChanges,
+            static fn (string $key): bool => Str::startsWith($key, 'maintenance.')
+        ));
 
         SystemSettingVersion::create([
             'system_setting_id' => $this->getKey(),
@@ -149,6 +160,125 @@ class SystemSetting extends Model
             ], $request);
         }
 
+        if ($action === 'updated' && ! empty($maintenanceChanges)) {
+            $beforeMaintenance = Arr::get($originalData, 'maintenance', []);
+            $afterMaintenance = Arr::get($currentData, 'maintenance', []);
+            $diff = MaintenanceService::diffMaintenance($beforeMaintenance, $afterMaintenance);
+
+            AuditLogWriter::writeAudit([
+                'user_id' => $actorId,
+                'action' => 'maintenance_settings_updated',
+                'auditable_type' => self::class,
+                'auditable_id' => $this->getKey(),
+                'old_values' => null,
+                'new_values' => null,
+                'ip_address' => $request?->ip(),
+                'user_agent' => $request ? self::truncate((string) $request->userAgent(), 255) : null,
+                'url' => $request?->fullUrl(),
+                'route' => $request?->route()?->getName(),
+                'method' => $request?->method(),
+                'status_code' => null,
+                'request_id' => $request?->headers->get('X-Request-Id'),
+                'session_id' => $sessionId,
+                'duration_ms' => null,
+                'context' => [
+                    'changed_keys' => $maintenanceChanges,
+                    'changes' => $diff,
+                    'maintenance' => [
+                        'enabled' => Arr::get($currentData, 'maintenance.enabled'),
+                        'mode' => Arr::get($currentData, 'maintenance.mode'),
+                        'start_at' => Arr::get($currentData, 'maintenance.start_at'),
+                        'end_at' => Arr::get($currentData, 'maintenance.end_at'),
+                    ],
+                ],
+                'created_at' => now(),
+            ]);
+
+            $beforeEnabled = (bool) Arr::get($beforeMaintenance, 'enabled', false);
+            $afterEnabled = (bool) Arr::get($afterMaintenance, 'enabled', false);
+            if ($beforeEnabled !== $afterEnabled) {
+                AuditLogWriter::writeAudit([
+                    'user_id' => $actorId,
+                    'action' => $afterEnabled ? 'maintenance_enabled' : 'maintenance_disabled',
+                    'auditable_type' => self::class,
+                    'auditable_id' => $this->getKey(),
+                    'old_values' => ['enabled' => $beforeEnabled],
+                    'new_values' => ['enabled' => $afterEnabled],
+                    'ip_address' => $request?->ip(),
+                    'user_agent' => $request ? self::truncate((string) $request->userAgent(), 255) : null,
+                    'url' => $request?->fullUrl(),
+                    'route' => $request?->route()?->getName(),
+                    'method' => $request?->method(),
+                    'status_code' => null,
+                    'request_id' => $request?->headers->get('X-Request-Id'),
+                    'session_id' => $sessionId,
+                    'duration_ms' => null,
+                    'context' => [
+                        'reason' => 'manual_update',
+                    ],
+                    'created_at' => now(),
+                ]);
+            }
+
+            $scheduleChanged = Arr::get($beforeMaintenance, 'start_at') !== Arr::get($afterMaintenance, 'start_at')
+                || Arr::get($beforeMaintenance, 'end_at') !== Arr::get($afterMaintenance, 'end_at');
+
+            if ($scheduleChanged) {
+                AuditLogWriter::writeAudit([
+                    'user_id' => $actorId,
+                    'action' => 'maintenance_schedule_updated',
+                    'auditable_type' => self::class,
+                    'auditable_id' => $this->getKey(),
+                    'old_values' => [
+                        'start_at' => Arr::get($beforeMaintenance, 'start_at'),
+                        'end_at' => Arr::get($beforeMaintenance, 'end_at'),
+                    ],
+                    'new_values' => [
+                        'start_at' => Arr::get($afterMaintenance, 'start_at'),
+                        'end_at' => Arr::get($afterMaintenance, 'end_at'),
+                    ],
+                    'ip_address' => $request?->ip(),
+                    'user_agent' => $request ? self::truncate((string) $request->userAgent(), 255) : null,
+                    'url' => $request?->fullUrl(),
+                    'route' => $request?->route()?->getName(),
+                    'method' => $request?->method(),
+                    'status_code' => null,
+                    'request_id' => $request?->headers->get('X-Request-Id'),
+                    'session_id' => $sessionId,
+                    'duration_ms' => null,
+                    'context' => [
+                        'changes' => $diff,
+                    ],
+                    'created_at' => now(),
+                ]);
+            }
+
+            $noteChanged = Arr::get($beforeMaintenance, 'note_html') !== Arr::get($afterMaintenance, 'note_html');
+            if ($noteChanged) {
+                AuditLogWriter::writeAudit([
+                    'user_id' => $actorId,
+                    'action' => 'maintenance_note_updated',
+                    'auditable_type' => self::class,
+                    'auditable_id' => $this->getKey(),
+                    'old_values' => ['note_html' => Arr::get($beforeMaintenance, 'note_html')],
+                    'new_values' => ['note_html' => Arr::get($afterMaintenance, 'note_html')],
+                    'ip_address' => $request?->ip(),
+                    'user_agent' => $request ? self::truncate((string) $request->userAgent(), 255) : null,
+                    'url' => $request?->fullUrl(),
+                    'route' => $request?->route()?->getName(),
+                    'method' => $request?->method(),
+                    'status_code' => null,
+                    'request_id' => $request?->headers->get('X-Request-Id'),
+                    'session_id' => $sessionId,
+                    'duration_ms' => null,
+                    'context' => [
+                        'changes' => $diff,
+                    ],
+                    'created_at' => now(),
+                ]);
+            }
+        }
+
         if (! empty($secretChanges)) {
             AuditLogWriter::writeAudit([
                 'user_id' => $actorId,
@@ -164,7 +294,7 @@ class SystemSetting extends Model
                 'method' => $request?->method(),
                 'status_code' => null,
                 'request_id' => $request?->headers->get('X-Request-Id'),
-                'session_id' => $request?->session()?->getId(),
+                'session_id' => $sessionId,
                 'duration_ms' => null,
                 'context' => [
                     'changed_keys' => $secretChanges,
@@ -188,6 +318,8 @@ class SystemSetting extends Model
 
     private static function logSecretUpdateDenied(?\Illuminate\Http\Request $request, ?int $userId): void
     {
+        $sessionId = $request && $request->hasSession() ? $request->session()->getId() : null;
+
         AuditLogWriter::writeAudit([
             'user_id' => $userId,
             'action' => 'system_settings_secrets_denied',
@@ -202,7 +334,7 @@ class SystemSetting extends Model
             'method' => $request?->method(),
             'status_code' => 403,
             'request_id' => $request?->headers->get('X-Request-Id'),
-            'session_id' => $request?->session()?->getId(),
+            'session_id' => $sessionId,
             'duration_ms' => null,
             'context' => [
                 'reason' => 'secrets_update_denied',

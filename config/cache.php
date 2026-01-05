@@ -97,7 +97,7 @@ return [
         ],
 
         'rate_limit' => [
-            'driver' => 'redis',
+            'driver' => env('RATE_LIMIT_DRIVER', 'redis'),
             'connection' => env('REDIS_RATE_LIMIT_CONNECTION', 'rate_limit'),
             'lock_connection' => env('REDIS_RATE_LIMIT_LOCK_CONNECTION', 'default'),
         ],

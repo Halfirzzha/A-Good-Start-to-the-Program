@@ -1,17 +1,20 @@
 <?php
 
+use App\Http\Middleware\MaintenanceModeMiddleware;
 use App\Models\UserInvitation;
 use App\Support\AuditLogWriter;
+use App\Support\MaintenanceService;
+use App\Support\MaintenanceTokenService;
 use App\Support\PasswordRules;
 use App\Support\SecurityAlert;
 use App\Support\SystemHealth;
 use App\Support\SystemSettings;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Route;
-use App\Http\Middleware\MaintenanceModeMiddleware;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\Rule;
 
@@ -24,52 +27,65 @@ Route::post('/maintenance/bypass', function (Request $request) {
         'token' => ['required', 'string', 'min:6'],
     ]);
 
-    $settings = SystemSettings::get();
-    $tokens = Arr::get($settings, 'secrets.maintenance.bypass_tokens', []);
-    $tokens = is_array($tokens) ? $tokens : [];
+    $token = MaintenanceTokenService::normalizeToken($payload['token']);
+    if (! $token) {
+        return response()->json(['message' => 'Token tidak valid.'], 403);
+    }
 
     $requestId = $request->headers->get('X-Request-Id');
     $sessionId = $request->hasSession() ? $request->session()->getId() : null;
 
-    foreach ($tokens as $hash) {
-        if (! is_string($hash) || $hash === '') {
-            continue;
-        }
+    $verified = MaintenanceTokenService::verify($token);
+    if (! $verified) {
+        $settings = SystemSettings::get();
+        $tokens = Arr::get($settings, 'secrets.maintenance.bypass_tokens', []);
+        $tokens = is_array($tokens) ? $tokens : [];
 
-        if (Hash::check($payload['token'], $hash)) {
-            if ($request->hasSession()) {
-                $request->session()->put('maintenance_bypass', true);
+        foreach ($tokens as $hash) {
+            if (! is_string($hash) || $hash === '') {
+                continue;
             }
 
-            AuditLogWriter::writeAudit([
-                'user_id' => $request->user()?->getAuthIdentifier(),
-                'action' => 'maintenance_bypass_granted',
-                'auditable_type' => null,
-                'auditable_id' => null,
-                'old_values' => null,
-                'new_values' => null,
-                'ip_address' => $request->ip(),
-                'user_agent' => (string) $request->userAgent(),
-                'url' => $request->fullUrl(),
-                'route' => (string) optional($request->route())->getName(),
-                'method' => $request->getMethod(),
-                'status_code' => 200,
-                'request_id' => $requestId,
-                'session_id' => $sessionId,
-                'duration_ms' => null,
-                'context' => [
-                    'reason' => 'token_match',
-                ],
-                'created_at' => now(),
-            ]);
-
-            SecurityAlert::dispatch('maintenance_bypass_granted', [
-                'title' => 'Maintenance bypass granted',
-                'reason' => 'token_match',
-            ], $request);
-
-            return response()->json(['status' => 'ok']);
+            if (Hash::check($token, $hash)) {
+                $verified = true;
+                break;
+            }
         }
+    }
+
+    if ($verified) {
+        if ($request->hasSession()) {
+            $request->session()->put('maintenance_bypass', true);
+        }
+
+        AuditLogWriter::writeAudit([
+            'user_id' => $request->user()?->getAuthIdentifier(),
+            'action' => 'maintenance_bypass_granted',
+            'auditable_type' => null,
+            'auditable_id' => null,
+            'old_values' => null,
+            'new_values' => null,
+            'ip_address' => $request->ip(),
+            'user_agent' => (string) $request->userAgent(),
+            'url' => $request->fullUrl(),
+            'route' => (string) optional($request->route())->getName(),
+            'method' => $request->getMethod(),
+            'status_code' => 200,
+            'request_id' => $requestId,
+            'session_id' => $sessionId,
+            'duration_ms' => null,
+            'context' => [
+                'reason' => 'token_match',
+            ],
+            'created_at' => now(),
+        ]);
+
+        SecurityAlert::dispatch('maintenance_bypass_granted', [
+            'title' => 'Maintenance bypass granted',
+            'reason' => 'token_match',
+        ], $request);
+
+        return response()->json(['status' => 'ok']);
     }
 
     AuditLogWriter::writeAudit([
@@ -102,71 +118,115 @@ Route::post('/maintenance/bypass', function (Request $request) {
     return response()->json(['message' => 'Token tidak valid.'], 403);
 })->middleware('throttle:maintenance-bypass');
 
+Route::get('/livewire/update', function (Request $request) {
+    Log::warning('livewire.update.method_not_allowed', [
+        'method' => $request->method(),
+        'path' => $request->path(),
+        'referer' => $request->headers->get('referer'),
+        'user_agent' => (string) $request->userAgent(),
+        'ip' => $request->ip(),
+        'request_id' => $request->headers->get('X-Request-Id'),
+        'user_id' => $request->user()?->getAuthIdentifier(),
+    ]);
+
+    $isAjax = $request->expectsJson()
+        || $request->headers->has('X-Requested-With')
+        || $request->headers->has('X-Livewire');
+
+    if ($isAjax) {
+        return response()->json(['message' => 'Method Not Allowed'], 405);
+    }
+
+    $fallback = url('/admin');
+
+    return redirect()->to(url()->previous() ?: $fallback);
+});
+
 Route::get('/maintenance/status', function (Request $request) {
-    $settings = SystemSettings::get();
+    $settings = SystemSettings::get(true);
     $maintenance = Arr::get($settings, 'data.maintenance', []);
-
-    $parseDate = static function (mixed $value): ?Carbon {
-        if ($value instanceof Carbon) {
-            return $value;
-        }
-
-        if (! is_string($value) || $value === '') {
-            return null;
-        }
-
-        try {
-            return Carbon::parse($value);
-        } catch (\Throwable) {
-            return null;
-        }
-    };
-
+    $snapshot = MaintenanceService::snapshot($maintenance);
+    $noteHtml = $maintenance['note_html'] ?? ($maintenance['note'] ?? null);
     $now = now();
-    $startAt = $parseDate($maintenance['start_at'] ?? null);
-    $endAt = $parseDate($maintenance['end_at'] ?? null);
-
-    $scheduledActive = $startAt && $now->greaterThanOrEqualTo($startAt);
-    if ($scheduledActive && $endAt) {
-        $scheduledActive = $now->lessThanOrEqualTo($endAt);
-    }
-
-    $isActive = (bool) ($maintenance['enabled'] ?? false) || $scheduledActive;
-    $statusLabel = 'Disabled';
-    if ($isActive) {
-        $statusLabel = 'Active';
-    } elseif ($startAt && $now->lessThan($startAt)) {
-        $statusLabel = 'Scheduled';
-    }
-
-    $retryAfter = null;
-    if ($endAt) {
-        $seconds = $now->diffInSeconds($endAt, false);
-        if ($seconds > 0) {
-            $retryAfter = $seconds;
-        }
-    }
 
     $payload = [
-        'status_label' => $statusLabel,
-        'is_active' => $isActive,
-        'is_scheduled' => $startAt && $now->lessThan($startAt),
-        'scheduled_active' => $scheduledActive,
-        'enabled' => (bool) ($maintenance['enabled'] ?? false),
+        'status_label' => $snapshot['status_label'],
+        'is_active' => $snapshot['is_active'],
+        'is_scheduled' => $snapshot['is_scheduled'],
+        'scheduled_active' => $snapshot['scheduled_active'],
+        'enabled' => $snapshot['enabled'],
         'mode' => (string) ($maintenance['mode'] ?? 'global'),
-        'start_at' => $startAt?->toIso8601String(),
-        'end_at' => $endAt?->toIso8601String(),
+        'start_at' => $snapshot['start_at']?->toIso8601String(),
+        'end_at' => $snapshot['end_at']?->toIso8601String(),
         'server_now' => $now->toIso8601String(),
-        'note' => $maintenance['note'] ?? null,
+        'note_html' => $noteHtml,
         'title' => $maintenance['title'] ?? null,
         'summary' => $maintenance['summary'] ?? null,
-        'retry_after' => $retryAfter,
+        'retry_after' => $snapshot['retry_after'],
         'timezone' => config('app.timezone', 'UTC'),
         'request_id' => $request->headers->get('X-Request-Id'),
         'allow_api' => (bool) ($maintenance['allow_api'] ?? false),
     ];
 
-    return response()->json($payload)->header('Cache-Control', 'no-store');
+    $origin = $request->headers->get('Origin');
+    $allowedOrigin = $origin ?: config('app.url');
+
+    return response()->json($payload)
+        ->header('Cache-Control', 'no-store, no-cache, must-revalidate')
+        ->header('Access-Control-Allow-Origin', $allowedOrigin)
+        ->header('Access-Control-Allow-Credentials', 'true')
+        ->header('Vary', 'Origin');
+});
+
+Route::get('/maintenance/stream', function (Request $request) {
+    $origin = $request->headers->get('Origin');
+    $allowedOrigin = $origin ?: config('app.url');
+
+    $response = Response::stream(function () use ($request): void {
+        $start = microtime(true);
+
+        while (microtime(true) - $start < 25) {
+            $settings = SystemSettings::get(true);
+            $maintenance = Arr::get($settings, 'data.maintenance', []);
+            $snapshot = MaintenanceService::snapshot($maintenance);
+            $noteHtml = $maintenance['note_html'] ?? ($maintenance['note'] ?? null);
+
+            $payload = [
+                'status_label' => $snapshot['status_label'],
+                'is_active' => $snapshot['is_active'],
+                'is_scheduled' => $snapshot['is_scheduled'],
+                'scheduled_active' => $snapshot['scheduled_active'],
+                'enabled' => $snapshot['enabled'],
+                'mode' => (string) ($maintenance['mode'] ?? 'global'),
+                'start_at' => $snapshot['start_at']?->toIso8601String(),
+                'end_at' => $snapshot['end_at']?->toIso8601String(),
+                'server_now' => now()->toIso8601String(),
+                'note_html' => $noteHtml,
+                'title' => $maintenance['title'] ?? null,
+                'summary' => $maintenance['summary'] ?? null,
+                'retry_after' => $snapshot['retry_after'],
+                'timezone' => config('app.timezone', 'UTC'),
+                'request_id' => $request->headers->get('X-Request-Id'),
+                'allow_api' => (bool) ($maintenance['allow_api'] ?? false),
+            ];
+
+            echo "event: status\n";
+            echo 'data: '.json_encode($payload, JSON_UNESCAPED_SLASHES)."\n\n";
+            ob_flush();
+            flush();
+
+            usleep(5_000_000);
+        }
+    }, 200, [
+        'Content-Type' => 'text/event-stream',
+        'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+        'Connection' => 'keep-alive',
+        'X-Accel-Buffering' => 'no',
+        'Access-Control-Allow-Origin' => $allowedOrigin,
+        'Access-Control-Allow-Credentials' => 'true',
+    ]);
+
+    return $response;
 });
 
 Route::get('/health/check', function (Request $request) {

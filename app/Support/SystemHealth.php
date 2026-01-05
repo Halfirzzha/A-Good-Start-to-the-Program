@@ -4,8 +4,8 @@ namespace App\Support;
 
 use App\Support\AuditLogWriter;
 use App\Support\SecurityAlert;
+use App\Support\MaintenanceService;
 use App\Support\SystemSettings;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -161,6 +161,7 @@ class SystemHealth
     private static function maintenanceSnapshot(): array
     {
         $maintenance = SystemSettings::getValue('maintenance', []);
+        $noteHtml = $maintenance['note_html'] ?? ($maintenance['note'] ?? null);
 
         return [
             'enabled' => (bool) ($maintenance['enabled'] ?? false),
@@ -169,6 +170,7 @@ class SystemHealth
             'end_at' => self::formatDate($maintenance['end_at'] ?? null),
             'title' => $maintenance['title'] ?? null,
             'summary' => $maintenance['summary'] ?? null,
+            'note_html' => $noteHtml,
         ];
     }
 
@@ -177,18 +179,7 @@ class SystemHealth
      */
     private static function formatDate(mixed $value): ?string
     {
-        if ($value instanceof Carbon) {
-            return $value->toIso8601String();
-        }
-
-        if (! is_string($value) || $value === '') {
-            return null;
-        }
-
-        try {
-            return Carbon::parse($value)->toIso8601String();
-        } catch (\Throwable) {
-            return null;
-        }
+        $parsed = MaintenanceService::parseDate($value);
+        return $parsed?->toIso8601String();
     }
 }

@@ -5,11 +5,13 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\SystemSettingResource\Pages;
 use App\Filament\Resources\SystemSettingResource\RelationManagers\VersionsRelationManager;
 use App\Models\SystemSetting;
+use App\Support\MaintenanceService;
 use App\Support\SystemSettings;
 use Carbon\Carbon;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\TextInput;
@@ -21,7 +23,7 @@ use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
-use Filament\Tables\Actions\Action;
+use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Validation\Rule as ValidationRuleContract;
@@ -169,36 +171,52 @@ class SystemSettingResource extends Resource
                                         ->content(fn (): HtmlString => self::maintenanceStatusPreview())
                                         ->columnSpanFull(),
                                     Toggle::make('data.maintenance.enabled')
-                                        ->label('Enable Maintenance Mode'),
+                                        ->label('Aktifkan maintenance manual')
+                                        ->helperText('Gunakan ini untuk memaksa mode maintenance tanpa menunggu jadwal.'),
                                     Select::make('data.maintenance.mode')
+                                        ->label('Mode akses')
                                         ->options([
-                                            'global' => 'Global (Block All)',
-                                            'allowlist' => 'Allowlist (Only allow listed paths)',
-                                            'denylist' => 'Denylist (Block listed paths)',
+                                            'global' => 'Global (blokir semua akses)',
+                                            'allowlist' => 'Allowlist (hanya path yang diizinkan)',
+                                            'denylist' => 'Denylist (blokir path tertentu)',
                                         ])
                                         ->native(false)
                                         ->required(),
+                                ])
+                                ->columns(2),
+                            Section::make('Jadwal Maintenance')
+                                ->schema([
                                     DateTimePicker::make('data.maintenance.start_at')
-                                        ->label('Maintenance Start')
+                                        ->label('Maintenance Start (UTC)')
                                         ->seconds(false)
-                                        ->rules(['nullable', 'date']),
+                                        ->timezone('UTC')
+                                        ->helperText('Waktu UTC. Sistem akan otomatis aktif saat waktu ini tercapai.')
+                                        ->rules(['nullable', 'date'])
+                                        ->required(fn (Get $get): bool => (bool) $get('data.maintenance.end_at')),
                                     DateTimePicker::make('data.maintenance.end_at')
-                                        ->label('Maintenance End')
+                                        ->label('Maintenance End (UTC)')
                                         ->seconds(false)
+                                        ->timezone('UTC')
+                                        ->helperText('Waktu UTC. Sistem akan otomatis nonaktif setelah waktu ini.')
                                         ->rules(fn (Get $get): array => $get('data.maintenance.start_at')
-                                            ? ['nullable', 'date', 'after_or_equal:data.maintenance.start_at']
+                                            ? ['required', 'date', 'after_or_equal:data.maintenance.start_at']
                                             : ['nullable', 'date']),
+                                ])
+                                ->columns(2),
+                            Section::make('Pesan Publik')
+                                ->schema([
                                     TextInput::make('data.maintenance.title')
-                                        ->label('Title')
+                                        ->label('Judul')
                                         ->maxLength(150),
                                     Textarea::make('data.maintenance.summary')
-                                        ->label('Summary')
+                                        ->label('Ringkasan')
                                         ->rows(3)
                                         ->maxLength(500),
-                                    Textarea::make('data.maintenance.note')
-                                        ->label('Operator Note')
-                                        ->rows(4)
-                                        ->maxLength(1000),
+                                    RichEditor::make('data.maintenance.note_html')
+                                        ->label('Operator Note (Rich)')
+                                        ->toolbarButtons(['bold', 'italic', 'bulletList', 'orderedList', 'link', 'undo', 'redo'])
+                                        ->helperText('Konten ini tampil di halaman publik maintenance.')
+                                        ->columnSpanFull(),
                                 ])
                                 ->columns(2),
                             Section::make('Access Controls')
@@ -217,8 +235,7 @@ class SystemSettingResource extends Resource
                                         ->multiple()
                                         ->native(false),
                                     Toggle::make('data.maintenance.allow_developer_bypass')
-                                        ->label('Allow Developer Bypass')
-                                        ->helperText('Requires SECURITY_DEVELOPER_BYPASS_VALIDATIONS=true.'),
+                                        ->label('Allow Developer Bypass'),
                                     Toggle::make('data.maintenance.allow_api')
                                         ->label('Allow API Requests'),
                                     TagsInput::make('data.maintenance.allow_paths')
@@ -255,22 +272,13 @@ class SystemSettingResource extends Resource
                                         ]),
                                 ])
                                 ->columns(2),
-                            Section::make('Bypass Token')
+                            Section::make('Bypass Tokens')
                                 ->schema([
-                                    TextInput::make('maintenance_bypass_token')
-                                        ->label('Add Bypass Token')
-                                        ->password()
-                                        ->minLength(12)
-                                        ->visible(fn (): bool => self::canManageBypassToken())
-                                        ->helperText('Token will be hashed and stored securely.'),
-                                    Placeholder::make('maintenance_token_count')
-                                        ->label('Active Tokens')
-                                        ->content(function (): string {
-                                            $tokens = SystemSettings::getSecret('maintenance.bypass_tokens', []);
-                                            return is_array($tokens) ? (string) count($tokens) : '0';
-                                        }),
+                                    Placeholder::make('maintenance_token_manage')
+                                        ->label('Kelola token')
+                                        ->content(new HtmlString('Gunakan menu <a class="text-primary-600 underline" href="' . e(route('filament.admin.resources.maintenance-tokens.index')) . '">Maintenance Tokens</a> untuk membuat, rotasi, dan mencabut token akses.')),
                                 ])
-                                ->columns(2),
+                                ->columns(1),
                         ]),
                     Tab::make('Notifications')
                         ->schema([
@@ -427,56 +435,93 @@ class SystemSettingResource extends Resource
         $settings = SystemSettings::get(true);
         $maintenance = Arr::get($settings, 'data.maintenance', []);
 
-        $enabled = (bool) ($maintenance['enabled'] ?? false);
-        $startAt = self::parseDate($maintenance['start_at'] ?? null);
-        $endAt = self::parseDate($maintenance['end_at'] ?? null);
-
-        $now = now();
-        $scheduledActive = $startAt ? $now->greaterThanOrEqualTo($startAt) : false;
-        if ($scheduledActive && $endAt) {
-            $scheduledActive = $now->lessThanOrEqualTo($endAt);
-        }
-
-        $status = 'Disabled';
-        if ($enabled || $scheduledActive) {
-            $status = 'Active';
-        } elseif ($startAt && $startAt->isFuture()) {
-            $status = 'Scheduled';
-        }
+        $snapshot = MaintenanceService::snapshot($maintenance);
+        $startAt = $snapshot['start_at'];
+        $endAt = $snapshot['end_at'];
+        $timezone = config('app.timezone', 'UTC');
 
         $windowParts = [];
         if ($startAt) {
-            $windowParts[] = 'start: '.$startAt->toDateTimeString();
+            $windowParts[] = 'start: '.$startAt->copy()->timezone($timezone)->format('Y-m-d H:i:s').' '.$timezone;
         }
         if ($endAt) {
-            $windowParts[] = 'end: '.$endAt->toDateTimeString();
+            $windowParts[] = 'end: '.$endAt->copy()->timezone($timezone)->format('Y-m-d H:i:s').' '.$timezone;
         }
 
-        $windowText = $windowParts !== [] ? ' ('.implode(', ', $windowParts).')' : '';
-        $statusClass = match ($status) {
+        $windowText = $windowParts !== [] ? implode(' · ', $windowParts) : 'Belum dijadwalkan';
+        $statusClass = match ($snapshot['status_label']) {
             'Active' => 'text-red-600',
             'Scheduled' => 'text-amber-600',
+            'Ended' => 'text-slate-500',
             default => 'text-emerald-600',
         };
 
-        return new HtmlString('<span class="'.$statusClass.'">'.e($status.$windowText).'</span>');
+        $now = now();
+        $nextText = 'Tidak ada perubahan terjadwal.';
+        if ($snapshot['is_scheduled'] && $startAt) {
+            $nextText = self::formatRelative($startAt, $now, 'Mulai dalam', 'Dimulai');
+        } elseif ($snapshot['is_active'] && $endAt) {
+            $nextText = self::formatRelative($endAt, $now, 'Selesai dalam', 'Selesai');
+        }
+
+        $retryText = '—';
+        if (is_int($snapshot['retry_after'])) {
+            $readable = self::formatReadableDuration($snapshot['retry_after']);
+            $retryText = $readable ? $readable.' ('.$snapshot['retry_after'].' detik)' : $retryText;
+        }
+
+        $statusLabel = e($snapshot['status_label']);
+
+        return new HtmlString(
+            '<div class="space-y-1 text-sm">'.
+            '<div><span class="text-slate-500">Status:</span> <span class="'.$statusClass.'" data-maintenance-admin-status>'.$statusLabel.'</span></div>'.
+            '<div class="text-xs text-slate-500" data-maintenance-admin-window>'.e($windowText).'</div>'.
+            '<div class="text-xs text-slate-500" data-maintenance-admin-next>'.e($nextText).'</div>'.
+            '<div class="text-xs text-slate-500">Retry after: <span data-maintenance-admin-retry>'.e($retryText).'</span></div>'.
+            '</div>',
+        );
+    }
+
+    private static function formatRelative(?Carbon $target, Carbon $now, string $prefixFuture, string $prefixPast): string
+    {
+        if (! $target) {
+            return '—';
+        }
+
+        $seconds = $now->diffInSeconds($target, false);
+        $readable = self::formatReadableDuration(abs($seconds));
+        if (! $readable) {
+            return '—';
+        }
+
+        return ($seconds >= 0 ? $prefixFuture : $prefixPast).' '.$readable;
+    }
+
+    private static function formatReadableDuration(int $seconds): ?string
+    {
+        if ($seconds < 0) {
+            return null;
+        }
+
+        $days = intdiv($seconds, 86400);
+        $hours = intdiv($seconds % 86400, 3600);
+        $minutes = intdiv($seconds % 3600, 60);
+        $parts = [];
+
+        if ($days > 0) {
+            $parts[] = $days.' hari';
+        }
+        if ($hours > 0 || $days > 0) {
+            $parts[] = $hours.' jam';
+        }
+        $parts[] = $minutes.' menit';
+
+        return implode(' ', $parts);
     }
 
     private static function parseDate(mixed $value): ?Carbon
     {
-        if ($value instanceof Carbon) {
-            return $value;
-        }
-
-        if (! is_string($value) || $value === '') {
-            return null;
-        }
-
-        try {
-            return Carbon::parse($value);
-        } catch (\Throwable) {
-            return null;
-        }
+        return MaintenanceService::parseDate($value);
     }
 
     public static function isValidIpOrCidr(mixed $value): bool
@@ -615,15 +660,5 @@ class SystemSettingResource extends Resource
         $user = auth()->user();
 
         return $user && method_exists($user, 'isDeveloper') && $user->isDeveloper();
-    }
-
-    private static function canManageBypassToken(): bool
-    {
-        $user = auth()->user();
-
-        return $user
-            && method_exists($user, 'isDeveloper')
-            && $user->isDeveloper()
-            && $user->can('execute_maintenance_bypass_token');
     }
 }

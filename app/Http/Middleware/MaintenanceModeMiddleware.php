@@ -3,6 +3,8 @@
 namespace App\Http\Middleware;
 
 use App\Support\AuditLogWriter;
+use App\Support\MaintenanceService;
+use App\Support\MaintenanceTokenService;
 use App\Support\SecurityAlert;
 use App\Support\SystemSettings;
 use Carbon\Carbon;
@@ -22,8 +24,9 @@ class MaintenanceModeMiddleware
     {
         $settings = SystemSettings::get();
         $maintenance = Arr::get($settings, 'data.maintenance', []);
+        $snapshot = MaintenanceService::snapshot($maintenance);
 
-        if (! $this->isMaintenanceActive($maintenance)) {
+        if (! $snapshot['is_active']) {
             return $next($request);
         }
 
@@ -40,7 +43,8 @@ class MaintenanceModeMiddleware
         }
 
         $requestId = $request->headers->get('X-Request-Id');
-        $retryAfter = $this->retryAfterSeconds($maintenance);
+        $retryAfter = $snapshot['retry_after'];
+        $noteHtml = $maintenance['note_html'] ?? ($maintenance['note'] ?? null);
 
         $payload = [
             'statusCode' => 503,
@@ -49,7 +53,7 @@ class MaintenanceModeMiddleware
             'maintenanceData' => [
                 'start_at' => $maintenance['start_at'] ?? null,
                 'end_at' => $maintenance['end_at'] ?? null,
-                'note' => $maintenance['note'] ?? null,
+                'note_html' => $noteHtml,
                 'retry' => $retryAfter,
                 'title' => $maintenance['title'] ?? null,
                 'summary' => $maintenance['summary'] ?? null,
@@ -70,21 +74,6 @@ class MaintenanceModeMiddleware
     /**
      * @param  array<string, mixed>  $maintenance
      */
-    private function isMaintenanceActive(array $maintenance): bool
-    {
-        $enabled = (bool) ($maintenance['enabled'] ?? false);
-        $startAt = $this->parseDate($maintenance['start_at'] ?? null);
-        $endAt = $this->parseDate($maintenance['end_at'] ?? null);
-
-        $now = now();
-        $scheduled = $startAt ? $now->greaterThanOrEqualTo($startAt) : false;
-        if ($scheduled && $endAt) {
-            $scheduled = $now->lessThanOrEqualTo($endAt);
-        }
-
-        return $enabled || $scheduled;
-    }
-
     /**
      * @param  array<string, mixed>  $maintenance
      * @param  array{data: array<string, mixed>, secrets: array<string, mixed>}  $settings
@@ -119,26 +108,35 @@ class MaintenanceModeMiddleware
             ?? $request->header('X-Maintenance-Token')
             ?? $request->query('maintenance_token');
 
-        if (! is_string($token) || $token === '') {
+        $token = MaintenanceTokenService::normalizeToken(is_string($token) ? $token : null);
+        if (! $token) {
             return false;
+        }
+
+        $verified = MaintenanceTokenService::verify($token);
+        if ($verified) {
+            if ($request->hasSession()) {
+                $request->session()->put('maintenance_bypass', true);
+            }
+
+            $this->logMaintenanceBypass($request, 'token', true);
+            return true;
         }
 
         $tokens = Arr::get($settings, 'secrets.maintenance.bypass_tokens', []);
-        if (! is_array($tokens) || $tokens === []) {
-            return false;
-        }
-
-        foreach ($tokens as $hash) {
-            if (! is_string($hash) || $hash === '') {
-                continue;
-            }
-            if (Hash::check($token, $hash)) {
-                if ($request->hasSession()) {
-                    $request->session()->put('maintenance_bypass', true);
+        if (is_array($tokens)) {
+            foreach ($tokens as $hash) {
+                if (! is_string($hash) || $hash === '') {
+                    continue;
                 }
+                if (Hash::check($token, $hash)) {
+                    if ($request->hasSession()) {
+                        $request->session()->put('maintenance_bypass', true);
+                    }
 
-                $this->logMaintenanceBypass($request, 'token', true);
-                return true;
+                    $this->logMaintenanceBypass($request, 'token', true);
+                    return true;
+                }
             }
         }
 
@@ -172,7 +170,7 @@ class MaintenanceModeMiddleware
             }
         }
 
-        if (in_array($path, ['/maintenance/bypass', '/maintenance/status', '/health/check', '/health/dashboard', '/up'], true)) {
+        if (in_array($path, ['/maintenance/bypass', '/maintenance/status', '/maintenance/stream', '/health/check', '/health/dashboard', '/up'], true)) {
             return true;
         }
 
@@ -213,33 +211,9 @@ class MaintenanceModeMiddleware
     /**
      * @param  array<string, mixed>  $maintenance
      */
-    private function retryAfterSeconds(array $maintenance): ?int
-    {
-        $endAt = $this->parseDate($maintenance['end_at'] ?? null);
-        if (! $endAt) {
-            return null;
-        }
-
-        $seconds = now()->diffInSeconds($endAt, false);
-
-        return $seconds > 0 ? $seconds : null;
-    }
-
     private function parseDate(mixed $value): ?Carbon
     {
-        if ($value instanceof Carbon) {
-            return $value;
-        }
-
-        if (! is_string($value) || $value === '') {
-            return null;
-        }
-
-        try {
-            return Carbon::parse($value);
-        } catch (\Throwable) {
-            return null;
-        }
+        return MaintenanceService::parseDate($value);
     }
 
     /**

@@ -3,15 +3,32 @@
 namespace App\Filament\Resources\SystemSettingResource\Pages;
 
 use App\Filament\Resources\SystemSettingResource;
+use App\Support\MaintenanceService;
 use App\Support\SettingsMediaStorage;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Hash;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class EditSystemSetting extends EditRecord
 {
     protected static string $resource = SystemSettingResource::class;
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function mutateFormDataBeforeFill(array $data): array
+    {
+        $noteHtml = Arr::get($data, 'data.maintenance.note_html');
+        if (! $noteHtml) {
+            $legacy = Arr::get($data, 'data.maintenance.note');
+            if (is_string($legacy) && $legacy !== '') {
+                Arr::set($data, 'data.maintenance.note_html', $legacy);
+            }
+        }
+
+        return $data;
+    }
 
     /**
      * @param  array<string, mixed>  $data
@@ -43,17 +60,9 @@ class EditSystemSetting extends EditRecord
 
         $data['secrets'] = $this->mergeSecrets($data['secrets'] ?? []);
 
-        $token = $data['maintenance_bypass_token'] ?? null;
-        if (is_string($token) && $token !== '' && $this->canManageBypassToken()) {
-            $secrets = $data['secrets'] ?? [];
-            $existing = Arr::get($secrets, 'maintenance.bypass_tokens', []);
-            $existing = is_array($existing) ? array_values(array_filter($existing)) : [];
-            $existing[] = Hash::make($token);
-            Arr::set($secrets, 'maintenance.bypass_tokens', $existing);
-            $data['secrets'] = $secrets;
-        }
-
-        unset($data['maintenance_bypass_token']);
+        $noteHtml = Arr::get($data, 'data.maintenance.note_html');
+        $sanitized = MaintenanceService::sanitizeNote(is_string($noteHtml) ? $noteHtml : null);
+        Arr::set($data, 'data.maintenance.note_html', $sanitized);
 
         return $data;
     }
@@ -99,13 +108,4 @@ class EditSystemSetting extends EditRecord
         return $secrets;
     }
 
-    private function canManageBypassToken(): bool
-    {
-        $user = auth()->user();
-
-        return $user
-            && method_exists($user, 'isDeveloper')
-            && $user->isDeveloper()
-            && $user->can('execute_maintenance_bypass_token');
-    }
 }

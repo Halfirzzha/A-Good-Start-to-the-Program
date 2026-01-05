@@ -96,7 +96,11 @@ class AuditLogWriter
             return self::$auditHashColumnsReady;
         }
 
-        self::$auditHashColumnsReady = Schema::hasColumns('audit_logs', ['hash', 'previous_hash']);
+        try {
+            self::$auditHashColumnsReady = Schema::hasColumns('audit_logs', ['hash', 'previous_hash']);
+        } catch (Throwable) {
+            self::$auditHashColumnsReady = false;
+        }
 
         return self::$auditHashColumnsReady;
     }

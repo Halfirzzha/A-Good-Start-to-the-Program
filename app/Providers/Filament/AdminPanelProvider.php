@@ -9,6 +9,7 @@ use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Panel;
 use Filament\PanelProvider;
+use Filament\Support\Assets\Js;
 use Filament\Support\Colors\Color;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -32,6 +33,9 @@ class AdminPanelProvider extends PanelProvider
             ->favicon(fn (): ?string => SystemSettings::assetUrl('favicon'))
             ->colors([
                 'primary' => Color::Amber,
+            ])
+            ->assets([
+                Js::make('maintenance-realtime', asset('assets/maintenance/maintenance-realtime.js'))->defer(),
             ])
             ->plugins([
                 \BezhanSalleh\FilamentShield\FilamentShieldPlugin::make(),

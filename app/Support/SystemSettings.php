@@ -19,27 +19,27 @@ class SystemSettings
      */
     public static function get(bool $fresh = false): array
     {
-        if (! $fresh) {
-            try {
-                $cached = Cache::get(self::CACHE_KEY);
-                if (is_array($cached)) {
-                    return $cached;
-                }
-            } catch (\Throwable) {
-                // Ignore cache failures and fall back to DB.
-            }
+        $cached = null;
+        try {
+            $cached = Cache::get(self::CACHE_KEY);
+        } catch (\Throwable) {
+            // Ignore cache failures and fall back to DB.
+        }
+
+        if (! $fresh && is_array($cached)) {
+            return $cached;
         }
 
         $defaults = self::defaults();
 
         try {
             if (! Schema::hasTable('system_settings')) {
-                return $defaults;
+                return is_array($cached) ? $cached : $defaults;
             }
 
             $setting = SystemSetting::query()->first();
             if (! $setting) {
-                return $defaults;
+                return is_array($cached) ? $cached : $defaults;
             }
 
             $data = is_array($setting->data) ? $setting->data : [];
@@ -58,7 +58,7 @@ class SystemSettings
 
             return $payload;
         } catch (\Throwable) {
-            return $defaults;
+            return is_array($cached) ? $cached : $defaults;
         }
     }
 
@@ -161,7 +161,7 @@ class SystemSettings
                     'mode' => 'global',
                     'title' => 'Kami sedang melakukan maintenance',
                     'summary' => 'Tim kami sedang meningkatkan stabilitas, keamanan, dan performa layanan. Akses publik akan kembali segera.',
-                    'note' => null,
+                    'note_html' => null,
                     'start_at' => null,
                     'end_at' => null,
                     'allow_ips' => [],

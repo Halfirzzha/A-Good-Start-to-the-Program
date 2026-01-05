@@ -5,17 +5,61 @@
     $requestId = $requestId ?? $request->headers->get('X-Request-Id');
     $requestId = is_string($requestId) && $requestId !== '' ? $requestId : 'n/a';
 
-    $serverNow = $serverNow ?? now()->toIso8601String();
+    $normalizeDate = static function ($value) {
+        if ($value instanceof \DateTimeInterface) {
+            return $value->toIso8601String();
+        }
+
+        if (is_string($value) && $value !== '') {
+            try {
+                return \Illuminate\Support\Carbon::parse($value)->toIso8601String();
+            } catch (\Throwable $e) {
+                return null;
+            }
+        }
+
+        return null;
+    };
+
+    $serverNow = $normalizeDate($serverNow ?? now()) ?? now()->toIso8601String();
     $timezone = config('app.timezone') ?: 'UTC';
 
-    $startAt = $maintenanceData['start_at'] ?? null;
-    $endAt = $maintenanceData['end_at'] ?? null;
-    $note = $maintenanceNote ?? ($maintenanceData['note'] ?? null);
+    $startAt = $normalizeDate($maintenanceData['start_at'] ?? null);
+    $endAt = $normalizeDate($maintenanceData['end_at'] ?? null);
+    $noteHtml = $maintenanceNote ?? ($maintenanceData['note_html'] ?? ($maintenanceData['note'] ?? null));
     $retryAfter = $retryAfter ?? ($maintenanceData['retry'] ?? null);
 
     $appName = \App\Support\SystemSettings::getValue('project.name', config('app.name', 'System'));
     $title = $maintenanceData['title'] ?? $title ?? 'Kami sedang melakukan maintenance';
     $summary = $maintenanceData['summary'] ?? $summary ?? 'Tim kami sedang meningkatkan stabilitas, keamanan, dan performa layanan. Akses publik akan kembali segera.';
+
+    $heroImageBase = 'assets/maintenance/maintenance-illustration';
+    $heroImageOriginal = $heroImageBase . '.png';
+    $heroImagePath = public_path($heroImageOriginal);
+    [$heroWidth, $heroHeight] = @getimagesize($heroImagePath) ?: [420, 320];
+    $heroSizes = [640, 960, 1280];
+    $heroWebp = [];
+    $heroPng = [];
+
+    foreach ($heroSizes as $size) {
+        $webpPath = public_path($heroImageBase . '-' . $size . '.webp');
+        if (is_file($webpPath)) {
+            $heroWebp[] = asset($heroImageBase . '-' . $size . '.webp') . ' ' . $size . 'w';
+        }
+
+        $pngPath = public_path($heroImageBase . '-' . $size . '.png');
+        if (is_file($pngPath)) {
+            $heroPng[] = asset($heroImageBase . '-' . $size . '.png') . ' ' . $size . 'w';
+        }
+    }
+
+    $heroWebpSrcset = $heroWebp ? implode(', ', $heroWebp) : null;
+    $heroPngSrcset = $heroPng ? implode(', ', $heroPng) : null;
+    $heroSizesAttr = '(max-width: 768px) 70vw, 420px';
+    $jsPath = public_path('assets/maintenance/maintenance.js');
+    $cssPath = public_path('assets/maintenance/maintenance.css');
+    $assetVersion = is_file($jsPath) ? substr(md5_file($jsPath), 0, 12) : time();
+    $styleVersion = is_file($cssPath) ? substr(md5_file($cssPath), 0, 12) : $assetVersion;
 @endphp
 <!DOCTYPE html>
 <html lang="id">
@@ -28,7 +72,7 @@
         <meta name="csrf-token" content="{{ csrf_token() }}">
         <title>{{ $title }} | 503</title>
         <link rel="canonical" href="{{ url('/') }}">
-        <link rel="stylesheet" href="{{ asset('assets/maintenance/maintenance.css') }}">
+        <link rel="stylesheet" href="{{ asset('assets/maintenance/maintenance.css') }}?v={{ $styleVersion }}">
     </head>
     <body data-theme="light">
         <div class="backdrop" aria-hidden="true">
@@ -64,7 +108,7 @@
             data-server-now="{{ $serverNow }}"
             data-maintenance-start="{{ $startAt }}"
             data-maintenance-end="{{ $endAt }}"
-            data-maintenance-note="{{ $note }}"
+            data-maintenance-note="{{ e($noteHtml ?? '') }}"
             data-maintenance-retry="{{ $retryAfter ?? '' }}"
             data-timezone="{{ $timezone }}">
             <header class="topbar">
@@ -84,7 +128,15 @@
                 <div class="hero-visual" data-hero-visual>
                     <div class="visual-float">
                         <div class="visual-frame" data-hero-frame>
-                            <img src="{{ asset('assets/maintenance/maintenance-illustration.png') }}" alt="Ilustrasi maintenance" loading="lazy">
+                            <picture class="hero-picture">
+                                @if ($heroWebpSrcset)
+                                    <source type="image/webp" srcset="{{ $heroWebpSrcset }}" sizes="{{ $heroSizesAttr }}">
+                                @endif
+                                @if ($heroPngSrcset)
+                                    <source type="image/png" srcset="{{ $heroPngSrcset }}" sizes="{{ $heroSizesAttr }}">
+                                @endif
+                                <img src="{{ asset($heroImageOriginal) }}" alt="Ilustrasi maintenance" loading="eager" decoding="async" fetchpriority="high" width="{{ $heroWidth }}" height="{{ $heroHeight }}" draggable="false">
+                            </picture>
                         </div>
                         <div class="visual-shadow" aria-hidden="true"></div>
                     </div>
@@ -135,7 +187,7 @@
                     </div>
                 </div>
 
-                <div class="panel tilt-card" data-tilt="0.5">
+                <div class="panel panel-token tilt-card" data-tilt="0.5">
                     <h2>Akses maintenance (token)</h2>
                     <div class="field">
                         <label for="maintenance-token">Token akses</label>
@@ -148,12 +200,11 @@
                     <p class="token-feedback" data-token-feedback aria-live="polite"></p>
                 </div>
 
-                <div class="panel tilt-card" data-tilt="0.4">
+                <div class="panel panel-note tilt-card" data-tilt="0.4">
                     <h2>Keterangan maintenance</h2>
                     <div class="field">
                         <label for="maintenance-note">Keterangan</label>
-                        <div id="maintenance-note" class="note-box" data-maintenance-note-field>
-                        </div>
+                    <div id="maintenance-note" class="note-box" data-maintenance-note-field></div>
                     </div>
                     <div class="hint">Area ini diisi oleh tim yang memiliki izin.</div>
                 </div>
@@ -169,6 +220,6 @@
             </section>
         </main>
 
-        <script src="{{ asset('assets/maintenance/maintenance.js') }}" defer></script>
+        <script src="{{ asset('assets/maintenance/maintenance.js') }}?v={{ $assetVersion }}" defer></script>
     </body>
 </html>

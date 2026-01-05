@@ -7,6 +7,9 @@ return [
     'http_methods' => array_values(array_filter(array_map('trim', explode(',', env('AUDIT_LOG_METHODS', 'POST,PUT,PATCH,DELETE'))))),
     'ignore_paths' => [
         'up',
+        'maintenance/status',
+        'maintenance/stream',
+        'maintenance/bypass',
     ],
     'sensitive_keys' => [
         'password',

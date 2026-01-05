@@ -31,5 +31,11 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="SECURITY_THREAT_CACHE_STORE" value="array"/>
+        <env name="SECURITY_THREAT_ENABLED" value="false"/>
+        <env name="AUDIT_LOG_ENABLED" value="false"/>
+        <env name="AUDIT_LOG_ERRORS" value="false"/>
+        <env name="AUDIT_CACHE_STORE" value="array"/>
+        <env name="RATE_LIMIT_DRIVER" value="array"/>
     </php>
 </phpunit>

@@ -124,7 +124,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Role::created(function (Role $role): void {
-            if (! Schema::hasTable('permissions')) {
+            if (! $this->safeHasTable('permissions')) {
                 return;
             }
 
@@ -151,7 +151,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Role::updated(function (Role $role): void {
-            if (app()->runningInConsole() || ! Schema::hasTable('roles')) {
+            if (app()->runningInConsole() || ! $this->safeHasTable('roles')) {
                 return;
             }
 
@@ -166,7 +166,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Role::deleted(function (Role $role): void {
-            if (app()->runningInConsole() || ! Schema::hasTable('roles')) {
+            if (app()->runningInConsole() || ! $this->safeHasTable('roles')) {
                 return;
             }
 
@@ -195,7 +195,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Permission::updated(function (Permission $permission): void {
-            if (app()->runningInConsole() || ! Schema::hasTable('permissions')) {
+            if (app()->runningInConsole() || ! $this->safeHasTable('permissions')) {
                 return;
             }
 
@@ -210,7 +210,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Permission::deleted(function (Permission $permission): void {
-            if (app()->runningInConsole() || ! Schema::hasTable('permissions')) {
+            if (app()->runningInConsole() || ! $this->safeHasTable('permissions')) {
                 return;
             }
 
@@ -238,7 +238,7 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        if (! Schema::hasTable('roles') || ! Schema::hasTable('permissions')) {
+        if (! $this->safeHasTable('roles') || ! $this->safeHasTable('permissions')) {
             return;
         }
 
@@ -324,7 +324,7 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        if (! Schema::hasTable('permissions')) {
+        if (! $this->safeHasTable('permissions')) {
             return;
         }
 
@@ -397,7 +397,7 @@ class AppServiceProvider extends ServiceProvider
 
     private function ensureSystemSettingsRecord(): void
     {
-        if (! Schema::hasTable('system_settings')) {
+        if (! $this->safeHasTable('system_settings')) {
             return;
         }
 
@@ -421,7 +421,7 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        if (! Schema::hasTable('audit_logs')) {
+        if (! $this->safeHasTable('audit_logs')) {
             return;
         }
 
@@ -468,7 +468,7 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        if (! Schema::hasTable('audit_logs')) {
+        if (! $this->safeHasTable('audit_logs')) {
             return;
         }
 
@@ -525,7 +525,7 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        if (! Schema::hasTable('audit_logs')) {
+        if (! $this->safeHasTable('audit_logs')) {
             return;
         }
 
@@ -577,7 +577,7 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        if (! Schema::hasTable('audit_logs')) {
+        if (! $this->safeHasTable('audit_logs')) {
             return;
         }
 
@@ -747,6 +747,15 @@ class AppServiceProvider extends ServiceProvider
             ],
             'created_at' => now(),
         ]);
+    }
+
+    private function safeHasTable(string $table): bool
+    {
+        try {
+            return Schema::hasTable($table);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
 }

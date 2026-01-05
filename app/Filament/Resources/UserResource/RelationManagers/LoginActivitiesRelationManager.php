@@ -7,7 +7,6 @@ use Filament\Actions\ViewAction;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Actions\Action;
 use Filament\Tables\Table;
 
 class LoginActivitiesRelationManager extends RelationManager
@@ -59,7 +58,7 @@ class LoginActivitiesRelationManager extends RelationManager
             ->emptyStateHeading('Belum ada aktivitas login')
             ->emptyStateDescription('Pengguna ini belum memiliki aktivitas login atau audit yang tercatat.')
             ->emptyStateActions([
-                Action::make('refresh')
+                \Filament\Actions\Action::make('refresh')
                     ->label('Segarkan')
                     ->icon('heroicon-o-arrow-path')
                     ->color('secondary')
