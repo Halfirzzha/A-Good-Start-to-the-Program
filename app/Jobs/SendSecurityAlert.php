@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\User;
 use App\Support\SystemSettings;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
@@ -13,6 +14,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
+use App\Support\NotificationDeliveryLogger;
 
 class SendSecurityAlert implements ShouldQueue, ShouldBeUnique
 {
@@ -57,12 +59,53 @@ class SendSecurityAlert implements ShouldQueue, ShouldBeUnique
         $telegramChatId = (string) SystemSettings::getValue('notifications.telegram.chat_id', '');
 
         $sentTelegram = false;
+        $telegramError = null;
         if ($telegramEnabled && $telegramToken !== '' && $telegramChatId !== '') {
-            $sentTelegram = $this->sendTelegram($telegramToken, $telegramChatId, $message);
+            $telegramResult = $this->sendTelegram($telegramToken, $telegramChatId, $message);
+            $sentTelegram = (bool) ($telegramResult['ok'] ?? false);
+            $telegramError = $telegramResult['error'] ?? null;
         }
 
         if ($sentTelegram) {
+            NotificationDeliveryLogger::log(
+                null,
+                null,
+                'telegram',
+                'sent',
+                [
+                    'notification_type' => 'security_alert',
+                    'notifiable_type' => User::class,
+                    'notifiable_id' => $this->payload['user_id'] ?? null,
+                    'recipient' => $telegramChatId,
+                    'summary' => $this->payload['title'] ?? 'Security Alert',
+                    'data' => $this->payload,
+                    'ip_address' => $this->payload['ip_observed'] ?? null,
+                    'user_agent' => $this->payload['user_agent'] ?? null,
+                    'request_id' => $this->payload['request_id'] ?? null,
+                ],
+            );
             return;
+        }
+
+        if ($telegramEnabled && $telegramToken !== '' && $telegramChatId !== '') {
+            NotificationDeliveryLogger::log(
+                null,
+                null,
+                'telegram',
+                'failed',
+                [
+                    'notification_type' => 'security_alert',
+                    'notifiable_type' => User::class,
+                    'notifiable_id' => $this->payload['user_id'] ?? null,
+                    'recipient' => $telegramChatId,
+                    'summary' => $this->payload['title'] ?? 'Security Alert',
+                    'data' => $this->payload,
+                    'error_message' => $telegramError ?: 'Telegram delivery failed',
+                    'ip_address' => $this->payload['ip_observed'] ?? null,
+                    'user_agent' => $this->payload['user_agent'] ?? null,
+                    'request_id' => $this->payload['request_id'] ?? null,
+                ],
+            );
         }
 
         $emailEnabled = (bool) SystemSettings::getValue('notifications.email.enabled', false);
@@ -77,18 +120,62 @@ class SendSecurityAlert implements ShouldQueue, ShouldBeUnique
         }
 
         try {
-            Mail::raw($message, function ($mail) use ($recipients): void {
+            $fromAddress = (string) SystemSettings::getValue('notifications.email.from_address', '');
+            $fromName = (string) SystemSettings::getValue('notifications.email.from_name', '');
+            SystemSettings::applyMailConfig('general');
+            Mail::raw($message, function ($mail) use ($recipients, $fromAddress, $fromName): void {
                 $mail->to($recipients)->subject('Security Alert');
+                if ($fromAddress !== '') {
+                    $mail->from($fromAddress, $fromName !== '' ? $fromName : null);
+                }
             });
+            NotificationDeliveryLogger::log(
+                null,
+                null,
+                'mail',
+                'sent',
+                [
+                    'notification_type' => 'security_alert',
+                    'notifiable_type' => User::class,
+                    'notifiable_id' => $this->payload['user_id'] ?? null,
+                    'recipient' => implode(', ', $recipients),
+                    'summary' => $this->payload['title'] ?? 'Security Alert',
+                    'data' => $this->payload,
+                    'ip_address' => $this->payload['ip_observed'] ?? null,
+                    'user_agent' => $this->payload['user_agent'] ?? null,
+                    'request_id' => $this->payload['request_id'] ?? null,
+                ],
+            );
         } catch (\Throwable $error) {
             Log::channel('security')->warning('security.alert.email_failed', [
                 'error' => $error->getMessage(),
                 'recipients' => $recipients,
             ]);
+            NotificationDeliveryLogger::log(
+                null,
+                null,
+                'mail',
+                'failed',
+                [
+                    'notification_type' => 'security_alert',
+                    'notifiable_type' => User::class,
+                    'notifiable_id' => $this->payload['user_id'] ?? null,
+                    'recipient' => implode(', ', $recipients),
+                    'summary' => $this->payload['title'] ?? 'Security Alert',
+                    'data' => $this->payload,
+                    'error_message' => $error->getMessage(),
+                    'ip_address' => $this->payload['ip_observed'] ?? null,
+                    'user_agent' => $this->payload['user_agent'] ?? null,
+                    'request_id' => $this->payload['request_id'] ?? null,
+                ],
+            );
         }
     }
 
-    private function sendTelegram(string $token, string $chatId, string $message): bool
+    /**
+     * @return array{ok: bool, error: string|null}
+     */
+    private function sendTelegram(string $token, string $chatId, string $message): array
     {
         try {
             $response = Http::timeout(6)
@@ -100,20 +187,20 @@ class SendSecurityAlert implements ShouldQueue, ShouldBeUnique
                 ]);
 
             if ($response->successful()) {
-                return true;
+                return ['ok' => true, 'error' => null];
             }
 
             Log::channel('security')->warning('security.alert.telegram_failed', [
                 'status' => $response->status(),
                 'body' => $response->body(),
             ]);
+            return ['ok' => false, 'error' => 'HTTP '.$response->status()];
         } catch (\Throwable $error) {
             Log::channel('security')->warning('security.alert.telegram_exception', [
                 'error' => $error->getMessage(),
             ]);
+            return ['ok' => false, 'error' => $error->getMessage()];
         }
-
-        return false;
     }
 
     /**

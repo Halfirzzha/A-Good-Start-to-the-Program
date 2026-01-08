@@ -3,44 +3,47 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\SystemSettingResource\Pages;
-use App\Filament\Resources\SystemSettingResource\RelationManagers\VersionsRelationManager;
 use App\Models\SystemSetting;
+use App\Support\AuthHelper;
 use App\Support\MaintenanceService;
 use App\Support\SystemSettings;
 use Carbon\Carbon;
+use Filament\Actions\Action;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
-use Filament\Actions\Action;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Validation\Rule as ValidationRuleContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
 
 class SystemSettingResource extends Resource
 {
     protected static ?string $model = SystemSetting::class;
 
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-cog-6-tooth';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
 
-    protected static string | \UnitEnum | null $navigationGroup = 'System';
+    protected static string|\UnitEnum|null $navigationGroup = 'System';
 
     protected static ?int $navigationSort = 1;
 
@@ -53,6 +56,7 @@ class SystemSettingResource extends Resource
                     Tab::make('General')
                         ->schema([
                             Section::make('Project')
+                                ->description('Nama dan deskripsi aplikasi yang tampil di seluruh panel.')
                                 ->schema([
                                     TextInput::make('data.project.name')
                                         ->label('Project Name')
@@ -68,6 +72,7 @@ class SystemSettingResource extends Resource
                     Tab::make('Branding')
                         ->schema([
                             Section::make('Logo')
+                                ->description('Logo utama untuk header dan halaman login.')
                                 ->schema([
                                     Placeholder::make('logo_preview')
                                         ->label('Current Logo')
@@ -83,6 +88,7 @@ class SystemSettingResource extends Resource
                                 ])
                                 ->columns(2),
                             Section::make('Cover')
+                                ->description('Cover image untuk halaman landing atau maintenance.')
                                 ->schema([
                                     Placeholder::make('cover_preview')
                                         ->label('Current Cover')
@@ -98,6 +104,7 @@ class SystemSettingResource extends Resource
                                 ])
                                 ->columns(2),
                             Section::make('Favicon')
+                                ->description('Ikon kecil untuk tab browser.')
                                 ->schema([
                                     Placeholder::make('favicon_preview')
                                         ->label('Current Favicon')
@@ -115,6 +122,7 @@ class SystemSettingResource extends Resource
                     Tab::make('Storage')
                         ->schema([
                             Section::make('Storage Routing')
+                                ->description('Atur disk utama dan fallback untuk file sistem.')
                                 ->schema([
                                     Select::make('data.storage.primary_disk')
                                         ->label('Primary Disk')
@@ -139,6 +147,7 @@ class SystemSettingResource extends Resource
                                 ])
                                 ->columns(2),
                             Section::make('Google Drive Credentials')
+                                ->description('Kredensial Drive untuk penyimpanan eksternal.')
                                 ->schema([
                                     Textarea::make('secrets.google_drive.service_account_json')
                                         ->label('Service Account JSON')
@@ -165,6 +174,7 @@ class SystemSettingResource extends Resource
                     Tab::make('Maintenance')
                         ->schema([
                             Section::make('Maintenance Mode')
+                                ->description('Status dan mode maintenance untuk kontrol akses.')
                                 ->schema([
                                     Placeholder::make('maintenance_status')
                                         ->label('Status')
@@ -185,6 +195,7 @@ class SystemSettingResource extends Resource
                                 ])
                                 ->columns(2),
                             Section::make('Jadwal Maintenance')
+                                ->description('Jadwal otomatis untuk start/end maintenance.')
                                 ->schema([
                                     DateTimePicker::make('data.maintenance.start_at')
                                         ->label('Maintenance Start (UTC)')
@@ -204,6 +215,7 @@ class SystemSettingResource extends Resource
                                 ])
                                 ->columns(2),
                             Section::make('Pesan Publik')
+                                ->description('Konten yang tampil di halaman maintenance publik.')
                                 ->schema([
                                     TextInput::make('data.maintenance.title')
                                         ->label('Judul')
@@ -220,6 +232,7 @@ class SystemSettingResource extends Resource
                                 ])
                                 ->columns(2),
                             Section::make('Access Controls')
+                                ->description('Aturan allow/deny berbasis IP, role, path, dan route.')
                                 ->schema([
                                     TagsInput::make('data.maintenance.allow_ips')
                                         ->label('Allow IPs')
@@ -273,30 +286,220 @@ class SystemSettingResource extends Resource
                                 ])
                                 ->columns(2),
                             Section::make('Bypass Tokens')
+                                ->description('Token bypass untuk akses operator saat maintenance.')
                                 ->schema([
                                     Placeholder::make('maintenance_token_manage')
                                         ->label('Kelola token')
-                                        ->content(new HtmlString('Gunakan menu <a class="text-primary-600 underline" href="' . e(route('filament.admin.resources.maintenance-tokens.index')) . '">Maintenance Tokens</a> untuk membuat, rotasi, dan mencabut token akses.')),
+                                        ->content(new HtmlString('Gunakan menu <a class="text-primary-600 underline" href="'.e(route('filament.admin.resources.maintenance-tokens.index')).'">Maintenance Tokens</a> untuk membuat, rotasi, dan mencabut token akses.')),
                                 ])
                                 ->columns(1),
                         ]),
-                    Tab::make('Notifications')
+                    Tab::make('Communication')
+                        ->icon('heroicon-o-envelope')
                         ->schema([
-                            Section::make('Email Alerts')
+                            Grid::make(2)
                                 ->schema([
-                                    Toggle::make('data.notifications.email.enabled')
-                                        ->label('Enable Email Notifications'),
+                                    Section::make('Email & Notification')
+                                        ->description('Konfigurasi pengiriman email dan notifikasi sistem.')
+                                        ->headerActions([
+                                            Action::make('send_test_email')
+                                                ->icon('heroicon-o-paper-airplane')
+                                                ->color('warning')
+                                                ->iconButton()
+                                                ->tooltip('Send Test Email')
+                                                ->action(function (): void {
+                                                    $recipients = \App\Support\SystemSettings::getValue('notifications.email.recipients', []);
+                                                    $recipients = is_array($recipients) ? array_filter($recipients) : [];
+                                                    $userEmail = AuthHelper::user()?->email;
+
+                                                    if (empty($recipients) && $userEmail) {
+                                                        $recipients = [$userEmail];
+                                                    }
+
+                                                    if (empty($recipients)) {
+                                                        \Filament\Notifications\Notification::make()
+                                                            ->title('Recipients kosong')
+                                                            ->body('Tambahkan recipients email atau gunakan email user yang login.')
+                                                            ->danger()
+                                                            ->send();
+
+                                                        return;
+                                                    }
+
+                                                    $fromAddress = (string) \App\Support\SystemSettings::getValue('notifications.email.from_address', '');
+                                                    $fromName = (string) \App\Support\SystemSettings::getValue('notifications.email.from_name', '');
+
+                                                    $body = 'Test email berhasil. Konfigurasi komunikasi berjalan.';
+
+                                                    try {
+                                                        \App\Support\SystemSettings::applyMailConfig('general');
+                                                        \Illuminate\Support\Facades\Mail::raw($body, function ($mail) use ($recipients, $fromAddress, $fromName): void {
+                                                            $mail->to($recipients)->subject('Test Email');
+                                                            if ($fromAddress !== '') {
+                                                                $mail->from($fromAddress, $fromName !== '' ? $fromName : null);
+                                                            }
+                                                        });
+
+                                                        \App\Support\NotificationDeliveryLogger::log(
+                                                            null,
+                                                            null,
+                                                            'mail',
+                                                            'sent',
+                                                            [
+                                                                'notification_type' => 'test_email',
+                                                                'recipient' => implode(', ', $recipients),
+                                                                'summary' => 'Test email delivery',
+                                                                'request_id' => request()?->headers->get('X-Request-Id'),
+                                                            ],
+                                                        );
+
+                                                        \Filament\Notifications\Notification::make()
+                                                            ->title('Test email terkirim')
+                                                            ->success()
+                                                            ->send();
+                                                    } catch (\Throwable $error) {
+                                                        \App\Support\NotificationDeliveryLogger::log(
+                                                            null,
+                                                            null,
+                                                            'mail',
+                                                            'failed',
+                                                            [
+                                                                'notification_type' => 'test_email',
+                                                                'recipient' => implode(', ', $recipients),
+                                                                'summary' => 'Test email delivery',
+                                                                'error_message' => $error->getMessage(),
+                                                                'request_id' => request()?->headers->get('X-Request-Id'),
+                                                            ],
+                                                        );
+
+                                                        \Filament\Notifications\Notification::make()
+                                                            ->title('Test email gagal')
+                                                            ->body($error->getMessage())
+                                                            ->danger()
+                                                            ->send();
+                                                    }
+                                                }),
+                                            Action::make('refresh_communication')
+                                                ->icon('heroicon-o-arrow-path')
+                                                ->color('warning')
+                                                ->iconButton()
+                                                ->tooltip('Refresh')
+                                                ->action(fn () => redirect()->to(request()->fullUrl())),
+                                        ])
+                                        ->schema([
+                                            Toggle::make('data.notifications.email.enabled')
+                                                ->label('Enable Email Notifications'),
+                                            TextInput::make('data.notifications.email.provider')
+                                                ->label('Email Provider')
+                                                ->maxLength(100)
+                                                ->helperText('Contoh: SMTP, SES, Mailgun, Gmail Workspace.'),
+                                    TextInput::make('data.notifications.email.from_name')
+                                        ->label('Sender Name')
+                                        ->maxLength(120)
+                                        ->live()
+                                        ->afterStateHydrated(function (?string $state, Set $set): void {
+                                            if (! $state) {
+                                                $set('data.notifications.email.from_name', config('app.name', 'System'));
+                                            }
+                                        })
+                                        ->helperText('Nama pengirim untuk notifikasi umum.'),
+                                    TextInput::make('data.notifications.email.from_address')
+                                        ->label('Sender Address')
+                                        ->email()
+                                        ->maxLength(191)
+                                        ->helperText('Alamat email pengirim untuk notifikasi umum.'),
+                                    TextInput::make('data.notifications.email.auth_from_name')
+                                        ->label('Auth Sender Name')
+                                        ->maxLength(120)
+                                        ->live()
+                                        ->afterStateHydrated(function (?string $state, Set $set): void {
+                                            if (! $state) {
+                                                $set('data.notifications.email.auth_from_name', config('app.name', 'System').' OTP');
+                                            }
+                                        })
+                                        ->helperText('Nama pengirim khusus OTP/konfirmasi login.'),
+                                    TextInput::make('data.notifications.email.auth_from_address')
+                                        ->label('Auth Sender Address')
+                                        ->email()
+                                        ->maxLength(191)
+                                        ->helperText('Alamat email khusus OTP/konfirmasi login.'),
                                     TagsInput::make('data.notifications.email.recipients')
                                         ->label('Recipients')
                                         ->placeholder('ops@example.com')
                                         ->helperText('Comma or enter-separated emails.')
+                                        ->afterStateHydrated(function ($state, Set $set): void {
+                                            if (empty($state)) {
+                                                $set('data.notifications.email.recipients', self::defaultEmailRecipients());
+                                            }
+                                        })
                                         ->nestedRecursiveRules([
                                             'string',
                                             'email',
                                             'max:254',
-                                        ]),
-                                ]),
+                                        ])
+                                        ->columnSpanFull(),
+                                        ])
+                                        ->columns(2),
+                                    Section::make('SMTP Configuration')
+                                        ->description('Gunakan SMTP untuk mengirim email notifikasi dan OTP.')
+                                        ->schema([
+                                            Select::make('data.notifications.email.mailer')
+                                                ->label('Mailer')
+                                                ->options([
+                                                    'smtp' => 'SMTP',
+                                                ])
+                                                ->native(false),
+                                            TextInput::make('data.notifications.email.smtp_host')
+                                                ->label('SMTP Host')
+                                                ->maxLength(191)
+                                                ->helperText('Contoh: smtp.gmail.com'),
+                                            TextInput::make('data.notifications.email.smtp_port')
+                                                ->label('SMTP Port')
+                                                ->numeric()
+                                                ->minValue(1)
+                                                ->maxValue(65535)
+                                                ->live()
+                                                ->afterStateUpdated(function (?string $state, Set $set): void {
+                                                    $port = (int) $state;
+                                                    if ($port === 465) {
+                                                        $set('data.notifications.email.smtp_encryption', 'ssl');
+                                                    } elseif ($port === 587) {
+                                                        $set('data.notifications.email.smtp_encryption', 'tls');
+                                                    }
+                                                })
+                                                ->helperText('Auto-detect: 465 = SSL, 587 = TLS.'),
+                                            Select::make('data.notifications.email.smtp_encryption')
+                                                ->label('Encryption')
+                                                ->options([
+                                                    'tls' => 'TLS',
+                                                    'ssl' => 'SSL',
+                                                    '' => 'None',
+                                                ])
+                                                ->native(false)
+                                                ->live()
+                                                ->afterStateUpdated(function (?string $state, Set $set, Get $get): void {
+                                                    $port = (int) $get('data.notifications.email.smtp_port');
+                                                    if ($state === 'ssl' && ($port === 0 || $port === 587)) {
+                                                        $set('data.notifications.email.smtp_port', 465);
+                                                    } elseif ($state === 'tls' && ($port === 0 || $port === 465)) {
+                                                        $set('data.notifications.email.smtp_port', 587);
+                                                    }
+                                                }),
+                                            TextInput::make('data.notifications.email.smtp_username')
+                                                ->label('SMTP Username')
+                                                ->maxLength(191),
+                                            TextInput::make('secrets.notifications.email.smtp_password')
+                                                ->label('SMTP Password')
+                                                ->password()
+                                                ->revealable()
+                                                ->visible(fn (): bool => self::canEditSecrets())
+                                                ->maxLength(191),
+                                        ])
+                                        ->columns(1),
+                                ])
+                                ->columnSpanFull(),
                             Section::make('Telegram Alerts')
+                                ->description('Notifikasi Telegram untuk event kritikal.')
                                 ->schema([
                                     Toggle::make('data.notifications.telegram.enabled')
                                         ->label('Enable Telegram Alerts'),
@@ -315,7 +518,7 @@ class SystemSettingResource extends Resource
                                         ->required(fn (Get $get): bool => self::canEditSecrets() && (bool) $get('data.notifications.telegram.enabled'))
                                         ->maxLength(191),
                                 ])
-                                ->columns(2),
+                                ->columns(3),
                         ]),
                 ]),
         ]);
@@ -325,6 +528,15 @@ class SystemSettingResource extends Resource
     {
         return $table
             ->columns([
+                IconColumn::make('maintenance_enabled')
+                    ->label('Maintenance')
+                    ->boolean()
+                    ->getStateUsing(fn (SystemSetting $record): bool => (bool) Arr::get($record->data, 'maintenance.enabled', false)),
+                IconColumn::make('email_alerts')
+                    ->label('Email Alerts')
+                    ->boolean()
+                    ->getStateUsing(fn (SystemSetting $record): bool => (bool) Arr::get($record->data, 'notifications.email.enabled', false))
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('project')
                     ->label('Project')
                     ->getStateUsing(fn (SystemSetting $record): ?string => Arr::get($record->data, 'project.name')),
@@ -336,6 +548,7 @@ class SystemSettingResource extends Resource
                     ->label('Updated By')
                     ->getStateUsing(fn (SystemSetting $record): ?string => optional($record->updatedBy)->name ?? null),
             ])
+            ->striped()
             ->paginated(false)
             ->emptyStateHeading('Konfigurasi sistem belum tersedia')
             ->emptyStateDescription('Initialize pengaturan sistem melalui proses provisioning agar opsi branding, maintenance, dan storage siap digunakan.')
@@ -354,7 +567,6 @@ class SystemSettingResource extends Resource
     public static function getRelations(): array
     {
         return [
-            VersionsRelationManager::class,
         ];
     }
 
@@ -422,7 +634,9 @@ class SystemSettingResource extends Resource
         }
 
         try {
-            $url = Storage::disk($disk)->url($path);
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $filesystem */
+            $filesystem = Storage::disk($disk);
+            $url = method_exists($filesystem, 'url') ? $filesystem->url($path) : null;
         } catch (\Throwable) {
             return null;
         }
@@ -657,8 +871,31 @@ class SystemSettingResource extends Resource
 
     private static function canEditSecrets(): bool
     {
-        $user = auth()->user();
+        $user = AuthHelper::user();
 
         return $user && method_exists($user, 'isDeveloper') && $user->isDeveloper();
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function defaultEmailRecipients(): array
+    {
+        $recipients = [];
+        $currentEmail = AuthHelper::user()?->email;
+        if (is_string($currentEmail) && $currentEmail !== '') {
+            $recipients[] = $currentEmail;
+        }
+
+        $fallback = config('security.threat_detection.alert.emails', []);
+        if (is_array($fallback)) {
+            foreach ($fallback as $email) {
+                if (is_string($email) && $email !== '' && ! in_array($email, $recipients, true)) {
+                    $recipients[] = $email;
+                }
+            }
+        }
+
+        return $recipients;
     }
 }

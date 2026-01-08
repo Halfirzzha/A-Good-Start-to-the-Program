@@ -522,14 +522,18 @@
 
     const setConnectionStatus = (status) => {
         if (!connectionIndicator) return;
-        const baseText = connectionIndicator.dataset.originalText ||
+        const baseText =
+            connectionIndicator.dataset.originalText ||
             connectionIndicator.textContent;
         if (!connectionIndicator.dataset.originalText) {
             connectionIndicator.dataset.originalText = baseText;
         }
         if (status === "ok") {
             connectionIndicator.textContent = baseText;
-            connectionIndicator.classList.remove("connection-error", "connection-reconnecting");
+            connectionIndicator.classList.remove(
+                "connection-error",
+                "connection-reconnecting"
+            );
         } else if (status === "reconnecting") {
             connectionIndicator.textContent = baseText + " · Reconnecting...";
             connectionIndicator.classList.add("connection-reconnecting");
@@ -549,7 +553,8 @@
     const computePollDelay = () => {
         if (statusErrorCount > 0) {
             const backoff = Math.min(
-                POLL_NORMAL_MS * Math.pow(1.5, statusErrorCount) + Math.random() * 1000,
+                POLL_NORMAL_MS * Math.pow(1.5, statusErrorCount) +
+                    Math.random() * 1000,
                 MAX_BACKOFF_MS
             );
             return Math.floor(backoff);
@@ -557,8 +562,12 @@
         const now = new Date();
         if (startAt || endAt) {
             const soonThresholdMs = 60000;
-            const startDelta = startAt ? Math.abs(startAt.getTime() - now.getTime()) : Infinity;
-            const endDelta = endAt ? Math.abs(endAt.getTime() - now.getTime()) : Infinity;
+            const startDelta = startAt
+                ? Math.abs(startAt.getTime() - now.getTime())
+                : Infinity;
+            const endDelta = endAt
+                ? Math.abs(endAt.getTime() - now.getTime())
+                : Infinity;
             if (startDelta < soonThresholdMs || endDelta < soonThresholdMs) {
                 return POLL_FAST_MS;
             }
@@ -586,11 +595,16 @@
 
             if (!response.ok) {
                 statusErrorCount++;
-                setConnectionStatus(statusErrorCount >= MAX_CONSECUTIVE_ERRORS ? "error" : "reconnecting");
+                setConnectionStatus(
+                    statusErrorCount >= MAX_CONSECUTIVE_ERRORS
+                        ? "error"
+                        : "reconnecting"
+                );
                 const now = Date.now();
                 if (now - lastStatusErrorAt > STATUS_ERROR_THROTTLE_MS) {
                     lastStatusErrorAt = now;
-                    const contentType = response.headers.get("Content-Type") || "unknown";
+                    const contentType =
+                        response.headers.get("Content-Type") || "unknown";
                     console.warn(
                         `[Maintenance] Status refresh failed: HTTP ${response.status} (${response.statusText})`,
                         `| Content-Type: ${contentType}`,
@@ -605,11 +619,17 @@
             const contentType = response.headers.get("Content-Type") || "";
             if (!contentType.includes("application/json")) {
                 statusErrorCount++;
-                setConnectionStatus(statusErrorCount >= MAX_CONSECUTIVE_ERRORS ? "error" : "reconnecting");
+                setConnectionStatus(
+                    statusErrorCount >= MAX_CONSECUTIVE_ERRORS
+                        ? "error"
+                        : "reconnecting"
+                );
                 const now = Date.now();
                 if (now - lastStatusErrorAt > STATUS_ERROR_THROTTLE_MS) {
                     lastStatusErrorAt = now;
-                    const text = await response.text().catch(() => "(unable to read body)");
+                    const text = await response
+                        .text()
+                        .catch(() => "(unable to read body)");
                     console.warn(
                         `[Maintenance] Unexpected response type: ${contentType}`,
                         `| Body preview: ${text.substring(0, 200)}`,
@@ -645,7 +665,11 @@
             applyPayload(data);
         } catch (error) {
             statusErrorCount++;
-            setConnectionStatus(statusErrorCount >= MAX_CONSECUTIVE_ERRORS ? "error" : "reconnecting");
+            setConnectionStatus(
+                statusErrorCount >= MAX_CONSECUTIVE_ERRORS
+                    ? "error"
+                    : "reconnecting"
+            );
             const now = Date.now();
             if (now - lastStatusErrorAt > STATUS_ERROR_THROTTLE_MS) {
                 lastStatusErrorAt = now;
@@ -666,14 +690,18 @@
                     `[Maintenance] Polling stopped after ${MAX_CONSECUTIVE_ERRORS} consecutive errors.`,
                     "| Click anywhere to retry, or refresh the page."
                 );
-                document.addEventListener("click", () => {
-                    if (pollingStopped) {
-                        pollingStopped = false;
-                        statusErrorCount = 0;
-                        setConnectionStatus("reconnecting");
-                        refreshStatus();
-                    }
-                }, { once: true });
+                document.addEventListener(
+                    "click",
+                    () => {
+                        if (pollingStopped) {
+                            pollingStopped = false;
+                            statusErrorCount = 0;
+                            setConnectionStatus("reconnecting");
+                            refreshStatus();
+                        }
+                    },
+                    { once: true }
+                );
                 return;
             }
             statusPollTimeout = window.setTimeout(refreshStatus, nextPollDelay);

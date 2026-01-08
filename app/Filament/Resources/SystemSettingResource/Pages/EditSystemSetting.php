@@ -4,14 +4,24 @@ namespace App\Filament\Resources\SystemSettingResource\Pages;
 
 use App\Filament\Resources\SystemSettingResource;
 use App\Support\MaintenanceService;
+use App\Support\NotificationDeliveryLogger;
 use App\Support\SettingsMediaStorage;
+use App\Support\SystemSettings;
+use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Mail;
 use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class EditSystemSetting extends EditRecord
 {
     protected static string $resource = SystemSettingResource::class;
+
+    protected function getHeaderActions(): array
+    {
+        return [];
+    }
 
     /**
      * @param  array<string, mixed>  $data

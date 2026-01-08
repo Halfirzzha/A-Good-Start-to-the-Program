@@ -4,6 +4,7 @@ namespace App\Filament\Resources\UnifiedHistoryResource\Pages;
 
 use App\Filament\Resources\UnifiedHistoryResource;
 use App\Support\AuditLogWriter;
+use App\Support\AuthHelper;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
@@ -27,7 +28,7 @@ class ListUnifiedHistories extends ListRecords
             Action::make('add_history_entry')
                 ->label('Add Unified History')
                 ->icon('heroicon-o-plus')
-                ->authorize(fn (): bool => auth()->user()?->can('execute_unified_history_create') ?? false)
+                ->authorize(fn (): bool => AuthHelper::user()?->can('execute_unified_history_create') ?? false)
                 ->modalHeading('Record Unified History')
                 ->modalSubmitActionLabel('Record')
                 ->modalWidth('4xl')
@@ -157,7 +158,7 @@ class ListUnifiedHistories extends ListRecords
         });
 
         AuditLogWriter::writeAudit([
-            'user_id' => auth()->id(),
+            'user_id' => AuthHelper::id(),
             'action' => 'unified_history_entry',
             'auditable_type' => null,
             'auditable_id' => null,

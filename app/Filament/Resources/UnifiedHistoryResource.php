@@ -4,12 +4,17 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\UnifiedHistoryResource\Pages;
 use App\Models\AuditLog;
+use App\Support\AuthHelper;
 use Filament\Actions\ViewAction;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\Action;
+use Filament\Tables\Columns\Layout\Split;
+use Filament\Tables\Columns\Layout\Stack;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -118,30 +123,42 @@ class UnifiedHistoryResource extends Resource
     {
         return $table
             ->defaultSort('created_at', 'desc')
+            ->striped()
             ->columns([
-                TextColumn::make('created_at')
-                    ->label('Time')
-                    ->dateTime()
-                    ->sortable(),
-                TextColumn::make('context.category')
-                    ->label('Category')
-                    ->badge()
-                    ->formatStateUsing(fn ($state): string => self::formatCategory($state)),
-                TextColumn::make('context.title')
-                    ->label('Title')
-                    ->wrap(),
+                Split::make([
+                    Stack::make([
+                        TextColumn::make('created_at')
+                            ->label('Time')
+                            ->dateTime()
+                            ->sortable(),
+                        TextColumn::make('context.category')
+                            ->label('Category')
+                            ->badge()
+                            ->formatStateUsing(fn ($state): string => self::formatCategory($state)),
+                    ]),
+                    Stack::make([
+                        TextColumn::make('context.title')
+                            ->label('Title')
+                            ->wrap(),
+                        TextColumn::make('user.email')
+                            ->label('Actor')
+                            ->getStateUsing(fn (AuditLog $record): string => $record->user?->email ?? 'System'),
+                    ])->space(1),
+                ])->from('md'),
                 TextColumn::make('context.summary')
                     ->label('Summary')
                     ->limit(120)
                     ->wrap()
                     ->toggleable(isToggledHiddenByDefault: true),
+                IconColumn::make('has_findings')
+                    ->label('Findings')
+                    ->boolean()
+                    ->getStateUsing(fn (AuditLog $record): bool => (bool) Arr::get($record->context, 'findings'))
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('context.scope')
                     ->label('Scope')
                     ->formatStateUsing(fn (AuditLog $record): string => self::formatList(Arr::get($record->context, 'scope')))
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('user.email')
-                    ->label('Actor')
-                    ->getStateUsing(fn (AuditLog $record): string => $record->user?->email ?? 'System'),
                 TextColumn::make('request_id')
                     ->label('Request ID')
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -173,6 +190,8 @@ class UnifiedHistoryResource extends Resource
                         return $query->whereJsonContains('context->scope', $value);
                     }),
             ])
+            ->filtersLayout(FiltersLayout::AboveContentCollapsible)
+            ->persistFiltersInSession()
             ->emptyStateHeading('Belum ada histori terpadu')
             ->emptyStateDescription('Kegiatan audit/hardening akan tampil setelah ada entri yang memenuhi kategori keamanan.')
             ->emptyStateActions([
@@ -183,7 +202,7 @@ class UnifiedHistoryResource extends Resource
             ])
             ->recordActions([
                 ViewAction::make()
-                    ->authorize(fn (): bool => auth()->user()?->can('view_unified_history') ?? false),
+                    ->authorize(fn (): bool => AuthHelper::user()?->can('view_unified_history') ?? false),
             ])
             ->toolbarActions([]);
     }
@@ -218,12 +237,12 @@ class UnifiedHistoryResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return auth()->user()?->can('view_any_unified_history') ?? false;
+        return AuthHelper::user()?->can('view_any_unified_history') ?? false;
     }
 
     public static function canView(Model $record): bool
     {
-        return auth()->user()?->can('view_unified_history') ?? false;
+        return AuthHelper::user()?->can('view_unified_history') ?? false;
     }
 
     /**

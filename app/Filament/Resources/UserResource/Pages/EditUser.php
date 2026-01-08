@@ -5,6 +5,7 @@ namespace App\Filament\Resources\UserResource\Pages;
 use App\Enums\AccountStatus;
 use App\Filament\Resources\UserResource;
 use App\Support\AuditLogWriter;
+use App\Support\AuthHelper;
 use App\Support\SecurityAlert;
 use Filament\Resources\Pages\EditRecord;
 use Illuminate\Support\Str;
@@ -22,6 +23,10 @@ class EditUser extends EditRecord
      */
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        if (array_key_exists('avatar', $data) && $this->record?->avatar && $data['avatar'] !== $this->record->avatar) {
+            UserResource::queueAvatarDeletion($this->record->avatar);
+        }
+
         if (array_key_exists('role', $data)) {
             $this->previousRole = $this->record?->role;
             $role = $data['role'];
@@ -35,7 +40,7 @@ class EditUser extends EditRecord
                     abort(403, 'Developer role is immutable.');
                 }
                 $this->selectedRole = $developerRole;
-            } elseif (! UserResource::canAssignRoleName($role, auth()->user(), $this->record)) {
+            } elseif (! UserResource::canAssignRoleName($role, AuthHelper::user(), $this->record)) {
                 if ($role !== $this->record->role) {
                     abort(403, 'Role assignment denied.');
                 }
@@ -52,7 +57,7 @@ class EditUser extends EditRecord
             AccountStatus::Suspended->value,
             AccountStatus::Terminated->value,
         ], true)) {
-            $data['blocked_by'] ??= $this->record->blocked_by ?? auth()->id();
+            $data['blocked_by'] ??= $this->record->blocked_by ?? AuthHelper::id();
             $data['blocked_reason'] ??= $this->record->blocked_reason ?? 'Status change';
         }
 
@@ -64,6 +69,16 @@ class EditUser extends EditRecord
 
         if (empty($data['two_factor_enabled'])) {
             $data['two_factor_method'] = null;
+        }
+
+        if (empty($data['locale'])) {
+            $data['locale'] = $this->record?->locale
+                ?: (string) (UserResource::detectLocale() ?: config('app.locale', 'en'));
+        }
+
+        if (empty($data['timezone'])) {
+            $data['timezone'] = $this->record?->timezone
+                ?: (string) (UserResource::detectTimezone() ?: config('app.timezone', 'UTC'));
         }
 
         return $data;
@@ -94,7 +109,7 @@ class EditUser extends EditRecord
         $sessionId = $request?->hasSession() ? $request->session()->getId() : null;
 
         AuditLogWriter::writeAudit([
-            'user_id' => auth()->id(),
+            'user_id' => AuthHelper::id(),
             'action' => 'user_role_changed',
             'auditable_type' => $this->record->getMorphClass(),
             'auditable_id' => $this->record->getKey(),
@@ -110,7 +125,7 @@ class EditUser extends EditRecord
             'session_id' => $sessionId,
             'duration_ms' => null,
             'context' => [
-                'actor_id' => auth()->id(),
+                'actor_id' => AuthHelper::id(),
                 'target_user_id' => $this->record->getKey(),
                 'target_email' => $this->record->email,
                 'target_username' => $this->record->username,
@@ -127,8 +142,8 @@ class EditUser extends EditRecord
             'target_username' => $this->record->username,
             'from_role' => $previousRole,
             'to_role' => $newRole,
-            'actor_id' => auth()->id(),
-            'actor_email' => auth()->user()?->email,
+            'actor_id' => AuthHelper::id(),
+            'actor_email' => AuthHelper::user()?->email,
         ], $request);
     }
 }

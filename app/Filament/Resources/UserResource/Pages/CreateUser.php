@@ -6,6 +6,7 @@ use App\Filament\Resources\UserResource;
 use App\Models\UserInvitation;
 use App\Notifications\UserInvitationNotification;
 use App\Support\AuditLogWriter;
+use App\Support\AuthHelper;
 use App\Support\SecurityAlert;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Str;
@@ -23,13 +24,13 @@ class CreateUser extends CreateRecord
     protected function mutateFormDataBeforeCreate(array $data): array
     {
         $role = $data['role'] ?? null;
-        if (! is_string($role) || ! UserResource::canAssignRoleName($role, auth()->user())) {
+        if (! is_string($role) || ! UserResource::canAssignRoleName($role, AuthHelper::user())) {
             abort(403, 'Role assignment denied.');
         }
 
         $this->selectedRole = $role;
         $data['created_by_type'] = 'admin';
-        $data['created_by_admin_id'] = auth()->id();
+        $data['created_by_admin_id'] = AuthHelper::id();
 
         if (empty($data['password'])) {
             $data['password'] = Str::random(64);
@@ -62,7 +63,7 @@ class CreateUser extends CreateRecord
 
         $this->recordRoleAssignment($this->selectedRole);
 
-        $invite = UserInvitation::createFor($this->record, auth()->user());
+        $invite = UserInvitation::createFor($this->record, AuthHelper::user());
         $this->record->notify(new UserInvitationNotification(
             $invite['token'],
             $invite['invitation']->expires_at
@@ -80,7 +81,7 @@ class CreateUser extends CreateRecord
         $sessionId = $request?->hasSession() ? $request->session()->getId() : null;
 
         AuditLogWriter::writeAudit([
-            'user_id' => auth()->id(),
+            'user_id' => AuthHelper::id(),
             'action' => 'user_role_assigned',
             'auditable_type' => $this->record->getMorphClass(),
             'auditable_id' => $this->record->getKey(),
@@ -96,7 +97,7 @@ class CreateUser extends CreateRecord
             'session_id' => $sessionId,
             'duration_ms' => null,
             'context' => [
-                'actor_id' => auth()->id(),
+                'actor_id' => AuthHelper::id(),
                 'target_user_id' => $this->record->getKey(),
                 'target_email' => $this->record->email,
                 'target_username' => $this->record->username,
@@ -111,8 +112,8 @@ class CreateUser extends CreateRecord
             'target_email' => $this->record->email,
             'target_username' => $this->record->username,
             'assigned_role' => $role,
-            'actor_id' => auth()->id(),
-            'actor_email' => auth()->user()?->email,
+            'actor_id' => AuthHelper::id(),
+            'actor_email' => AuthHelper::user()?->email,
         ], $request);
     }
 }

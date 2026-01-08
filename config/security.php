@@ -24,6 +24,9 @@ return [
     'password_require_symbols' => env('SECURITY_PASSWORD_REQUIRE_SYMBOLS', true),
     'password_require_uncompromised' => env('SECURITY_PASSWORD_REQUIRE_UNCOMPROMISED', true),
     'password_uncompromised_threshold' => (int) env('SECURITY_PASSWORD_UNCOMPROMISED_THRESHOLD', 0),
+    'password_expiry_days' => (int) env('SECURITY_PASSWORD_EXPIRY_DAYS', 90),
+    'password_expiry_notify_days' => (int) env('SECURITY_PASSWORD_EXPIRY_NOTIFY_DAYS', 7),
+    'password_auto_reset_on_expiry' => env('SECURITY_PASSWORD_AUTO_RESET', true),
     'invitation_expires_days' => (int) env('SECURITY_INVITATION_EXPIRES_DAYS', 5),
     'threat_detection' => [
         'enabled' => env('SECURITY_THREAT_ENABLED', true),

@@ -9,7 +9,7 @@
 
 **Security-first Laravel 12 + Filament v4 enterprise starter kit**
 
-*Access control • Audit trails • Maintenance orchestration • Centralized settings*
+_Access control • Audit trails • Maintenance orchestration • Centralized settings_
 
 [Getting Started](#-quickstart) •
 [Features](#-key-features) •
@@ -31,14 +31,14 @@
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-| Module | Status | Description |
-|--------|--------|-------------|
-| 🔐 Authentication | ✅ Stable | Multi-factor, invitation-based activation |
-| 📝 Audit Logging | ✅ Stable | Tamper-evident hash chain |
-| 🔧 Maintenance Mode | ✅ Stable | Scheduled windows, bypass tokens |
-| ⚙️ System Settings | ✅ Stable | Centralized configuration |
-| 🔔 Security Alerts | ✅ Stable | Telegram + Email notifications |
-| 🎨 Branding | ✅ Stable | Google Drive sync |
+| Module              | Status    | Description                               |
+| ------------------- | --------- | ----------------------------------------- |
+| 🔐 Authentication   | ✅ Stable | Multi-factor, invitation-based activation |
+| 📝 Audit Logging    | ✅ Stable | Tamper-evident hash chain                 |
+| 🔧 Maintenance Mode | ✅ Stable | Scheduled windows, bypass tokens          |
+| ⚙️ System Settings  | ✅ Stable | Centralized configuration                 |
+| 🔔 Security Alerts  | ✅ Stable | Telegram + Email notifications            |
+| 🎨 Branding         | ✅ Stable | Google Drive sync                         |
 
 ---
 
@@ -49,21 +49,23 @@
 <td width="50%">
 
 ### 🔒 Security First
-- **Deny-by-default** access control
-- Filament Shield + Spatie Permission
-- Session stamp validation
-- Password history enforcement
-- Compromised password detection (HIBP)
+
+-   **Deny-by-default** access control
+-   Filament Shield + Spatie Permission
+-   Session stamp validation
+-   Password history enforcement
+-   Compromised password detection (HIBP)
 
 </td>
 <td width="50%">
 
 ### 📋 Enterprise Audit
-- **Tamper-evident** hash chain logging
-- Detailed login activity tracking
-- Sensitive field redaction
-- Per-account audit visibility
-- Cryptographic integrity verification
+
+-   **Tamper-evident** hash chain logging
+-   Detailed login activity tracking
+-   Sensitive field redaction
+-   Per-account audit visibility
+-   Cryptographic integrity verification
 
 </td>
 </tr>
@@ -71,21 +73,23 @@
 <td width="50%">
 
 ### 🛠️ Maintenance Mode
-- Scheduled maintenance windows
-- IP/Role/Path allowlists
-- Secure bypass tokens
-- Real-time status page
-- SSE streaming updates
+
+-   Scheduled maintenance windows
+-   IP/Role/Path allowlists
+-   Secure bypass tokens
+-   Real-time status page
+-   SSE streaming updates
 
 </td>
 <td width="50%">
 
 ### ⚡ Performance
-- **Redis-first** architecture
-- Queue-based async processing
-- Optimized caching strategies
-- Rate limiting & locks
-- Background job orchestration
+
+-   **Redis-first** architecture
+-   Queue-based async processing
+-   Optimized caching strategies
+-   Rate limiting & locks
+-   Background job orchestration
 
 </td>
 </tr>
@@ -201,14 +205,14 @@ mindmap
       Tailwind CSS
 ```
 
-| Category | Technology | Version | Purpose |
-|----------|------------|---------|---------|
-| **Framework** | Laravel | 12.x | Core application |
-| **Admin Panel** | Filament | 4.x | Admin interface |
-| **Permissions** | Spatie Permission | Latest | Role-based access |
-| **Database** | MySQL | 8.0+ | Primary storage |
-| **Cache/Queue** | Redis | 6.0+ | Cache, sessions, queues |
-| **Storage** | Google Drive | - | Branding assets |
+| Category        | Technology        | Version | Purpose                 |
+| --------------- | ----------------- | ------- | ----------------------- |
+| **Framework**   | Laravel           | 12.x    | Core application        |
+| **Admin Panel** | Filament          | 4.x     | Admin interface         |
+| **Permissions** | Spatie Permission | Latest  | Role-based access       |
+| **Database**    | MySQL             | 8.0+    | Primary storage         |
+| **Cache/Queue** | Redis             | 6.0+    | Cache, sessions, queues |
+| **Storage**     | Google Drive      | -       | Branding assets         |
 
 ---
 
@@ -217,12 +221,12 @@ mindmap
 > ⚠️ **Important:** SQLite is **not supported**. MySQL is required for production features.
 
 | Requirement | Minimum | Recommended |
-|-------------|---------|-------------|
-| PHP | 8.2 | 8.3+ |
-| MySQL | 8.0 | 8.0+ |
-| Redis | 6.0 | 7.0+ |
-| Composer | 2.0 | Latest |
-| Node.js | 18.x | 20.x |
+| ----------- | ------- | ----------- |
+| PHP         | 8.2     | 8.3+        |
+| MySQL       | 8.0     | 8.0+        |
+| Redis       | 6.0     | 7.0+        |
+| Composer    | 2.0     | Latest      |
+| Node.js     | 18.x    | 20.x        |
 
 ---
 
@@ -303,12 +307,12 @@ graph TD
 
 ### Permission Model
 
-| Principle | Implementation |
-|-----------|----------------|
-| **Deny by Default** | No `Gate::before` or global bypass for non-Developer |
-| **Explicit Grants** | All permissions must be explicitly assigned |
-| **Immutable Developer** | Developer role is the final authority |
-| **Auditable Access** | Every permission check is logged |
+| Principle               | Implementation                                       |
+| ----------------------- | ---------------------------------------------------- |
+| **Deny by Default**     | No `Gate::before` or global bypass for non-Developer |
+| **Explicit Grants**     | All permissions must be explicitly assigned          |
+| **Immutable Developer** | Developer role is the final authority                |
+| **Auditable Access**    | Every permission check is logged                     |
 
 ### Custom Permissions
 
@@ -335,10 +339,11 @@ SECURITY_DEVELOPER_BYPASS_VALIDATIONS=true
 ```
 
 When enabled, Developer role bypasses:
-- Email verification check
-- Username requirement
-- Password change enforcement
-- Account status validation
+
+-   Email verification check
+-   Username requirement
+-   Password change enforcement
+-   Account status validation
 
 ---
 
@@ -412,15 +417,15 @@ flowchart TD
 
 ### Configuration Options
 
-| Option | Description | Example |
-|--------|-------------|---------|
-| `enabled` | Enable maintenance mode | `true` |
-| `start_at` | Scheduled start time | `2025-01-01 00:00:00` |
-| `end_at` | Scheduled end time | `2025-01-01 06:00:00` |
-| `allow_ips` | Allowed IP addresses | `["192.168.1.1"]` |
-| `allow_roles` | Allowed user roles | `["developer"]` |
-| `allow_paths` | Allowed URL paths | `["/api/*"]` |
-| `bypass_tokens` | Hashed bypass tokens | `[hash1, hash2]` |
+| Option          | Description             | Example               |
+| --------------- | ----------------------- | --------------------- |
+| `enabled`       | Enable maintenance mode | `true`                |
+| `start_at`      | Scheduled start time    | `2025-01-01 00:00:00` |
+| `end_at`        | Scheduled end time      | `2025-01-01 06:00:00` |
+| `allow_ips`     | Allowed IP addresses    | `["192.168.1.1"]`     |
+| `allow_roles`   | Allowed user roles      | `["developer"]`       |
+| `allow_paths`   | Allowed URL paths       | `["/api/*"]`          |
+| `bypass_tokens` | Hashed bypass tokens    | `[hash1, hash2]`      |
 
 ---
 
@@ -512,9 +517,10 @@ php artisan audit:rehash
 ### Per-Account Visibility
 
 Each user detail view includes a Filament relation manager for:
-- Login activity history
-- Audit log entries
-- Security events
+
+-   Login activity history
+-   Audit log entries
+-   Security events
 
 ---
 
@@ -589,13 +595,13 @@ graph TB
 
 ### Policy Coverage
 
-| Resource | Policy | Checks |
-|----------|--------|--------|
-| User | `UserPolicy` | CRUD, unlock, activate, force reset |
-| System Settings | `SystemSettingPolicy` | View, update |
-| Audit Logs | `AuditLogPolicy` | View only |
-| Login Activity | `UserLoginActivityPolicy` | View only |
-| Roles | `RolePolicy` | CRUD, assign |
+| Resource        | Policy                    | Checks                              |
+| --------------- | ------------------------- | ----------------------------------- |
+| User            | `UserPolicy`              | CRUD, unlock, activate, force reset |
+| System Settings | `SystemSettingPolicy`     | View, update                        |
+| Audit Logs      | `AuditLogPolicy`          | View only                           |
+| Login Activity  | `UserLoginActivityPolicy` | View only                           |
+| Roles           | `RolePolicy`              | CRUD, assign                        |
 
 ---
 
@@ -701,61 +707,61 @@ This project is licensed under the **MIT License**. See the [LICENSE](LICENSE) f
 <details>
 <summary><strong>v0.1.7</strong> (2025-12-29) - UI Empty States</summary>
 
-- SystemSetting, UnifiedHistory, and UserLoginActivity Filament tables now surface enterprise-ready empty states
-- Heading, description, heroicon action with refresh link
-- README gained Security Hardening section and Redis queue worker guidance
+-   SystemSetting, UnifiedHistory, and UserLoginActivity Filament tables now surface enterprise-ready empty states
+-   Heading, description, heroicon action with refresh link
+-   README gained Security Hardening section and Redis queue worker guidance
 
 </details>
 
 <details>
 <summary><strong>v0.1.6</strong> (2025-12-28) - Per-Account Activity</summary>
 
-- Added per-account login activity view via native Filament relation manager
-- Logs scoped per account with full detail accessibility
-- Leverages Filament tables schema and iconography
+-   Added per-account login activity view via native Filament relation manager
+-   Logs scoped per account with full detail accessibility
+-   Leverages Filament tables schema and iconography
 
 </details>
 
 <details>
 <summary><strong>v0.1.5</strong> (2025-12-28) - User Resource UX</summary>
 
-- User Resource table shows enterprise-ready empty state messaging
-- Consistent Filament icons for desktop/mobile workflows
+-   User Resource table shows enterprise-ready empty state messaging
+-   Consistent Filament icons for desktop/mobile workflows
 
 </details>
 
 <details>
 <summary><strong>v0.1.4</strong> (2025-12-28) - Documentation Fix</summary>
 
-- Fix Mermaid maintenance diagram label quoting
+-   Fix Mermaid maintenance diagram label quoting
 
 </details>
 
 <details>
 <summary><strong>v0.1.3</strong> (2025-12-28) - README Rewrite</summary>
 
-- Full README rewrite for professional structure
-- Explicit MySQL/Redis requirement and APP_URL dependency
+-   Full README rewrite for professional structure
+-   Explicit MySQL/Redis requirement and APP_URL dependency
 
 </details>
 
 <details>
 <summary><strong>v0.1.2</strong> (2025-12-28) - Changelog Format</summary>
 
-- Standardize changelog format
-- Document MySQL/Redis requirement
+-   Standardize changelog format
+-   Document MySQL/Redis requirement
 
 </details>
 
 <details>
 <summary><strong>v0.1.1</strong> (2025-12-28) - Fault Tolerance</summary>
 
-- System settings cache fault tolerance
-- Branding URLs fallback to secondary disk
-- Invitation links follow database expiry
-- Password hardening with change metadata
-- Security stamp rotation
-- Access denied session invalidation
+-   System settings cache fault tolerance
+-   Branding URLs fallback to secondary disk
+-   Invitation links follow database expiry
+-   Password hardening with change metadata
+-   Security stamp rotation
+-   Access denied session invalidation
 
 </details>
 

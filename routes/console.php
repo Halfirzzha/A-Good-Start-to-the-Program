@@ -2,6 +2,7 @@
 
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {
@@ -12,3 +13,7 @@ Schedule::command('maintenance:sync')
     ->everyMinute()
     ->onOneServer()
     ->withoutOverlapping();
+
+Schedule::call(function (): void {
+    Cache::put('system_health:scheduler_last_run', now()->toIso8601String(), now()->addMinutes(5));
+})->everyMinute()->name('health-scheduler-heartbeat')->onOneServer();

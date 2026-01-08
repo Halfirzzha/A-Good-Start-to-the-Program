@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\UserLoginActivityResource\Pages;
 use App\Models\UserLoginActivity;
+use App\Support\AuthHelper;
 use Filament\Actions\ViewAction;
 use Filament\Infolists\Components\KeyValueEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -11,6 +12,10 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\Action;
+use Filament\Tables\Columns\Layout\Split;
+use Filament\Tables\Columns\Layout\Stack;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 
@@ -23,6 +28,11 @@ class UserLoginActivityResource extends Resource
     protected static string | \UnitEnum | null $navigationGroup = 'Security';
 
     protected static ?int $navigationSort = 11;
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -50,33 +60,73 @@ class UserLoginActivityResource extends Resource
     {
         return $table
             ->defaultSort('created_at', 'desc')
+            ->striped()
+            ->poll('30s')
             ->columns([
-                TextColumn::make('created_at')
-                    ->label('Time')
-                    ->dateTime()
-                    ->sortable(),
-                TextColumn::make('event')
-                    ->badge()
-                    ->searchable(),
-                TextColumn::make('user.email')
-                    ->label('User')
-                    ->searchable(),
-                TextColumn::make('identity')
-                    ->label('Identity')
-                    ->searchable(),
+                Split::make([
+                    Stack::make([
+                        TextColumn::make('created_at')
+                            ->label('Time')
+                            ->dateTime()
+                            ->sortable()
+                            ->description(fn (UserLoginActivity $record): ?string => $record->created_at?->diffForHumans()),
+                        TextColumn::make('event')
+                            ->badge()
+                            ->searchable()
+                            ->color(fn (string $state): string => match (true) {
+                                str_contains($state, 'success') || $state === 'login' => 'success',
+                                str_contains($state, 'failed') => 'danger',
+                                str_contains($state, 'logout') => 'gray',
+                                str_contains($state, 'locked') || str_contains($state, 'blocked') => 'danger',
+                                str_contains($state, 'bypass') => 'warning',
+                                default => 'info',
+                            }),
+                    ]),
+                    Stack::make([
+                        TextColumn::make('user.email')
+                            ->label('User')
+                            ->searchable()
+                            ->placeholder('Unknown'),
+                        TextColumn::make('identity')
+                            ->label('Identity')
+                            ->searchable()
+                            ->toggleable(),
+                    ])->space(1),
+                ])->from('md'),
                 TextColumn::make('ip_address')
                     ->label('IP')
-                    ->searchable(),
+                    ->searchable()
+                    ->copyable()
+                    ->copyMessage('IP copied'),
                 TextColumn::make('user_agent')
                     ->label('User Agent')
+                    ->limit(40)
+                    ->tooltip(fn (UserLoginActivity $record): ?string => $record->user_agent)
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('request_id')
                     ->label('Request ID')
+                    ->limit(12)
+                    ->tooltip(fn (UserLoginActivity $record): ?string => $record->request_id)
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('session_id')
                     ->label('Session ID')
+                    ->limit(12)
+                    ->tooltip(fn (UserLoginActivity $record): ?string => $record->session_id)
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
+            ->filters([
+                SelectFilter::make('event')
+                    ->label('Event')
+                    ->options(fn (): array => UserLoginActivity::query()
+                        ->distinct()
+                        ->pluck('event', 'event')
+                        ->sort()
+                        ->all())
+                    ->searchable()
+                    ->multiple(),
+            ])
+            ->filtersLayout(FiltersLayout::AboveContentCollapsible)
+            ->persistFiltersInSession()
             ->emptyStateHeading('Tidak ada aktivitas login yang tercatat')
             ->emptyStateDescription('Pengguna belum pernah login; aktivitas baru akan muncul secara real-time setelah sesi dibuat.')
             ->emptyStateActions([
@@ -88,7 +138,7 @@ class UserLoginActivityResource extends Resource
             ->recordActions([
                 ViewAction::make()
                     ->authorize('view')
-                    ->visible(fn (UserLoginActivity $record): bool => auth()->user()?->can('view', $record) ?? false),
+                    ->visible(fn (UserLoginActivity $record): bool => AuthHelper::user()?->can('view', $record) ?? false),
             ])
             ->toolbarActions([]);
     }
@@ -104,6 +154,11 @@ class UserLoginActivityResource extends Resource
     }
 
     public static function canDelete(Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canViewAny(): bool
     {
         return false;
     }

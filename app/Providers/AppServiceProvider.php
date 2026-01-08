@@ -11,12 +11,14 @@ use BezhanSalleh\FilamentShield\Facades\FilamentShield;
 use Filament\Facades\Filament;
 use Google\Client as GoogleClient;
 use Google\Service\Drive;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\Request;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\RateLimiter;
@@ -28,6 +30,9 @@ use Spatie\Permission\PermissionRegistrar;
 
 class AppServiceProvider extends ServiceProvider
 {
+    private const AVATAR_DELETE_QUEUE = 'user_avatar_delete_queue';
+    private const AVATAR_DELETE_LOCK = 'user_avatar_delete_lock';
+
     /**
      * Register any application services.
      */
@@ -68,10 +73,6 @@ class AppServiceProvider extends ServiceProvider
                     'viewAny',
                     'view',
                 ],
-                \App\Filament\Resources\UserLoginActivityResource::class => [
-                    'viewAny',
-                    'view',
-                ],
             ],
             'filament-shield.shield_resource.tabs.custom_permissions' => true,
             'filament-shield.pages.exclude' => [],
@@ -101,6 +102,7 @@ class AppServiceProvider extends ServiceProvider
         $this->ensureUnifiedHistoryHardeningEntry();
         $this->ensureMaintenanceRealtimeEntry();
         $this->ensureHealthDashboardEntry();
+        $this->cleanupUserAvatarQueue();
 
         RateLimiter::for('admin-panel', function (Request $request): Limit {
             $userId = null;
@@ -625,6 +627,59 @@ class AppServiceProvider extends ServiceProvider
         Storage::extend('google', function ($app, $config): FilesystemAdapter {
             return $this->buildGoogleFilesystem((array) $config);
         });
+    }
+
+    private function cleanupUserAvatarQueue(): void
+    {
+        if (app()->runningInConsole()) {
+            return;
+        }
+
+        if (! Cache::add(self::AVATAR_DELETE_LOCK, true, 60)) {
+            return;
+        }
+
+        $queue = Cache::get(self::AVATAR_DELETE_QUEUE, []);
+        if (! is_array($queue) || $queue === []) {
+            return;
+        }
+
+        $now = now();
+        $remaining = [];
+
+        foreach ($queue as $item) {
+            if (! is_array($item)) {
+                continue;
+            }
+
+            $disk = $item['disk'] ?? null;
+            $path = $item['path'] ?? null;
+            $deleteAt = $item['delete_at'] ?? null;
+
+            if (! is_string($disk) || ! is_string($path) || ! is_string($deleteAt)) {
+                continue;
+            }
+
+            try {
+                $due = Carbon::parse($deleteAt);
+            } catch (\Throwable) {
+                $remaining[] = $item;
+                continue;
+            }
+
+            if ($now->gte($due)) {
+                try {
+                    Storage::disk($disk)->delete($path);
+                } catch (\Throwable) {
+                    $remaining[] = $item;
+                }
+                continue;
+            }
+
+            $remaining[] = $item;
+        }
+
+        Cache::put(self::AVATAR_DELETE_QUEUE, $remaining, now()->addDays(8));
     }
 
     /**

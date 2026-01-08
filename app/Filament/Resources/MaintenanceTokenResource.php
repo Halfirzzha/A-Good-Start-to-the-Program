@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\MaintenanceTokenResource\Pages;
 use App\Models\MaintenanceToken;
+use App\Support\AuthHelper;
 use App\Support\MaintenanceTokenService;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
@@ -12,6 +13,8 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -21,9 +24,9 @@ class MaintenanceTokenResource extends Resource
 {
     protected static ?string $model = MaintenanceToken::class;
 
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-key';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-key';
 
-    protected static string | \UnitEnum | null $navigationGroup = 'Maintenance';
+    protected static string|\UnitEnum|null $navigationGroup = 'Maintenance';
 
     protected static ?int $navigationSort = 3;
 
@@ -31,34 +34,54 @@ class MaintenanceTokenResource extends Resource
     {
         return $table
             ->defaultSort('created_at', 'desc')
+            ->striped()
             ->columns([
-                TextColumn::make('name')
-                    ->label('Nama Token')
-                    ->searchable()
-                    ->placeholder('Tidak ada'),
+                TextColumn::make('created_at')
+                    ->label('Waktu')
+                    ->sortable()
+                    ->formatStateUsing(fn (MaintenanceToken $record): string => $record->created_at?->diffForHumans() ?? '—')
+                    ->description(fn (MaintenanceToken $record): ?string => $record->created_at?->format('d M Y, H:i:s T')),
                 TextColumn::make('status')
                     ->label('Status')
                     ->badge()
                     ->getStateUsing(fn (MaintenanceToken $record): string => $record->isActive() ? 'Active' : 'Revoked/Expired')
                     ->color(fn (MaintenanceToken $record): string => $record->isActive() ? 'success' : 'gray'),
-                TextColumn::make('last_used_at')
-                    ->label('Terakhir Digunakan')
-                    ->dateTime()
-                    ->sortable()
-                    ->placeholder('Belum dipakai'),
-                TextColumn::make('expires_at')
-                    ->label('Kedaluwarsa')
-                    ->dateTime()
-                    ->sortable()
-                    ->placeholder('Tidak ada'),
+                TextColumn::make('name')
+                    ->label('Token')
+                    ->searchable()
+                    ->placeholder('Tidak ada')
+                    ->description(function (MaintenanceToken $record): string {
+                        $lastUsed = $record->last_used_at ? $record->last_used_at->diffForHumans() : 'Belum dipakai';
+                        $expires = $record->expires_at ? $record->expires_at->format('d M Y, H:i T') : 'Tidak ada expiry';
+                        return 'Last used: '.$lastUsed.' · Expires: '.$expires;
+                    })
+                    ->limit(36),
                 TextColumn::make('creator.name')
-                    ->label('Dibuat Oleh')
-                    ->placeholder('System'),
-                TextColumn::make('created_at')
-                    ->label('Dibuat')
-                    ->dateTime()
-                    ->sortable(),
+                    ->label('User')
+                    ->placeholder('System')
+                    ->toggleable(),
             ])
+            ->filters([
+                SelectFilter::make('status')
+                    ->label('Status')
+                    ->options([
+                        'active' => 'Active',
+                        'revoked' => 'Revoked/Expired',
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $value = $data['value'] ?? null;
+                        if (! $value) {
+                            return $query;
+                        }
+
+                        return $value === 'active'
+                            ? $query->whereNull('revoked_at')
+                            : $query->whereNotNull('revoked_at');
+                    }),
+            ])
+            ->filtersLayout(FiltersLayout::AboveContentCollapsible)
+            ->searchable()
+            ->persistFiltersInSession()
             ->headerActions([
                 Action::make('create_token')
                     ->label('Buat Token')
@@ -74,12 +97,12 @@ class MaintenanceTokenResource extends Resource
                             ->helperText('Opsional. Kosongkan jika token tidak kedaluwarsa.'),
                     ])
                     ->action(function (array $data): void {
-                        $result = MaintenanceTokenService::create($data, auth()->id());
+                        $result = MaintenanceTokenService::create($data, AuthHelper::id());
                         $plain = $result['token'];
 
                         Notification::make()
                             ->title('Token dibuat')
-                            ->body(new HtmlString('Simpan token ini sekarang: <strong>' . e($plain) . '</strong>'))
+                            ->body(new HtmlString('Simpan token ini sekarang: <strong>'.e($plain).'</strong>'))
                             ->success()
                             ->persistent()
                             ->send();
@@ -92,10 +115,10 @@ class MaintenanceTokenResource extends Resource
                     ->icon('heroicon-o-arrow-path')
                     ->requiresConfirmation()
                     ->action(function (MaintenanceToken $record): void {
-                        $plain = MaintenanceTokenService::rotate($record, auth()->id());
+                        $plain = MaintenanceTokenService::rotate($record, AuthHelper::id());
                         Notification::make()
                             ->title('Token diganti')
-                            ->body(new HtmlString('Token baru: <strong>' . e($plain) . '</strong>'))
+                            ->body(new HtmlString('Token baru: <strong>'.e($plain).'</strong>'))
                             ->success()
                             ->persistent()
                             ->send();
@@ -107,7 +130,7 @@ class MaintenanceTokenResource extends Resource
                     ->color('danger')
                     ->requiresConfirmation()
                     ->action(function (MaintenanceToken $record): void {
-                        MaintenanceTokenService::revoke($record, auth()->id());
+                        MaintenanceTokenService::revoke($record, AuthHelper::id());
                         Notification::make()
                             ->title('Token dicabut')
                             ->success()
@@ -118,7 +141,7 @@ class MaintenanceTokenResource extends Resource
                     ->label('Hapus Permanen')
                     ->visible(fn (): bool => self::canManageTokens()),
             ])
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query->select(['*']))
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with('creator'))
             ->emptyStateHeading('Belum ada token maintenance')
             ->emptyStateDescription('Buat token untuk memberikan akses sementara selama maintenance.')
             ->toolbarActions([]);
@@ -153,10 +176,9 @@ class MaintenanceTokenResource extends Resource
 
     private static function canManageTokens(): bool
     {
-        $user = auth()->user();
+        $user = AuthHelper::user();
 
         return $user
-            && method_exists($user, 'isDeveloper')
             && $user->isDeveloper()
             && $user->can('execute_maintenance_bypass_token');
     }

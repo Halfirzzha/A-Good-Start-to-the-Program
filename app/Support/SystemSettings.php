@@ -103,6 +103,57 @@ class SystemSettings
         return self::diskUrl($asset['fallback_disk'] ?? null, $asset['fallback_path'] ?? null);
     }
 
+    public static function applyMailConfig(string $context = 'general'): void
+    {
+        $settings = self::get();
+        $data = $settings['data'] ?? [];
+        $secrets = $settings['secrets'] ?? [];
+
+        $email = Arr::get($data, 'notifications.email', []);
+        if (! is_array($email)) {
+            return;
+        }
+
+        $mailer = (string) ($email['mailer'] ?? 'smtp');
+        $smtpPassword = Arr::get($secrets, 'notifications.email.smtp_password');
+
+        config([
+            'mail.default' => $mailer,
+        ]);
+
+        $smtpHost = $email['smtp_host'] ?? null;
+        $smtpEncryption = $email['smtp_encryption'] ?? null;
+        if ($smtpEncryption === '') {
+            $smtpEncryption = null;
+        }
+        $smtpScheme = $smtpEncryption === 'ssl' ? 'smtps' : 'smtp';
+        if (is_string($smtpHost) && $smtpHost !== '') {
+            config([
+                'mail.mailers.smtp.host' => $smtpHost,
+                'mail.mailers.smtp.port' => (int) ($email['smtp_port'] ?? 587),
+                'mail.mailers.smtp.encryption' => $smtpEncryption,
+                'mail.mailers.smtp.username' => $email['smtp_username'] ?? null,
+                'mail.mailers.smtp.password' => $smtpPassword ?? config('mail.mailers.smtp.password'),
+                'mail.mailers.smtp.scheme' => $smtpScheme,
+                'mail.mailers.smtp.timeout' => 10,
+            ]);
+        }
+
+        $fromAddress = (string) ($email['from_address'] ?? '');
+        $fromName = (string) ($email['from_name'] ?? '');
+        if ($context === 'auth') {
+            $fromAddress = (string) ($email['auth_from_address'] ?? $fromAddress);
+            $fromName = (string) ($email['auth_from_name'] ?? $fromName);
+        }
+
+        if ($fromAddress !== '') {
+            config([
+                'mail.from.address' => $fromAddress,
+                'mail.from.name' => $fromName !== '' ? $fromName : config('app.name'),
+            ]);
+        }
+    }
+
     public static function forget(): void
     {
         try {
@@ -177,6 +228,16 @@ class SystemSettings
                     'email' => [
                         'enabled' => true,
                         'recipients' => [],
+                        'provider' => null,
+                        'from_address' => null,
+                        'from_name' => null,
+                        'auth_from_address' => null,
+                        'auth_from_name' => null,
+                        'mailer' => 'smtp',
+                        'smtp_host' => null,
+                        'smtp_port' => 587,
+                        'smtp_encryption' => 'tls',
+                        'smtp_username' => null,
                     ],
                     'telegram' => [
                         'enabled' => false,
@@ -187,6 +248,11 @@ class SystemSettings
             'secrets' => [
                 'telegram' => [
                     'bot_token' => null,
+                ],
+                'notifications' => [
+                    'email' => [
+                        'smtp_password' => null,
+                    ],
                 ],
                 'google_drive' => [
                     'service_account_json' => null,

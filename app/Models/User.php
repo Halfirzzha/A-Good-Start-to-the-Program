@@ -165,6 +165,8 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
             }
 
             $user->password_changed_at = now();
+            $expiryDays = max(1, (int) config('security.password_expiry_days', 90));
+            $user->password_expires_at = now()->addDays($expiryDays);
 
             $actorId = Auth::id();
             if ($actorId) {
@@ -222,6 +224,53 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     public function isDeveloper(): bool
     {
         return $this->hasRole((string) config('security.developer_role', 'developer'));
+    }
+
+    /**
+     * Check if user has elevated privileges (Developer or SuperAdmin).
+     * These users have full access with no UI restrictions.
+     */
+    public function hasElevatedPrivileges(): bool
+    {
+        return $this->isDeveloper() || $this->isSuperAdmin();
+    }
+
+    /**
+     * Get the user's role rank from hierarchy.
+     * Higher number = more privileges.
+     */
+    public function getRoleRank(): int
+    {
+        $hierarchy = config('security.role_hierarchy', []);
+        $roleNames = $this->getRoleNames();
+
+        if ($roleNames->isEmpty() && $this->role) {
+            $roleNames = collect([$this->role]);
+        }
+
+        return $roleNames
+            ->map(fn (string $role): int => $hierarchy[$role] ?? -1)
+            ->max() ?? -1;
+    }
+
+    /**
+     * Check if this user can manage another user based on role hierarchy.
+     */
+    public function canManageUser(self $target): bool
+    {
+        if ($this->isDeveloper()) {
+            return true;
+        }
+
+        if ($target->isDeveloper()) {
+            return false;
+        }
+
+        if ($target->isSuperAdmin() && ! $this->isDeveloper()) {
+            return false;
+        }
+
+        return $this->getRoleRank() > $target->getRoleRank();
     }
 
     public function canAccessPanel(Panel $panel): bool

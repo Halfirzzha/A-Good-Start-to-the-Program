@@ -4,8 +4,12 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\MaintenanceHistoryResource\Pages;
 use App\Models\AuditLog;
+use App\Support\AuthHelper;
+use Filament\Actions\Action;
 use Filament\Resources\Resource;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -24,27 +28,33 @@ class MaintenanceHistoryResource extends Resource
     {
         return $table
             ->defaultSort('created_at', 'desc')
+            ->striped()
             ->columns([
                 TextColumn::make('created_at')
                     ->label('Waktu')
-                    ->dateTime('d M Y, H:i:s T')
                     ->sortable()
-                    ->description(fn (AuditLog $record): ?string => $record->created_at?->diffForHumans()),
+                    ->formatStateUsing(fn (AuditLog $record): string => $record->created_at?->diffForHumans() ?? '—')
+                    ->description(fn (AuditLog $record): ?string => $record->created_at?->format('d M Y, H:i:s T')),
                 TextColumn::make('action')
                     ->label('Aksi')
                     ->badge()
                     ->formatStateUsing(fn (string $state): string => self::actionLabel($state)),
                 TextColumn::make('actor')
-                    ->label('Aktor')
+                    ->label('User')
                     ->getStateUsing(function (AuditLog $record): string {
                         $user = $record->user;
                         if (! $user) {
                             return 'System';
                         }
+                        return $user->name ?: $user->email ?: $user->username ?: 'User';
+                    })
+                    ->description(function (AuditLog $record): ?string {
+                        $user = $record->user;
+                        if (! $user) {
+                            return null;
+                        }
                         $role = $user->role ?: $user->getRoleNames()->first();
-                        $roleText = $role ? ' · '.$role : '';
-                        $identity = $user->email ?: $user->username ?: $user->name;
-                        return trim((string) $identity) . $roleText;
+                        return $role ? 'Role: '.$role : null;
                     })
                     ->searchable(query: function (Builder $query, string $search): Builder {
                         return $query->whereHas('user', function (Builder $sub) use ($search): void {
@@ -53,23 +63,45 @@ class MaintenanceHistoryResource extends Resource
                                 ->orWhere('username', 'like', "%{$search}%");
                         });
                     }),
+                TextColumn::make('target')
+                    ->label('Target')
+                    ->badge()
+                    ->getStateUsing(function (AuditLog $record): string {
+                        return str_contains($record->action, 'token') ? 'MaintenanceToken' : 'Maintenance';
+                    }),
                 TextColumn::make('changes')
                     ->label('Perubahan')
                     ->getStateUsing(fn (AuditLog $record): string => self::formatChanges($record))
                     ->html()
                     ->wrap(),
             ])
+            ->filters([
+                SelectFilter::make('action')
+                    ->label('Aksi')
+                    ->options(collect(self::actionsFilter())
+                        ->mapWithKeys(fn (string $action): array => [$action => self::actionLabel($action)])
+                        ->all()),
+            ])
             ->modifyQueryUsing(fn (Builder $query): Builder => $query->whereIn('action', self::actionsFilter()))
+            ->searchable()
+            ->filtersLayout(FiltersLayout::AboveContentCollapsible)
+            ->persistFiltersInSession()
             ->emptyStateHeading('Belum ada riwayat maintenance')
             ->emptyStateDescription('Riwayat akan muncul ketika jadwal atau status maintenance berubah.')
+            ->emptyStateActions([
+                Action::make('refresh')
+                    ->label('Segarkan')
+                    ->icon('heroicon-o-arrow-path')
+                    ->url(fn (): string => request()->fullUrl()),
+            ])
             ->toolbarActions([]);
     }
 
     public static function canViewAny(): bool
     {
-        $user = auth()->user();
+        $user = AuthHelper::user();
 
-        return $user && method_exists($user, 'isDeveloper') && $user->isDeveloper();
+        return $user && $user->isDeveloper();
     }
 
     public static function canCreate(): bool

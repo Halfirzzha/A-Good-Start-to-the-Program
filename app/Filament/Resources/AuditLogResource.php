@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\AuditLogResource\Pages;
 use App\Models\AuditLog;
+use App\Support\AuthHelper;
 use Filament\Actions\ViewAction;
 use Filament\Infolists\Components\KeyValueEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -11,6 +12,8 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Enums\FiltersLayout;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Model;
 
@@ -64,43 +67,77 @@ class AuditLogResource extends Resource
     {
         return $table
             ->defaultSort('created_at', 'desc')
+            ->striped()
+            ->poll('30s')
             ->columns([
                 TextColumn::make('created_at')
-                    ->label('Time')
-                    ->dateTime()
-                    ->sortable(),
+                    ->label('Waktu')
+                    ->sortable()
+                    ->formatStateUsing(fn (AuditLog $record): string => $record->created_at?->diffForHumans() ?? '—')
+                    ->description(fn (AuditLog $record): ?string => $record->created_at?->format('d M Y, H:i:s T')),
                 TextColumn::make('action')
+                    ->label('Aksi')
                     ->badge()
-                    ->searchable(),
-                TextColumn::make('user.email')
+                    ->searchable()
+                    ->color(fn (string $state): string => match (true) {
+                        str_contains($state, 'created') => 'success',
+                        str_contains($state, 'updated') => 'warning',
+                        str_contains($state, 'deleted') => 'danger',
+                        str_contains($state, 'login') => 'info',
+                        default => 'gray',
+                    }),
+                TextColumn::make('user')
                     ->label('User')
+                    ->getStateUsing(function (AuditLog $record): string {
+                        $user = $record->user;
+                        if (! $user) {
+                            return 'System';
+                        }
+                        return $user->name ?: $user->email ?: $user->username ?: 'User';
+                    })
+                    ->description(function (AuditLog $record): ?string {
+                        $user = $record->user;
+                        if (! $user) {
+                            return null;
+                        }
+                        $role = $user->role ?: $user->getRoleNames()->first();
+                        return $role ? 'Role: '.$role : null;
+                    })
                     ->searchable(),
-                TextColumn::make('auditable_type')
-                    ->label('Entity')
-                    ->searchable(),
-                TextColumn::make('auditable_id')
-                    ->label('Entity ID')
-                    ->sortable(),
-                TextColumn::make('ip_address')
-                    ->label('IP')
-                    ->searchable(),
-                TextColumn::make('method')
-                    ->label('Method')
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('status_code')
-                    ->label('Status')
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('hash')
-                    ->label('Hash')
-                    ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('previous_hash')
-                    ->label('Previous Hash')
-                    ->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('target')
+                    ->label('Target')
+                    ->badge()
+                    ->getStateUsing(fn (AuditLog $record): string => $record->auditable_type ? class_basename($record->auditable_type) : '—')
+                    ->description(fn (AuditLog $record): ?string => $record->auditable_id ? 'ID: '.$record->auditable_id : null),
             ])
+            ->filters([
+                SelectFilter::make('action')
+                    ->label('Action')
+                    ->options(fn (): array => AuditLog::query()
+                        ->distinct()
+                        ->pluck('action', 'action')
+                        ->sort()
+                        ->all())
+                    ->searchable()
+                    ->multiple(),
+                SelectFilter::make('auditable_type')
+                    ->label('Entity Type')
+                    ->options(fn (): array => AuditLog::query()
+                        ->distinct()
+                        ->pluck('auditable_type')
+                        ->filter()
+                    ->mapWithKeys(fn (string $type): array => [$type => class_basename($type)])
+                    ->sort()
+                    ->all())
+                    ->searchable(),
+            ])
+            ->searchable()
+            ->filtersLayout(FiltersLayout::AboveContentCollapsible)
+            ->persistFiltersInSession()
             ->recordActions([
                 ViewAction::make()
                     ->authorize('view')
-                    ->visible(fn (AuditLog $record): bool => auth()->user()?->can('view', $record) ?? false),
+                    ->visible(fn (AuditLog $record): bool => AuthHelper::user()?->can('view', $record) ?? false),
             ])
             ->emptyStateHeading('Log audit belum tersedia')
             ->emptyStateDescription('Audit log akan muncul secara real-time saat aksi tercatat.')

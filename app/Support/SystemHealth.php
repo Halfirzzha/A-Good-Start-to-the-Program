@@ -10,6 +10,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class SystemHealth
 {
@@ -26,9 +28,14 @@ class SystemHealth
             'database' => self::checkDatabase(),
             'cache' => self::checkCache(),
             'queue' => self::checkQueue(),
+            'scheduler' => self::checkScheduler(),
+            'storage' => self::checkStorage(),
+            'system' => self::checkSystemResources(),
         ];
 
-        $status = collect($checks)->every(fn (array $check): bool => $check['status'] === 'ok') ? 'ok' : 'degraded';
+        $status = collect($checks)->every(function (array $check): bool {
+            return in_array($check['status'], ['ok', 'restricted', 'unknown'], true);
+        }) ? 'ok' : 'degraded';
 
         return [
             'overall_status' => $status,
@@ -36,6 +43,7 @@ class SystemHealth
             'timestamp' => now()->toIso8601String(),
             'duration_ms' => (int) round((microtime(true) - $start) * 1000),
             'maintenance' => self::maintenanceSnapshot(),
+            'app' => self::appSnapshot(),
         ];
     }
 
@@ -137,6 +145,175 @@ class SystemHealth
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    private static function checkScheduler(): array
+    {
+        $start = microtime(true);
+        $lastRun = Cache::get('system_health:scheduler_last_run');
+        if (! is_string($lastRun) || $lastRun === '') {
+            return self::formatCheck('scheduler', 'degraded', 'Scheduler heartbeat missing', $start);
+        }
+
+        $lastRunAt = self::formatDate($lastRun);
+        $status = $lastRunAt && now()->diffInSeconds($lastRunAt, false) >= -180 ? 'ok' : 'degraded';
+        $details = $status === 'ok' ? 'Scheduler heartbeat ok' : 'Scheduler heartbeat stale';
+
+        return self::formatCheck('scheduler', $status, $details, $start, [
+            'last_run' => $lastRunAt,
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function checkStorage(): array
+    {
+        $start = microtime(true);
+        $disk = (string) config('filesystems.default', 'local');
+        $probePath = 'healthcheck/.probe-' . Str::random(8);
+
+        try {
+            $storage = Storage::disk($disk);
+            $storage->put($probePath, now()->toIso8601String());
+            $storage->delete($probePath);
+
+            $meta = [
+                'disk' => $disk,
+            ];
+
+            $root = config("filesystems.disks.{$disk}.root");
+            if (is_string($root) && is_dir($root)) {
+                $free = @disk_free_space($root);
+                if (is_float($free) || is_int($free)) {
+                    $meta['free_mb'] = (int) round($free / 1024 / 1024);
+                }
+            }
+
+            return self::formatCheck('storage', 'ok', 'Storage writable', $start, $meta);
+        } catch (\Throwable $error) {
+            return self::formatCheck('storage', 'degraded', 'Storage not writable', $start, [
+                'disk' => $disk,
+                'error' => $error->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function checkSystemResources(): array
+    {
+        $start = microtime(true);
+
+        try {
+            $cores = self::cpuCores();
+            $loadAvg = sys_getloadavg();
+            $load1m = is_array($loadAvg) && isset($loadAvg[0]) ? (float) $loadAvg[0] : null;
+            $cpuUsage = ($load1m !== null && $cores > 0)
+                ? min(100, max(0, ($load1m / $cores) * 100))
+                : null;
+
+            $memory = self::readMemory();
+            $disk = self::readDisk();
+
+            if ($load1m === null && empty($memory) && empty($disk)) {
+                return self::formatCheck('system', 'restricted', 'Privasi Provider - data sensitif', $start);
+            }
+
+            return self::formatCheck('system', 'ok', 'System resources available', $start, [
+                'cpu_load_1m' => $load1m,
+                'cpu_cores' => $cores,
+                'cpu_usage_pct' => $cpuUsage,
+                'memory_total_mb' => $memory['total_mb'] ?? null,
+                'memory_used_mb' => $memory['used_mb'] ?? null,
+                'memory_free_mb' => $memory['free_mb'] ?? null,
+                'disk_total_gb' => $disk['total_gb'] ?? null,
+                'disk_used_gb' => $disk['used_gb'] ?? null,
+                'disk_free_gb' => $disk['free_gb'] ?? null,
+            ]);
+        } catch (\Throwable) {
+            return self::formatCheck('system', 'restricted', 'Privasi Provider - data sensitif', $start);
+        }
+    }
+
+    private static function cpuCores(): int
+    {
+        $cores = 0;
+        if (is_readable('/proc/cpuinfo')) {
+            $content = file_get_contents('/proc/cpuinfo');
+            if (is_string($content)) {
+                $cores = preg_match_all('/^processor\\s*:/m', $content);
+            }
+        }
+
+        return $cores > 0 ? $cores : 1;
+    }
+
+    /**
+     * @return array{total_mb?: int, used_mb?: int, free_mb?: int}
+     */
+    private static function readMemory(): array
+    {
+        if (! is_readable('/proc/meminfo')) {
+            return [];
+        }
+
+        $content = file_get_contents('/proc/meminfo');
+        if (! is_string($content)) {
+            return [];
+        }
+
+        $values = [];
+        foreach (explode("\n", $content) as $line) {
+            if (! str_contains($line, ':')) {
+                continue;
+            }
+            [$key, $value] = array_map('trim', explode(':', $line, 2));
+            $values[$key] = (int) filter_var($value, FILTER_SANITIZE_NUMBER_INT);
+        }
+
+        $total = $values['MemTotal'] ?? null;
+        $available = $values['MemAvailable'] ?? null;
+        if (! $total || ! $available) {
+            return [];
+        }
+
+        $used = max(0, $total - $available);
+
+        return [
+            'total_mb' => (int) round($total / 1024),
+            'used_mb' => (int) round($used / 1024),
+            'free_mb' => (int) round($available / 1024),
+        ];
+    }
+
+    /**
+     * @return array{total_gb?: float, used_gb?: float, free_gb?: float}
+     */
+    private static function readDisk(): array
+    {
+        $root = base_path();
+        $total = @disk_total_space($root);
+        $free = @disk_free_space($root);
+
+        if (! is_int($total) && ! is_float($total)) {
+            return [];
+        }
+        if (! is_int($free) && ! is_float($free)) {
+            return [];
+        }
+
+        $used = max(0, $total - $free);
+
+        return [
+            'total_gb' => round($total / 1024 / 1024 / 1024, 2),
+            'used_gb' => round($used / 1024 / 1024 / 1024, 2),
+            'free_gb' => round($free / 1024 / 1024 / 1024, 2),
+        ];
+    }
+
+    /**
      * @param  string  $name
      * @param  string  $status
      * @param  string  $details
@@ -171,6 +348,29 @@ class SystemHealth
             'title' => $maintenance['title'] ?? null,
             'summary' => $maintenance['summary'] ?? null,
             'note_html' => $noteHtml,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function appSnapshot(): array
+    {
+        $bootedAt = Cache::get('system_health:booted_at');
+        if (! is_string($bootedAt) || $bootedAt === '') {
+            $bootedAt = now()->toIso8601String();
+            Cache::put('system_health:booted_at', $bootedAt, now()->addHours(12));
+        }
+
+        $bootedAtFormatted = self::formatDate($bootedAt);
+        $uptimeSeconds = $bootedAtFormatted ? now()->diffInSeconds($bootedAtFormatted) : null;
+
+        return [
+            'name' => config('app.name'),
+            'version' => config('app.version', 'unknown'),
+            'timezone' => config('app.timezone', 'UTC'),
+            'booted_at' => $bootedAtFormatted,
+            'uptime_seconds' => $uptimeSeconds,
         ];
     }
 

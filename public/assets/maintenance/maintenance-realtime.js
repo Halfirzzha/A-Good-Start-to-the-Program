@@ -158,7 +158,8 @@
     const computePollDelay = () => {
         if (errorCount > 0) {
             return Math.min(
-                POLL_NORMAL_MS * Math.pow(1.5, errorCount) + Math.random() * 1000,
+                POLL_NORMAL_MS * Math.pow(1.5, errorCount) +
+                    Math.random() * 1000,
                 MAX_BACKOFF_MS
             );
         }
@@ -224,14 +225,20 @@
                 clearInterval(pollIntervalId);
                 pollIntervalId = null;
             }
-            console.warn("[Maintenance-RT] Polling stopped after max errors. Click to retry.");
-            document.addEventListener("click", () => {
-                if (pollingStopped) {
-                    pollingStopped = false;
-                    errorCount = 0;
-                    startPolling();
-                }
-            }, { once: true });
+            console.warn(
+                "[Maintenance-RT] Polling stopped after max errors. Click to retry."
+            );
+            document.addEventListener(
+                "click",
+                () => {
+                    if (pollingStopped) {
+                        pollingStopped = false;
+                        errorCount = 0;
+                        startPolling();
+                    }
+                },
+                { once: true }
+            );
         }
     };
 

@@ -23,7 +23,43 @@ class AuditLogWriter
      */
     public static function writeLoginActivity(array $data): void
     {
-        self::insert('user_login_activities', $data, ['context']);
+        $event = is_string($data['event'] ?? null) ? (string) $data['event'] : 'activity';
+        $action = 'auth_' . $event;
+
+        $context = $data['context'] ?? [];
+        if (! is_array($context)) {
+            $context = [];
+        }
+
+        $context = array_merge($context, [
+            'category' => 'auth',
+            'event' => $event,
+            'identity' => $data['identity'] ?? null,
+            'ip_address' => $data['ip_address'] ?? null,
+            'user_agent' => $data['user_agent'] ?? null,
+            'session_id' => $data['session_id'] ?? null,
+            'request_id' => $data['request_id'] ?? null,
+        ]);
+
+        self::writeAudit([
+            'user_id' => $data['user_id'] ?? null,
+            'action' => $action,
+            'auditable_type' => $data['user_id'] ? \App\Models\User::class : null,
+            'auditable_id' => $data['user_id'] ?? null,
+            'old_values' => null,
+            'new_values' => null,
+            'ip_address' => $data['ip_address'] ?? null,
+            'user_agent' => $data['user_agent'] ?? null,
+            'url' => $context['url'] ?? null,
+            'route' => $context['route'] ?? null,
+            'method' => $context['method'] ?? null,
+            'status_code' => $context['status_code'] ?? null,
+            'request_id' => $data['request_id'] ?? null,
+            'session_id' => $data['session_id'] ?? null,
+            'duration_ms' => $context['duration_ms'] ?? null,
+            'context' => $context,
+            'created_at' => $data['created_at'] ?? now(),
+        ]);
     }
 
     /**
