@@ -4,11 +4,10 @@ namespace App\Models;
 
 use App\Enums\AccountStatus;
 use App\Models\Concerns\Auditable;
-use App\Models\UserLoginActivity;
-use App\Models\UserPasswordHistory;
 use App\Notifications\QueuedResetPassword;
 use App\Notifications\QueuedVerifyEmail;
 use App\Support\AuditLogWriter;
+use App\Support\SystemSettings;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasAvatar;
 use Filament\Panel;
@@ -24,14 +23,13 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use App\Support\SystemSettings;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable implements FilamentUser, MustVerifyEmail, HasAvatar
+class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerifyEmail
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use Auditable, HasFactory, HasRoles, Notifiable, SoftDeletes, MustVerifyEmailTrait;
+    use Auditable, HasFactory, HasRoles, MustVerifyEmailTrait, Notifiable, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -251,14 +249,20 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
             ?: 'public';
 
         try {
-            if (! Storage::disk($disk)->exists($path)) {
+            $storage = Storage::disk($disk);
+            if (! $storage->exists($path)) {
                 return null;
             }
+
+            if (! method_exists($storage, 'url')) {
+                return null;
+            }
+
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $storage */
+            return $storage->url($path);
         } catch (\Throwable) {
             return $this->buildFallbackAvatar();
         }
-
-        return Storage::disk($disk)->url($path);
     }
 
     private function sanitizePublicDisk(?string $disk): ?string
@@ -267,7 +271,13 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
             return null;
         }
 
-        $config = config("filesystems.disks.{$disk}");
+        $disks = config('filesystems.disks', []);
+        if (! is_array($disks) || ! isset($disks[$disk])) {
+            return null;
+        }
+
+        /** @var mixed $config */
+        $config = $disks[$disk];
         if (! is_array($config)) {
             return null;
         }
@@ -312,7 +322,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
             ."<rect width='64' height='64' rx='32' fill='#1f2937'/>"
             ."<text x='50%' y='52%' text-anchor='middle' dominant-baseline='middle' font-family='Arial, sans-serif' font-size='24' fill='#ffffff'>"
             .htmlspecialchars($initials, ENT_QUOTES, 'UTF-8')
-            ."</text></svg>";
+            .'</text></svg>';
 
         return 'data:image/svg+xml;charset=utf-8,'.rawurlencode($svg);
     }
@@ -384,10 +394,12 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
 
         if ($this->shouldBypassPanelChecks()) {
             $this->logPanelAccessBypassed($panel, $reasons);
+
             return true;
         }
 
         $this->logPanelAccessDenied($panel, $reasons);
+
         return false;
     }
 
@@ -400,7 +412,7 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
 
     public function sendEmailVerificationNotification(): void
     {
-        $this->notify(new QueuedVerifyEmail());
+        $this->notify(new QueuedVerifyEmail);
     }
 
     public function sendPasswordResetNotification($token): void
@@ -552,8 +564,8 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail, Has
         $suffix = 1;
 
         while (self::query()->where('username', $candidate)->exists()) {
-            $suffixText = '-' . $suffix;
-            $candidate = Str::limit($base, 50 - strlen($suffixText), '') . $suffixText;
+            $suffixText = '-'.$suffix;
+            $candidate = Str::limit($base, 50 - strlen($suffixText), '').$suffixText;
             $suffix++;
         }
 

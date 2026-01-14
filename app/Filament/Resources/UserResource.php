@@ -5,8 +5,8 @@ namespace App\Filament\Resources;
 use App\Enums\AccountStatus;
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
-use App\Support\AuthHelper;
 use App\Support\AuditLogWriter;
+use App\Support\AuthHelper;
 use App\Support\PasswordRules;
 use App\Support\SystemSettings;
 use Filament\Actions\Action;
@@ -73,8 +73,6 @@ class UserResource extends Resource
         $isViewer = (AuthHelper::user()?->hasRole('viewer') ?? false)
             || (AuthHelper::user()?->role === 'viewer');
         [$disk, $fallbackDisk] = self::resolveAvatarUploadDisks();
-        $localeFallback = (string) config('app.locale', 'en');
-        $timezoneFallback = (string) config('app.timezone', 'UTC');
         $countryOptions = self::asianCountryDialCodes();
 
         return $schema->components([
@@ -102,7 +100,7 @@ class UserResource extends Resource
                                         ->visibility('public')
                                         ->helperText(__('ui.users.helpers.avatar'))
                                         ->disabled(fn (?User $record): bool => $isViewer || ! self::canManageAvatar($record))
-                                        ->getUploadedFileUsing(function (BaseFileUpload $component, string $file, string|array|null $storedFileNames): ?array {
+                                        ->getUploadedFileUsing(function (string $file, string|array|null $storedFileNames): ?array {
                                             $parsed = self::parseAvatarState($file);
                                             if ($parsed['url']) {
                                                 $basename = basename((string) parse_url($parsed['url'], PHP_URL_PATH));
@@ -128,20 +126,24 @@ class UserResource extends Resource
                                                     return null;
                                                 }
 
+                                                /** @var \Illuminate\Contracts\Filesystem\Filesystem $storage */
+                                                $mimeType = method_exists($storage, 'mimeType') ? $storage->mimeType($path) : null;
+                                                $url = method_exists($storage, 'url') ? $storage->url($path) : null;
+
                                                 return [
                                                     'name' => is_array($storedFileNames) ? ($storedFileNames[$path] ?? basename($path)) : ($storedFileNames ?? basename($path)),
                                                     'size' => (int) $storage->size($path),
-                                                    'type' => $storage->mimeType($path),
-                                                    'url' => $storage->url($path),
+                                                    'type' => $mimeType,
+                                                    'url' => $url,
                                                 ];
                                             } catch (\Throwable) {
                                                 return null;
                                             }
                                         })
-                                        ->saveUploadedFileUsing(function (BaseFileUpload $component, TemporaryUploadedFile $file) use ($disk, $fallbackDisk): ?string {
-                                            $directory = (string) $component->getDirectory();
-                                            $filename = (string) $component->getUploadedFileNameForStorage($file);
-                                            $storeMethod = $component->getVisibility() === 'public' ? 'storePubliclyAs' : 'storeAs';
+                                        ->saveUploadedFileUsing(function (TemporaryUploadedFile $file) use ($disk, $fallbackDisk): ?string {
+                                            $directory = 'avatars';
+                                            $filename = $file->hashName();
+                                            $storeMethod = 'storePubliclyAs';
 
                                             try {
                                                 return $file->{$storeMethod}($directory, $filename, $disk);
@@ -514,7 +516,8 @@ class UserResource extends Resource
                     ->disk(fn (User $record): string => self::resolveAvatarDiskForPath(self::stripAvatarDiskPrefix($record->avatar)))
                     ->getStateUsing(fn (User $record): ?string => self::stripAvatarDiskPrefix($record->avatar))
                     ->circular()
-                    ->size(32),
+                    ->width(32)
+                    ->height(32),
                 TextColumn::make('name')
                     ->searchable()
                     ->sortable()
@@ -696,7 +699,7 @@ class UserResource extends Resource
                         ])->save();
                     }),
             ])
-            ->bulkActions([
+            ->groupedBulkActions([
                 DeleteBulkAction::make()
                     ->authorize('delete_any_user')
                     ->visible(fn (): bool => AuthHelper::user()?->can('delete_any_user') ?? false)
@@ -751,11 +754,11 @@ class UserResource extends Resource
                             if (! self::canActorManage($record)) {
                                 return;
                             }
-                                $record->forceFill([
-                                    'account_status' => AccountStatus::Suspended,
-                                    'blocked_by' => AuthHelper::id(),
-                                    'blocked_reason' => __('ui.users.notes.bulk_suspension'),
-                                ])->save();
+                            $record->forceFill([
+                                'account_status' => AccountStatus::Suspended,
+                                'blocked_by' => AuthHelper::id(),
+                                'blocked_reason' => __('ui.users.notes.bulk_suspension'),
+                            ])->save();
                         });
 
                         self::logBulkAction('bulk_user_suspend', $records);
@@ -1366,7 +1369,12 @@ class UserResource extends Resource
             return null;
         }
 
-        $config = config("filesystems.disks.{$disk}");
+        $disks = config('filesystems.disks', []);
+        if (! is_array($disks) || ! isset($disks[$disk])) {
+            return null;
+        }
+
+        $config = $disks[$disk];
         if (! is_array($config)) {
             return null;
         }
