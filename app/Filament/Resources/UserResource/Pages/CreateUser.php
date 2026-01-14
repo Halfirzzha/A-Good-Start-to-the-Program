@@ -17,15 +17,32 @@ class CreateUser extends CreateRecord
 
     private ?string $selectedRole = null;
 
+    protected function getFormActions(): array
+    {
+        if (! $this->canSubmit()) {
+            return [
+                $this->getCancelFormAction(),
+            ];
+        }
+
+        return parent::getFormActions();
+    }
+
     /**
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
     protected function mutateFormDataBeforeCreate(array $data): array
     {
+        if (! $this->canSubmit()) {
+            return [];
+        }
+
+        $data = $this->filterByPermissions($data);
+
         $role = $data['role'] ?? null;
         if (! is_string($role) || ! UserResource::canAssignRoleName($role, AuthHelper::user())) {
-            abort(403, 'Role assignment denied.');
+            abort(403, __('ui.users.errors.role_assignment_denied'));
         }
 
         $this->selectedRole = $role;
@@ -48,6 +65,76 @@ class CreateUser extends CreateRecord
         }
 
         return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function filterByPermissions(array $data): array
+    {
+        $originalKeys = array_keys($data);
+
+        if (! UserResource::canManageAvatar()) {
+            unset($data['avatar']);
+        }
+
+        if (! UserResource::canManageIdentity()) {
+            unset(
+                $data['name'],
+                $data['email'],
+                $data['username'],
+                $data['position'],
+                $data['role'],
+                $data['phone_country_code'],
+                $data['phone_number'],
+            );
+        }
+
+        if (! UserResource::canManageSecurity()) {
+            unset(
+                $data['password'],
+                $data['password_confirmation'],
+                $data['must_change_password'],
+                $data['password_expires_at'],
+                $data['two_factor_enabled'],
+                $data['two_factor_method'],
+            );
+        }
+
+        if (! UserResource::canManageAccessStatus()) {
+            unset(
+                $data['account_status'],
+                $data['blocked_until'],
+                $data['blocked_reason'],
+                $data['blocked_by'],
+            );
+        }
+
+        $blocked = array_values(array_diff($originalKeys, array_keys($data)));
+        if ($blocked !== []) {
+            AuditLogWriter::writeAudit([
+                'user_id' => AuthHelper::id(),
+                'action' => 'unauthorized_field_update',
+                'auditable_type' => \App\Models\User::class,
+                'auditable_id' => null,
+                'old_values' => null,
+                'new_values' => null,
+                'context' => [
+                    'resource' => 'user',
+                    'blocked_fields' => $blocked,
+                    'operation' => 'create',
+                ],
+                'created_at' => now(),
+            ]);
+        }
+
+        return $data;
+    }
+
+    private function canSubmit(): bool
+    {
+        return UserResource::canManageIdentity();
     }
 
     protected function afterCreate(): void
@@ -107,7 +194,7 @@ class CreateUser extends CreateRecord
         ]);
 
         SecurityAlert::dispatch('user_role_assigned', [
-            'title' => 'User role assigned',
+            'title' => __('ui.users.alerts.role_assigned'),
             'target_user_id' => $this->record->getKey(),
             'target_email' => $this->record->email,
             'target_username' => $this->record->username,

@@ -45,12 +45,20 @@ class NotificationDeliveryLogger
         $notifiableId = is_object($notifiable) && method_exists($notifiable, 'getKey')
             ? $notifiable->getKey()
             : ($context['notifiable_id'] ?? null);
+        $notificationId = $context['notification_id'] ?? null;
+        $attempts = $context['attempts'] ?? null;
+        $idempotencyKey = $context['idempotency_key'] ?? null;
+        $queuedAt = $context['queued_at'] ?? null;
+        $sentAt = $context['sent_at'] ?? null;
+        $failedAt = $context['failed_at'] ?? null;
 
         try {
             NotificationDelivery::query()->create([
+                'notification_id' => $notificationId,
                 'notification_type' => $notification ? $notification::class : ($context['notification_type'] ?? 'system'),
                 'channel' => $channel,
                 'status' => $status,
+                'attempts' => is_numeric($attempts) ? (int) $attempts : 0,
                 'notifiable_type' => $notifiableType,
                 'notifiable_id' => $notifiableId,
                 'recipient' => is_string($recipient) ? $recipient : null,
@@ -61,6 +69,10 @@ class NotificationDeliveryLogger
                 'user_agent' => $userAgent ? Str::limit((string) $userAgent, 255) : null,
                 'device_type' => self::guessDeviceType($userAgent),
                 'request_id' => is_string($requestId) ? $requestId : null,
+                'idempotency_key' => is_string($idempotencyKey) ? $idempotencyKey : null,
+                'queued_at' => $queuedAt,
+                'sent_at' => $sentAt,
+                'failed_at' => $failedAt,
             ]);
         } catch (\Throwable) {
             // Ignore logging failures to avoid breaking notification flow.

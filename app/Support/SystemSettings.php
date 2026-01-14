@@ -42,12 +42,10 @@ class SystemSettings
                 return is_array($cached) ? $cached : $defaults;
             }
 
-            $data = is_array($setting->data) ? $setting->data : [];
-            $secrets = is_array($setting->secrets) ? $setting->secrets : [];
-
+            $mapped = self::mapRecord($setting);
             $payload = [
-                'data' => array_replace_recursive($defaults['data'], $data),
-                'secrets' => $secrets,
+                'data' => array_replace_recursive($defaults['data'], $mapped['data']),
+                'secrets' => array_replace_recursive($defaults['secrets'], $mapped['secrets']),
             ];
 
             try {
@@ -173,6 +171,7 @@ class SystemSettings
                 'project' => [
                     'name' => config('app.name', 'System'),
                     'description' => '',
+                    'url' => config('app.url'),
                 ],
                 'branding' => [
                     'logo' => [
@@ -207,28 +206,11 @@ class SystemSettings
                     'drive_folder_branding' => 'branding',
                     'drive_folder_favicon' => 'branding',
                 ],
-                'maintenance' => [
-                    'enabled' => false,
-                    'mode' => 'global',
-                    'title' => 'Kami sedang melakukan maintenance',
-                    'summary' => 'Tim kami sedang meningkatkan stabilitas, keamanan, dan performa layanan. Akses publik akan kembali segera.',
-                    'note_html' => null,
-                    'start_at' => null,
-                    'end_at' => null,
-                    'allow_ips' => [],
-                    'allow_roles' => [],
-                    'allow_developer_bypass' => false,
-                    'allow_paths' => [],
-                    'deny_paths' => [],
-                    'allow_routes' => [],
-                    'deny_routes' => [],
-                    'allow_api' => false,
-                ],
                 'notifications' => [
                     'email' => [
                         'enabled' => true,
                         'recipients' => [],
-                        'provider' => null,
+                        'provider' => 'SMTP',
                         'from_address' => null,
                         'from_name' => null,
                         'auth_from_address' => null,
@@ -260,10 +242,96 @@ class SystemSettings
                     'client_secret' => null,
                     'refresh_token' => null,
                 ],
-                'maintenance' => [
-                    'bypass_tokens' => [],
+            ],
+        ];
+    }
+
+    /**
+     * @return array{data: array<string, mixed>, secrets: array<string, mixed>}
+     */
+    private static function mapRecord(SystemSetting $setting): array
+    {
+        $recipients = $setting->email_recipients;
+        if (! is_array($recipients)) {
+            $recipients = [];
+        }
+
+        return [
+            'data' => [
+                'project' => [
+                    'name' => $setting->project_name ?: config('app.name', 'System'),
+                    'description' => $setting->project_description,
+                    'url' => $setting->project_url ?: config('app.url'),
+                ],
+                'branding' => [
+                    'logo' => self::brandingMeta($setting, 'logo'),
+                    'cover' => self::brandingMeta($setting, 'cover'),
+                    'favicon' => self::brandingMeta($setting, 'favicon'),
+                ],
+                'storage' => [
+                    'primary_disk' => $setting->storage_primary_disk,
+                    'fallback_disk' => $setting->storage_fallback_disk,
+                    'drive_root' => $setting->storage_drive_root,
+                    'drive_folder_branding' => $setting->storage_drive_folder_branding,
+                    'drive_folder_favicon' => $setting->storage_drive_folder_favicon,
+                ],
+                'notifications' => [
+                    'email' => [
+                        'enabled' => (bool) $setting->email_enabled,
+                        'recipients' => $recipients,
+                        'provider' => $setting->email_provider,
+                        'from_address' => $setting->email_from_address,
+                        'from_name' => $setting->email_from_name,
+                        'auth_from_address' => $setting->email_auth_from_address,
+                        'auth_from_name' => $setting->email_auth_from_name,
+                        'mailer' => $setting->smtp_mailer,
+                        'smtp_host' => $setting->smtp_host,
+                        'smtp_port' => $setting->smtp_port,
+                        'smtp_encryption' => $setting->smtp_encryption,
+                        'smtp_username' => $setting->smtp_username,
+                    ],
+                    'telegram' => [
+                        'enabled' => (bool) $setting->telegram_enabled,
+                        'chat_id' => $setting->telegram_chat_id,
+                    ],
                 ],
             ],
+            'secrets' => [
+                'notifications' => [
+                    'email' => [
+                        'smtp_password' => $setting->smtp_password,
+                    ],
+                ],
+                'telegram' => [
+                    'bot_token' => $setting->telegram_bot_token,
+                ],
+                'google_drive' => [
+                    'service_account_json' => $setting->google_drive_service_account_json,
+                    'client_id' => $setting->google_drive_client_id,
+                    'client_secret' => $setting->google_drive_client_secret,
+                    'refresh_token' => $setting->google_drive_refresh_token,
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function brandingMeta(SystemSetting $setting, string $key): array
+    {
+        $updatedAt = $setting->getAttribute("branding_{$key}_updated_at");
+        if ($updatedAt instanceof \DateTimeInterface) {
+            $updatedAt = $updatedAt->format(\DateTimeInterface::ATOM);
+        }
+
+        return [
+            'disk' => $setting->getAttribute("branding_{$key}_disk"),
+            'path' => $setting->getAttribute("branding_{$key}_path"),
+            'fallback_disk' => $setting->getAttribute("branding_{$key}_fallback_disk"),
+            'fallback_path' => $setting->getAttribute("branding_{$key}_fallback_path"),
+            'status' => $setting->getAttribute("branding_{$key}_status"),
+            'updated_at' => $updatedAt,
         ];
     }
 

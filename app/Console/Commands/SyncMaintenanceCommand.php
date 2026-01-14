@@ -2,12 +2,10 @@
 
 namespace App\Console\Commands;
 
-use App\Models\SystemSetting;
 use App\Support\AuditLogWriter;
 use App\Support\MaintenanceService;
-use App\Support\SystemSettings;
+use App\Models\MaintenanceSetting;
 use Illuminate\Console\Command;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 class SyncMaintenanceCommand extends Command
@@ -18,8 +16,7 @@ class SyncMaintenanceCommand extends Command
 
     public function handle(): int
     {
-        $settings = SystemSettings::get(true);
-        $maintenance = Arr::get($settings, 'data.maintenance', []);
+        $maintenance = MaintenanceService::getSettings();
 
         $snapshot = MaintenanceService::snapshot($maintenance);
         $startAt = $snapshot['start_at'];
@@ -47,19 +44,19 @@ class SyncMaintenanceCommand extends Command
      */
     private function setEnabled(bool $enabled, array $maintenance, string $reason): void
     {
-        $setting = SystemSetting::query()->first();
+        $setting = MaintenanceSetting::query()->first();
         if (! $setting) {
-            return;
+            $setting = MaintenanceSetting::query()->create([]);
         }
 
-        $data = is_array($setting->data) ? $setting->data : [];
-        Arr::set($data, 'maintenance.enabled', $enabled);
-        $setting->forceFill(['data' => $data])->save();
+        $setting->forceFill([
+            'enabled' => $enabled,
+        ])->save();
 
         AuditLogWriter::writeAudit([
             'user_id' => null,
             'action' => $enabled ? 'maintenance_auto_enabled' : 'maintenance_auto_disabled',
-            'auditable_type' => SystemSetting::class,
+            'auditable_type' => MaintenanceSetting::class,
             'auditable_id' => $setting->getKey(),
             'old_values' => ['enabled' => ! $enabled],
             'new_values' => ['enabled' => $enabled],

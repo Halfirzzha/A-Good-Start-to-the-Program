@@ -58,4 +58,20 @@ class AuditHasher
 
         return hash('sha256', ($previousHash ?? '').'|'.$payload);
     }
+
+    public static function signature(string $hash): ?string
+    {
+        if (! config('audit.signature_enabled', false)) {
+            return null;
+        }
+
+        $secret = (string) config('audit.signature_secret', '');
+        if ($secret === '') {
+            return null;
+        }
+
+        $algo = (string) config('audit.signature_algo', 'sha256');
+
+        return hash_hmac($algo, $hash, $secret);
+    }
 }

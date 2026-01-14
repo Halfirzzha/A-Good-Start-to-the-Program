@@ -2,11 +2,69 @@
 
 namespace App\Support;
 
+use App\Models\MaintenanceSetting;
 use Carbon\Carbon;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 
 class MaintenanceService
 {
+    private const CACHE_KEY = 'maintenance_settings:current';
+
+    private const CACHE_TTL_SECONDS = 10;
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function getSettings(bool $fresh = false): array
+    {
+        $cached = null;
+        try {
+            $cached = Cache::get(self::CACHE_KEY);
+        } catch (\Throwable) {
+            $cached = null;
+        }
+
+        if (! $fresh && is_array($cached)) {
+            return $cached;
+        }
+
+        $defaults = self::defaults();
+
+        try {
+            if (! Schema::hasTable('maintenance_settings')) {
+                return is_array($cached) ? $cached : $defaults;
+            }
+
+            $record = MaintenanceSetting::query()->first();
+            if (! $record) {
+                return is_array($cached) ? $cached : $defaults;
+            }
+
+            $payload = array_replace_recursive($defaults, self::mapRecord($record));
+
+            try {
+                Cache::put(self::CACHE_KEY, $payload, self::CACHE_TTL_SECONDS);
+            } catch (\Throwable) {
+                // Ignore cache failures.
+            }
+
+            return $payload;
+        } catch (\Throwable) {
+            return is_array($cached) ? $cached : $defaults;
+        }
+    }
+
+    public static function forget(): void
+    {
+        try {
+            Cache::forget(self::CACHE_KEY);
+        } catch (\Throwable) {
+            // Ignore cache failures.
+        }
+    }
+
     /**
      * @param  array<string, mixed>  $maintenance
      * @return array<string, mixed>
@@ -51,6 +109,58 @@ class MaintenanceService
             'start_at' => $startAt,
             'end_at' => $endAt,
             'retry_after' => $retryAfter,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function defaults(): array
+    {
+        return [
+            'enabled' => false,
+            'mode' => 'global',
+            'title' => null,
+            'summary' => null,
+            'note_html' => null,
+            'start_at' => null,
+            'end_at' => null,
+            'retry' => null,
+            'retry_after' => null,
+            'allow_roles' => [],
+            'allow_ips' => [],
+            'allow_paths' => [],
+            'deny_paths' => [],
+            'allow_routes' => [],
+            'deny_routes' => [],
+            'allow_api' => false,
+            'allow_developer_bypass' => false,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function mapRecord(MaintenanceSetting $record): array
+    {
+        return [
+            'enabled' => (bool) $record->enabled,
+            'mode' => $record->mode ?: 'global',
+            'title' => $record->title,
+            'summary' => $record->summary,
+            'note_html' => $record->note_html,
+            'start_at' => $record->start_at,
+            'end_at' => $record->end_at,
+            'retry' => $record->retry_after,
+            'retry_after' => $record->retry_after,
+            'allow_roles' => $record->allow_roles ?: [],
+            'allow_ips' => $record->allow_ips ?: [],
+            'allow_paths' => $record->allow_paths ?: [],
+            'deny_paths' => $record->deny_paths ?: [],
+            'allow_routes' => $record->allow_routes ?: [],
+            'deny_routes' => $record->deny_routes ?: [],
+            'allow_api' => (bool) $record->allow_api,
+            'allow_developer_bypass' => (bool) $record->allow_developer_bypass,
         ];
     }
 
@@ -122,6 +232,7 @@ class MaintenanceService
             'enabled' => 'Maintenance Mode',
             'start_at' => 'Maintenance Start',
             'end_at' => 'Maintenance End',
+            'retry_after' => 'Retry After',
             'mode' => 'Mode',
             'title' => 'Title',
             'summary' => 'Summary',

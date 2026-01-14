@@ -5,6 +5,8 @@ return [
     'enforce_session_stamp' => env('SECURITY_ENFORCE_SESSION_STAMP', true),
     'enforce_email_verification' => env('SECURITY_ENFORCE_EMAIL_VERIFICATION', true),
     'enforce_username' => env('SECURITY_ENFORCE_USERNAME', true),
+    'alert_enabled' => env('SECURITY_ALERT_ENABLED', true),
+    'alert_log_channel' => env('SECURITY_ALERT_LOG_CHANNEL', 'security'),
     'developer_bypass_validations' => env('SECURITY_DEVELOPER_BYPASS_VALIDATIONS', false),
     'developer_role' => env('SECURITY_DEVELOPER_ROLE', 'developer'),
     'superadmin_role' => env('SECURITY_SUPERADMIN_ROLE', 'super_admin'),
@@ -28,6 +30,11 @@ return [
     'password_expiry_notify_days' => (int) env('SECURITY_PASSWORD_EXPIRY_NOTIFY_DAYS', 7),
     'password_auto_reset_on_expiry' => env('SECURITY_PASSWORD_AUTO_RESET', true),
     'invitation_expires_days' => (int) env('SECURITY_INVITATION_EXPIRES_DAYS', 5),
+    'alert_in_app' => env('SECURITY_ALERT_IN_APP', true),
+    'alert_roles' => array_values(array_filter(array_map(
+        'trim',
+        explode(',', (string) env('SECURITY_ALERT_ROLES', 'developer,super_admin,admin'))
+    ))),
     'threat_detection' => [
         'enabled' => env('SECURITY_THREAT_ENABLED', true),
         'aggressive' => env('SECURITY_THREAT_AGGRESSIVE', true),

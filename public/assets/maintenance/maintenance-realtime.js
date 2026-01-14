@@ -7,10 +7,23 @@
     );
     const adminNext = document.querySelector("[data-maintenance-admin-next]");
     const adminRetry = document.querySelector("[data-maintenance-admin-retry]");
+    const trackedElements = [
+        adminStatus,
+        adminWindow,
+        adminNext,
+        adminRetry,
+    ].filter(Boolean);
 
     if (!adminStatus && !adminWindow && !adminNext) {
         return;
     }
+
+    const isVisible = (element) =>
+        element && element.offsetParent !== null;
+
+    const shouldEnableRealtime = () =>
+        document.visibilityState === "visible" &&
+        trackedElements.some((element) => isVisible(element));
 
     const parseDate = (value) => {
         if (!value) {
@@ -304,13 +317,26 @@
         return true;
     };
 
-    if (!startStream()) {
-        startPolling();
-    }
+    const startRealtime = () => {
+        if (!shouldEnableRealtime()) {
+            return;
+        }
+
+        if (!startStream()) {
+            startPolling();
+        }
+    };
+
+    startRealtime();
 
     document.addEventListener("visibilitychange", () => {
         if (!document.hidden) {
+            startRealtime();
             refreshStatus();
         }
+    });
+
+    document.addEventListener("click", () => {
+        startRealtime();
     });
 })();

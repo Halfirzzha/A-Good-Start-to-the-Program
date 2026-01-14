@@ -6,12 +6,9 @@ use App\Support\AuditLogWriter;
 use App\Support\MaintenanceService;
 use App\Support\MaintenanceTokenService;
 use App\Support\SecurityAlert;
-use App\Support\SystemSettings;
 use Carbon\Carbon;
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -22,15 +19,14 @@ class MaintenanceModeMiddleware
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $settings = SystemSettings::get();
-        $maintenance = Arr::get($settings, 'data.maintenance', []);
+        $maintenance = MaintenanceService::getSettings();
         $snapshot = MaintenanceService::snapshot($maintenance);
 
         if (! $snapshot['is_active']) {
             return $next($request);
         }
 
-        if ($this->isBypassed($request, $maintenance, $settings)) {
+        if ($this->isBypassed($request, $maintenance)) {
             return $next($request);
         }
 
@@ -68,6 +64,21 @@ class MaintenanceModeMiddleware
             $response->headers->set('Retry-After', (string) $retryAfter);
         }
 
+        $response->headers->set('X-Frame-Options', 'DENY');
+        $response->headers->set('X-Content-Type-Options', 'nosniff');
+        $response->headers->set('Referrer-Policy', 'no-referrer');
+        $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+        $response->headers->set('Cross-Origin-Opener-Policy', 'same-origin');
+        $response->headers->set('Cross-Origin-Resource-Policy', 'same-origin');
+        $response->headers->set('X-Permitted-Cross-Domain-Policies', 'none');
+        $response->headers->set('X-DNS-Prefetch-Control', 'off');
+        $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        $response->headers->set('Pragma', 'no-cache');
+        $response->headers->set(
+            'Content-Security-Policy',
+            "default-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self' blob:; connect-src 'self'; frame-ancestors 'none';"
+        );
+
         return $response;
     }
 
@@ -76,9 +87,8 @@ class MaintenanceModeMiddleware
      */
     /**
      * @param  array<string, mixed>  $maintenance
-     * @param  array{data: array<string, mixed>, secrets: array<string, mixed>}  $settings
      */
-    private function isBypassed(Request $request, array $maintenance, array $settings): bool
+    private function isBypassed(Request $request, array $maintenance): bool
     {
         $user = $request->user();
         if ($user && method_exists($user, 'isDeveloper') && $user->isDeveloper()
@@ -123,23 +133,6 @@ class MaintenanceModeMiddleware
             return true;
         }
 
-        $tokens = Arr::get($settings, 'secrets.maintenance.bypass_tokens', []);
-        if (is_array($tokens)) {
-            foreach ($tokens as $hash) {
-                if (! is_string($hash) || $hash === '') {
-                    continue;
-                }
-                if (Hash::check($token, $hash)) {
-                    if ($request->hasSession()) {
-                        $request->session()->put('maintenance_bypass', true);
-                    }
-
-                    $this->logMaintenanceBypass($request, 'token', true);
-                    return true;
-                }
-            }
-        }
-
         $this->logMaintenanceBypass($request, 'token_failed', false);
 
         return false;
@@ -170,7 +163,11 @@ class MaintenanceModeMiddleware
             }
         }
 
-        if (in_array($path, ['/maintenance/bypass', '/maintenance/status', '/maintenance/stream', '/health/check', '/health/dashboard', '/up'], true)) {
+        if (str_starts_with($path, '/assets/maintenance/')) {
+            return true;
+        }
+
+        if (in_array($path, ['/favicon.ico', '/maintenance/bypass', '/maintenance/status', '/maintenance/stream', '/health/check', '/health/dashboard', '/up'], true)) {
             return true;
         }
 

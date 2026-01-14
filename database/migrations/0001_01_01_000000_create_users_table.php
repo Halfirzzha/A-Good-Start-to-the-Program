@@ -118,13 +118,19 @@ return new class extends Migration
         Schema::create('audit_logs', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('user_id')->nullable();
+            $table->string('user_name', 191)->nullable();
+            $table->string('user_email', 191)->nullable();
+            $table->string('user_username', 100)->nullable();
+            $table->string('role_name', 100)->nullable();
             $table->string('action', 100);
             $table->string('auditable_type')->nullable();
             $table->unsignedBigInteger('auditable_id')->nullable();
+            $table->string('auditable_label', 191)->nullable();
             $table->json('old_values')->nullable();
             $table->json('new_values')->nullable();
             $table->string('ip_address', 45)->nullable();
             $table->string('user_agent', 255)->nullable();
+            $table->string('user_agent_hash', 64)->nullable();
             $table->text('url')->nullable();
             $table->string('route', 255)->nullable();
             $table->string('method', 10)->nullable();
@@ -132,13 +138,30 @@ return new class extends Migration
             $table->string('request_id', 36)->nullable();
             $table->string('session_id', 100)->nullable();
             $table->unsignedInteger('duration_ms')->nullable();
+            $table->text('request_referer')->nullable();
+            $table->string('request_payload_hash', 64)->nullable();
             $table->json('context')->nullable();
+            $table->string('hash', 64)->nullable();
+            $table->string('previous_hash', 64)->nullable();
+            $table->string('signature', 128)->nullable();
             $table->timestamp('created_at')->useCurrent();
 
             $table->index(['user_id', 'created_at'], 'audit_logs_user_created_idx');
+            $table->index('user_email', 'audit_logs_user_email_idx');
+            $table->index('user_username', 'audit_logs_user_username_idx');
+            $table->index(['role_name', 'created_at'], 'audit_logs_role_created_idx');
             $table->index(['action', 'created_at'], 'audit_logs_action_created_idx');
             $table->index(['auditable_type', 'auditable_id'], 'audit_logs_auditable_idx');
+            $table->index('auditable_label', 'audit_logs_auditable_label_idx');
             $table->index('request_id', 'audit_logs_request_id_idx');
+            $table->index('session_id', 'audit_logs_session_id_idx');
+            $table->index('status_code', 'audit_logs_status_code_idx');
+            $table->index('ip_address', 'audit_logs_ip_address_idx');
+            $table->index('user_agent_hash', 'audit_logs_user_agent_hash_idx');
+            $table->index('request_payload_hash', 'audit_logs_request_payload_hash_idx');
+            $table->index('hash', 'audit_logs_hash_index');
+            $table->index('previous_hash', 'audit_logs_previous_hash_index');
+            $table->index('signature', 'audit_logs_signature_index');
 
             $table->foreign('user_id', 'audit_logs_user_id_foreign')
                 ->references('id')->on('users')->nullOnDelete();

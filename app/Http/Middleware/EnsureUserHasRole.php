@@ -4,9 +4,13 @@ namespace App\Http\Middleware;
 
 use App\Support\AuditLogWriter;
 use Closure;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureUserHasRole
@@ -21,8 +25,10 @@ class EnsureUserHasRole
             return $next($request);
         }
 
+        $this->cleanupMissingRoles($user);
+
         $requiredPermission = 'access_admin_panel';
-        if ($user->can($requiredPermission)) {
+        if ($this->userCanAccess($user, $requiredPermission)) {
             return $next($request);
         }
 
@@ -44,7 +50,7 @@ class EnsureUserHasRole
             'request_id' => $requestId,
             'context' => [
                 'required_permission' => $requiredPermission,
-                'roles' => $user->getRoleNames(),
+                'roles' => $this->safeRoleNames($user),
             ],
             'created_at' => now(),
         ]);
@@ -80,7 +86,84 @@ class EnsureUserHasRole
             'request_id' => $requestId,
             'context' => [
                 'required_permission' => $requiredPermission,
-                'roles' => $user?->getRoleNames(),
+                'roles' => $this->safeRoleNames($user),
+            ],
+            'created_at' => now(),
+        ]);
+    }
+
+    private function userCanAccess(mixed $user, string $permission): bool
+    {
+        try {
+            return (bool) $user->can($permission);
+        } catch (ModelNotFoundException) {
+            $this->cleanupMissingRoles($user);
+            try {
+                return (bool) $user->can($permission);
+            } catch (\Throwable) {
+                return false;
+            }
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function safeRoleNames(mixed $user): array
+    {
+        try {
+            $names = $user?->getRoleNames();
+            return $names ? $names->values()->all() : [];
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    private function cleanupMissingRoles(mixed $user): void
+    {
+        if (! $user || ! Schema::hasTable('roles') || ! Schema::hasTable('model_has_roles')) {
+            return;
+        }
+
+        $roleIds = DB::table('model_has_roles')
+            ->where('model_type', $user::class)
+            ->where('model_id', $user->getAuthIdentifier())
+            ->pluck('role_id')
+            ->unique()
+            ->values()
+            ->all();
+
+        if (empty($roleIds)) {
+            return;
+        }
+
+        $existingIds = Role::query()
+            ->whereIn('id', $roleIds)
+            ->pluck('id')
+            ->all();
+
+        $missing = array_values(array_diff($roleIds, $existingIds));
+        if (empty($missing)) {
+            return;
+        }
+
+        DB::table('model_has_roles')
+            ->where('model_type', $user::class)
+            ->where('model_id', $user->getAuthIdentifier())
+            ->whereIn('role_id', $missing)
+            ->delete();
+
+        AuditLogWriter::writeAudit([
+            'user_id' => $user->getAuthIdentifier(),
+            'action' => 'roles_auto_cleaned',
+            'auditable_type' => $user::class,
+            'auditable_id' => $user->getAuthIdentifier(),
+            'old_values' => ['missing_role_ids' => $missing],
+            'new_values' => null,
+            'context' => [
+                'reason' => 'role_not_found',
             ],
             'created_at' => now(),
         ]);

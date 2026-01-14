@@ -5,7 +5,6 @@ namespace App\Support;
 use App\Support\AuditLogWriter;
 use App\Support\SecurityAlert;
 use App\Support\MaintenanceService;
-use App\Support\SystemSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -31,11 +30,16 @@ class SystemHealth
             'scheduler' => self::checkScheduler(),
             'storage' => self::checkStorage(),
             'system' => self::checkSystemResources(),
+            'security' => self::checkSecurityBaseline(),
         ];
 
-        $status = collect($checks)->every(function (array $check): bool {
-            return in_array($check['status'], ['ok', 'restricted', 'unknown'], true);
-        }) ? 'ok' : 'degraded';
+        $statuses = collect($checks)->pluck('status')->all();
+        $status = 'ok';
+        if (in_array('degraded', $statuses, true)) {
+            $status = 'degraded';
+        } elseif (in_array('warn', $statuses, true) || in_array('restricted', $statuses, true)) {
+            $status = 'warn';
+        }
 
         return [
             'overall_status' => $status,
@@ -56,11 +60,17 @@ class SystemHealth
 
         if ($status === 'ok') {
             Cache::forget(self::ALERT_CACHE_KEY);
+            Cache::forget('system_health:degraded_since');
             return;
         }
 
         if (Cache::has(self::ALERT_CACHE_KEY)) {
             return;
+        }
+
+        $degradedSince = Cache::get('system_health:degraded_since');
+        if (! is_string($degradedSince) || $degradedSince === '') {
+            Cache::put('system_health:degraded_since', now()->toIso8601String(), now()->addMinutes(30));
         }
 
         SecurityAlert::dispatch('system_health_degraded', [
@@ -91,6 +101,19 @@ class SystemHealth
         ]);
 
         Cache::put(self::ALERT_CACHE_KEY, now()->toIso8601String(), now()->addMinutes(5));
+
+        $since = Cache::get('system_health:degraded_since');
+        $sinceAt = self::formatDate($since);
+        if ($sinceAt && now()->diffInMinutes($sinceAt) >= 10) {
+            SecurityAlert::dispatch('system_health_sustained', [
+                'title' => 'System health degraded > 10 minutes',
+                'details' => [
+                    'overall_status' => $results['overall_status'] ?? null,
+                    'checks' => array_keys((array) ($results['checks'] ?? [])),
+                    'since' => $sinceAt,
+                ],
+            ], $request);
+        }
     }
 
     /**
@@ -115,12 +138,16 @@ class SystemHealth
     private static function checkCache(): array
     {
         $start = microtime(true);
+        $driver = (string) config('cache.default', 'unknown');
         try {
             Cache::store()->put('system_health:probe', now()->timestamp, 5);
 
-            return self::formatCheck('cache', 'ok', 'Cache writable', $start);
+            return self::formatCheck('cache', 'ok', 'Cache writable', $start, [
+                'driver' => $driver,
+            ]);
         } catch (\Throwable $error) {
             return self::formatCheck('cache', 'degraded', 'Cache not writable', $start, [
+                'driver' => $driver,
                 'error' => $error->getMessage(),
             ]);
         }
@@ -134,9 +161,22 @@ class SystemHealth
         $start = microtime(true);
         try {
             $size = Queue::size();
-            return self::formatCheck('queue', 'ok', 'Queue worker accessible', $start, [
+            $meta = [
                 'pending_jobs' => $size,
-            ]);
+            ];
+
+            $failedJobs = self::failedJobsCount();
+            if ($failedJobs !== null) {
+                $meta['failed_jobs'] = $failedJobs;
+            } else {
+                $meta['failed_jobs'] = null;
+                $meta['failed_jobs_note'] = 'Provider restricted or table missing';
+            }
+
+            $status = ($failedJobs !== null && $failedJobs > 0) ? 'warn' : 'ok';
+            $details = $status === 'warn' ? 'Failed jobs detected' : 'Queue worker accessible';
+
+            return self::formatCheck('queue', $status, $details, $start, $meta);
         } catch (\Throwable $error) {
             return self::formatCheck('queue', 'degraded', 'Unable to read queue size', $start, [
                 'error' => $error->getMessage(),
@@ -237,6 +277,54 @@ class SystemHealth
         }
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    private static function checkSecurityBaseline(): array
+    {
+        $start = microtime(true);
+
+        $debug = (bool) config('app.debug', false);
+        $enforceEmail = (bool) config('security.enforce_email_verification', true);
+        $enforceSession = (bool) config('security.enforce_session_stamp', true);
+        $enforceAccount = (bool) config('security.enforce_account_status', true);
+        $threatEnabled = (bool) config('security.threat_detection.enabled', true);
+        $developerBypass = (bool) config('security.developer_bypass_validations', false);
+
+        $reasons = [];
+        if ($debug) {
+            $reasons[] = 'Debug mode enabled';
+        }
+        if (! $enforceEmail) {
+            $reasons[] = 'Email verification disabled';
+        }
+        if (! $enforceSession) {
+            $reasons[] = 'Session stamp not enforced';
+        }
+        if (! $enforceAccount) {
+            $reasons[] = 'Account status not enforced';
+        }
+        if (! $threatEnabled) {
+            $reasons[] = 'Threat detection disabled';
+        }
+        if ($developerBypass) {
+            $reasons[] = 'Developer bypass enabled';
+        }
+
+        $status = empty($reasons) ? 'ok' : 'warn';
+        $details = empty($reasons) ? 'Security baseline ok' : 'Security baseline needs review';
+
+        return self::formatCheck('security', $status, $details, $start, [
+            'debug' => $debug,
+            'enforce_email_verification' => $enforceEmail,
+            'enforce_session_stamp' => $enforceSession,
+            'enforce_account_status' => $enforceAccount,
+            'threat_detection' => $threatEnabled,
+            'developer_bypass' => $developerBypass,
+            'reasons' => $reasons,
+        ]);
+    }
+
     private static function cpuCores(): int
     {
         $cores = 0;
@@ -313,6 +401,18 @@ class SystemHealth
         ];
     }
 
+    private static function failedJobsCount(): ?int
+    {
+        try {
+            if (! \Illuminate\Support\Facades\Schema::hasTable('failed_jobs')) {
+                return null;
+            }
+            return \Illuminate\Support\Facades\DB::table('failed_jobs')->count();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     /**
      * @param  string  $name
      * @param  string  $status
@@ -337,7 +437,7 @@ class SystemHealth
      */
     private static function maintenanceSnapshot(): array
     {
-        $maintenance = SystemSettings::getValue('maintenance', []);
+        $maintenance = MaintenanceService::getSettings();
         $noteHtml = $maintenance['note_html'] ?? ($maintenance['note'] ?? null);
 
         return [
@@ -364,11 +464,19 @@ class SystemHealth
 
         $bootedAtFormatted = self::formatDate($bootedAt);
         $uptimeSeconds = $bootedAtFormatted ? now()->diffInSeconds($bootedAtFormatted) : null;
+        $env = (string) config('app.env', 'production');
+        $deployment = $env === 'production' ? 'production' : 'non-production';
 
         return [
             'name' => config('app.name'),
             'version' => config('app.version', 'unknown'),
             'timezone' => config('app.timezone', 'UTC'),
+            'php_version' => PHP_VERSION,
+            'laravel_version' => app()->version(),
+            'cache_driver' => config('cache.default'),
+            'queue_driver' => config('queue.default'),
+            'mail_driver' => config('mail.default'),
+            'deployment' => $deployment,
             'booted_at' => $bootedAtFormatted,
             'uptime_seconds' => $uptimeSeconds,
         ];

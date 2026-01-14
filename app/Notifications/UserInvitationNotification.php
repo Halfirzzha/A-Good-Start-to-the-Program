@@ -3,12 +3,17 @@
 namespace App\Notifications;
 
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
+use App\Support\SystemSettings;
+use App\Support\LocaleHelper;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\URL;
 
 class UserInvitationNotification extends Notification implements ShouldQueue
 {
+    use Queueable;
+
     public function __construct(
         public string $token,
         public ?\DateTimeInterface $expiresAt = null
@@ -44,16 +49,35 @@ class UserInvitationNotification extends Notification implements ShouldQueue
             ? URL::temporarySignedRoute('invitation.show', $expiresAt, ['token' => $this->token])
             : URL::signedRoute('invitation.show', ['token' => $this->token]);
 
-        $message = (new MailMessage())
-            ->subject('Undangan Aktivasi Akun')
-            ->greeting('Halo!')
-            ->line('Akun Anda telah dibuat. Silakan verifikasi email dan atur username serta password Anda.')
-            ->action('Aktifkan Akun', $url);
+        $locale = LocaleHelper::resolveUserLocale($notifiable);
 
-        if ($expiresAt) {
-            $message->line('Tautan ini berlaku hingga '.$expiresAt->toDateTimeString().'.');
-        }
+        return LocaleHelper::withLocale($locale, function () use ($expiresAt, $url): MailMessage {
+            $appName = (string) SystemSettings::getValue('project.name', config('app.name', 'System'));
+            $expiresLabel = $expiresAt?->toDateTimeString() ?? __('notifications.email.invitation.expires_fallback');
+            $logoUrl = SystemSettings::assetUrl('logo');
+            $bodyText = __('notifications.email.invitation.body');
+            $bodyHtml = '<p>'.__('notifications.email.invitation.body').'</p>';
 
-        return $message;
+            return (new MailMessage())
+                ->subject(__('notifications.email.invitation.subject'))
+                ->view('emails.invitation', [
+                    'title' => __('notifications.email.invitation.title'),
+                    'appName' => $appName,
+                    'logoUrl' => $logoUrl,
+                    'preheader' => __('notifications.email.invitation.preheader'),
+                    'bodyHtml' => $bodyHtml,
+                    'expiresLabel' => $expiresLabel,
+                    'actionUrl' => $url,
+                    'actionLabel' => __('notifications.email.invitation.action'),
+                    'footer' => __('notifications.email.invitation.footer'),
+                ])
+                ->text('emails.text.invitation', [
+                    'title' => __('notifications.email.invitation.title'),
+                    'bodyText' => $bodyText,
+                    'expiresLabel' => $expiresLabel,
+                    'actionUrl' => $url,
+                    'footer' => __('notifications.email.invitation.footer'),
+                ]);
+        });
     }
 }

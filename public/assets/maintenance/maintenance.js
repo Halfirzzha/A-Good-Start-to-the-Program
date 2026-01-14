@@ -209,7 +209,7 @@
         }
         const note = container.dataset.maintenanceNote;
         if (note) {
-            noteField.innerHTML = note;
+            noteField.textContent = note;
         }
     };
 
@@ -238,6 +238,7 @@
             try {
                 const response = await fetch("/maintenance/bypass", {
                     method: "POST",
+                    credentials: "same-origin",
                     headers: {
                         "Content-Type": "application/json",
                         "X-Requested-With": "XMLHttpRequest",
@@ -489,7 +490,7 @@
         if (noteField) {
             const incoming = payload.note_html ?? payload.note;
             if (incoming) {
-                noteField.innerHTML = incoming;
+                noteField.textContent = incoming;
             }
         }
 
@@ -718,7 +719,12 @@
         return `${base}/maintenance/stream`;
     };
 
+    const USE_SSE = false;
+
     const startStream = () => {
+        if (!USE_SSE) {
+            return false;
+        }
         if (typeof EventSource === "undefined") {
             console.info(
                 "[Maintenance] EventSource not supported, falling back to polling"

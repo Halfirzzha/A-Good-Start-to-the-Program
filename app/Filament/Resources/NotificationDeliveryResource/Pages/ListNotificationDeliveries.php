@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\NotificationDeliveryResource\Pages;
 
 use App\Filament\Resources\NotificationDeliveryResource;
+use Filament\Actions\Action;
 use Filament\Resources\Pages\ListRecords;
 
 class ListNotificationDeliveries extends ListRecords
@@ -11,6 +12,7 @@ class ListNotificationDeliveries extends ListRecords
 
     protected function getHeaderActions(): array
     {
-        return [];
+        return [
+        ];
     }
 }

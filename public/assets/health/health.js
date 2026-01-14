@@ -90,11 +90,14 @@
     const checksDegradedEl = document.getElementById('checks-degraded');
     const checksDurationEl = document.getElementById('checks-duration');
     const checksAvgEl = document.getElementById('checks-avg');
+    const slaStatusEl = document.getElementById('sla-status');
     const maintenanceStateEl = document.getElementById('maintenance-state');
     const maintenanceModeEl = document.getElementById('maintenance-mode');
     const maintenanceWindowEl = document.getElementById('maintenance-window');
     const queueDepthEl = document.getElementById('queue-depth');
+    const failedJobsEl = document.getElementById('failed-jobs');
     const uptimeSignalEl = document.getElementById('uptime-signal');
+    const cacheDriverEl = document.getElementById('cache-driver');
     const appVersionEl = document.getElementById('app-version');
     const appUptimeEl = document.getElementById('app-uptime');
     const schedulerStatusEl = document.getElementById('scheduler-status');
@@ -103,9 +106,32 @@
     const resourceMemoryEl = document.getElementById('resource-memory');
     const resourceDiskEl = document.getElementById('resource-disk');
     const resourceStatusEl = document.getElementById('resource-status');
+    const securityStatusEl = document.getElementById('security-status');
+    const securityEmailEl = document.getElementById('security-email');
+    const securitySessionEl = document.getElementById('security-session');
+    const securityAccountEl = document.getElementById('security-account');
+    const securityThreatEl = document.getElementById('security-threat');
+    const securityBypassEl = document.getElementById('security-bypass');
+    const securityReasonEl = document.getElementById('security-reason');
+    const runtimeTable = document.getElementById('runtime-table-body');
     const maintenanceTable = document.getElementById('maintenance-table-body');
+    const alertBanner = document.getElementById('health-alert');
+    const alertTitle = document.getElementById('health-alert-title');
+    const alertDetail = document.getElementById('health-alert-detail');
+    const alertBadge = document.getElementById('health-alert-badge');
+    const latencyCanvas = document.getElementById('latency-sparkline');
+    const cpuCanvas = document.getElementById('cpu-sparkline');
+    const memoryCanvas = document.getElementById('memory-sparkline');
+    const diskCanvas = document.getElementById('disk-sparkline');
+    const cpuPeakEl = document.getElementById('cpu-peak');
+    const memoryPeakEl = document.getElementById('memory-peak');
+    const diskPeakEl = document.getElementById('disk-peak');
 
     const latencyHistory = [];
+    const cpuHistory = [];
+    const memoryHistory = [];
+    const diskHistory = [];
+    const statusHistory = [];
 
     const formatSize = (mb, unit = 'MB') => {
         if (!Number.isFinite(mb)) {
@@ -141,14 +167,73 @@
         el.textContent = label;
     };
 
+    const drawSparkline = (canvas, data, stroke = 'rgba(63, 185, 255, 0.8)') => {
+        if (!canvas || !canvas.getContext) {
+            return;
+        }
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+            return;
+        }
+        const width = canvas.width;
+        const height = canvas.height;
+        ctx.clearRect(0, 0, width, height);
+
+        if (!Array.isArray(data) || data.length < 2) {
+            ctx.fillStyle = 'rgba(148, 163, 184, 0.3)';
+            ctx.fillRect(0, height - 2, width, 2);
+            return;
+        }
+
+        const min = Math.min(...data);
+        const max = Math.max(...data);
+        const span = max - min || 1;
+
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+
+        data.forEach((value, index) => {
+            const x = (index / (data.length - 1)) * (width - 8) + 4;
+            const y = height - 6 - ((value - min) / span) * (height - 12);
+            if (index === 0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+
+        ctx.stroke();
+    };
+
+    const pushHistory = (list, value) => {
+        if (!Number.isFinite(value)) {
+            return;
+        }
+        list.push(value);
+        if (list.length > 10) {
+            list.shift();
+        }
+    };
+
+    const peakValue = (list) => {
+        if (!Array.isArray(list) || !list.length) {
+            return null;
+        }
+        return Math.max(...list);
+    };
+
     const setStatusBadge = (status) => {
         if (!statusEl) {
             return;
         }
-        statusEl.classList.remove('ok', 'degraded', 'scheduled');
+        statusEl.classList.remove('ok', 'degraded', 'scheduled', 'warn');
         if (status === 'ok') {
             statusEl.classList.add('ok');
             statusEl.textContent = 'OK';
+        } else if (status === 'warn') {
+            statusEl.classList.add('warn');
+            statusEl.textContent = 'WARN';
         } else if (status === 'degraded') {
             statusEl.classList.add('degraded');
             statusEl.textContent = 'DEGRADED';
@@ -197,7 +282,15 @@
                     const statusCell = document.createElement('td');
                     const helper = document.createElement('span');
                     helper.classList.add('badge');
-                    helper.classList.add(check.status === 'ok' ? 'ok' : 'degraded');
+                    if (check.status === 'ok') {
+                        helper.classList.add('ok');
+                    } else if (check.status === 'warn') {
+                        helper.classList.add('warn');
+                    } else if (check.status === 'restricted') {
+                        helper.classList.add('neutral');
+                    } else {
+                        helper.classList.add('degraded');
+                    }
                     helper.textContent = check.status.toUpperCase();
                     statusCell.appendChild(helper);
                     const durationCell = document.createElement('td');
@@ -206,6 +299,9 @@
                     detailsCell.textContent = check.details || '—';
                     if (check.meta && typeof check.meta.pending_jobs === 'number') {
                         detailsCell.textContent += ` · Queue depth: ${check.meta.pending_jobs}`;
+                    }
+                    if (check.meta && typeof check.meta.failed_jobs === 'number') {
+                        detailsCell.textContent += ` · Failed: ${check.meta.failed_jobs}`;
                     }
                     row.append(typeCell, statusCell, durationCell, detailsCell);
                     checksBody.appendChild(row);
@@ -233,6 +329,21 @@
             checksDurationEl.textContent = formatDuration(totalDuration);
         }
 
+        if (slaStatusEl) {
+            statusHistory.push(status);
+            if (statusHistory.length > 10) {
+                statusHistory.shift();
+            }
+            const okCountHist = statusHistory.filter((item) => item === 'ok').length;
+            const okPct = statusHistory.length ? Math.round((okCountHist / statusHistory.length) * 100) : 0;
+            const badgeStatus = status === 'degraded' ? 'degraded' : status === 'warn' ? 'warn' : 'ok';
+            setBadge(slaStatusEl, badgeStatus, {
+                ok: `STABLE ${okPct}%`,
+                warn: `WARN ${okPct}%`,
+                degraded: `DEGRADED ${okPct}%`,
+            });
+        }
+
         if (checksAvgEl) {
             if (Number.isFinite(data.duration_ms)) {
                 latencyHistory.push(data.duration_ms);
@@ -246,14 +357,35 @@
             checksAvgEl.textContent = avg === null ? '—' : formatDuration(avg);
         }
 
+        if (latencyCanvas) {
+            drawSparkline(latencyCanvas, latencyHistory);
+        }
+
         if (queueDepthEl) {
             const queueMeta = checks.queue?.meta;
             const depth = typeof queueMeta?.pending_jobs === 'number' ? queueMeta.pending_jobs : null;
             queueDepthEl.textContent = depth !== null ? depth.toString() : '—';
         }
 
+        if (failedJobsEl) {
+            const queueMeta = checks.queue?.meta;
+            const failed = queueMeta?.failed_jobs;
+            if (typeof failed === 'number') {
+                failedJobsEl.textContent = failed.toString();
+            } else if (queueMeta?.failed_jobs_note) {
+                failedJobsEl.textContent = 'Privasi Provider - data sensitif';
+            } else {
+                failedJobsEl.textContent = '—';
+            }
+        }
+
         if (uptimeSignalEl) {
             uptimeSignalEl.textContent = status === 'ok' ? 'Stable' : 'Investigate';
+        }
+
+        if (cacheDriverEl) {
+            const cacheMeta = checks.cache?.meta;
+            cacheDriverEl.textContent = cacheMeta?.driver ?? '—';
         }
 
         if (appVersionEl) {
@@ -348,6 +480,75 @@
             maintenanceWindowEl.textContent = start || end ? `${start ?? '—'} → ${end ?? '—'}` : '—';
         }
 
+        if (alertBanner && alertTitle && alertDetail && alertBadge) {
+            const overall = data.overall_status || 'ok';
+            if (overall === 'ok') {
+                alertBanner.style.display = 'none';
+            } else {
+                alertBanner.style.display = 'flex';
+                alertBanner.classList.toggle('warn', overall === 'warn');
+                alertTitle.textContent = overall === 'degraded' ? 'Degraded status detected' : 'Warning status detected';
+                alertDetail.textContent = detailsEl?.textContent || 'Periksa status komponen.';
+                setBadge(alertBadge, overall, { ok: 'OK', warn: 'WARN', degraded: 'DEGRADED' });
+            }
+        }
+
+        if (securityStatusEl) {
+            const security = checks.security;
+            if (security?.status) {
+                setBadge(securityStatusEl, security.status, {
+                    ok: 'OK',
+                    warn: 'NEEDS REVIEW',
+                    degraded: 'DEGRADED',
+                });
+            }
+        }
+
+        if (securityEmailEl) {
+            const enabled = checks.security?.meta?.enforce_email_verification;
+            setBadge(securityEmailEl, enabled ? 'ok' : 'warn', { ok: 'ON', warn: 'OFF' });
+        }
+
+        if (securitySessionEl) {
+            const enabled = checks.security?.meta?.enforce_session_stamp;
+            setBadge(securitySessionEl, enabled ? 'ok' : 'warn', { ok: 'ON', warn: 'OFF' });
+        }
+
+        if (securityAccountEl) {
+            const enabled = checks.security?.meta?.enforce_account_status;
+            setBadge(securityAccountEl, enabled ? 'ok' : 'warn', { ok: 'ON', warn: 'OFF' });
+        }
+
+        if (securityThreatEl) {
+            const enabled = checks.security?.meta?.threat_detection;
+            setBadge(securityThreatEl, enabled ? 'ok' : 'warn', { ok: 'ON', warn: 'OFF' });
+        }
+
+        if (securityBypassEl) {
+            const enabled = checks.security?.meta?.developer_bypass;
+            setBadge(securityBypassEl, enabled ? 'warn' : 'ok', { ok: 'OFF', warn: 'ON' });
+        }
+
+        if (securityReasonEl) {
+            const reasons = checks.security?.meta?.reasons;
+            securityReasonEl.textContent = Array.isArray(reasons) && reasons.length
+                ? reasons.join(' · ')
+                : 'Baseline aman dan sesuai kebijakan.';
+        }
+
+        if (runtimeTable) {
+            populateDetailTable(runtimeTable, [
+                { label: 'App version', value: data.app?.version ?? '—' },
+                { label: 'Laravel', value: data.app?.laravel_version ?? '—' },
+                { label: 'PHP', value: data.app?.php_version ?? '—' },
+                { label: 'Cache driver', value: data.app?.cache_driver ?? '—' },
+                { label: 'Queue driver', value: data.app?.queue_driver ?? '—' },
+                { label: 'Mail driver', value: data.app?.mail_driver ?? '—' },
+                { label: 'Deployment', value: data.app?.deployment ?? '—' },
+                { label: 'Timezone', value: data.app?.timezone ?? '—' },
+            ]);
+        }
+
         if (resourceStatusEl) {
             const systemCheck = checks.system;
             if (systemCheck?.status) {
@@ -367,6 +568,7 @@
                 const usage = system.meta.cpu_usage_pct;
                 const cores = system.meta.cpu_cores ?? '—';
                 resourceCpuEl.textContent = `${usage.toFixed(1)}% · ${cores} cores`;
+                pushHistory(cpuHistory, usage);
             } else {
                 resourceCpuEl.textContent = '—';
             }
@@ -380,6 +582,9 @@
                 const used = system.meta.memory_used_mb;
                 const total = system.meta.memory_total_mb;
                 resourceMemoryEl.textContent = `${formatSize(used)} / ${formatSize(total)}`;
+                if (Number.isFinite(used) && Number.isFinite(total) && total > 0) {
+                    pushHistory(memoryHistory, (used / total) * 100);
+                }
             } else {
                 resourceMemoryEl.textContent = '—';
             }
@@ -393,9 +598,39 @@
                 const used = system.meta.disk_used_gb;
                 const total = system.meta.disk_total_gb;
                 resourceDiskEl.textContent = `${formatSize(used, 'GB')} / ${formatSize(total, 'GB')}`;
+                if (Number.isFinite(used) && Number.isFinite(total) && total > 0) {
+                    pushHistory(diskHistory, (used / total) * 100);
+                }
             } else {
                 resourceDiskEl.textContent = '—';
             }
+        }
+
+        if (cpuCanvas) {
+            drawSparkline(cpuCanvas, cpuHistory, 'rgba(63, 185, 255, 0.85)');
+        }
+
+        if (memoryCanvas) {
+            drawSparkline(memoryCanvas, memoryHistory, 'rgba(129, 140, 248, 0.85)');
+        }
+
+        if (diskCanvas) {
+            drawSparkline(diskCanvas, diskHistory, 'rgba(56, 189, 248, 0.75)');
+        }
+
+        if (cpuPeakEl) {
+            const peak = peakValue(cpuHistory);
+            cpuPeakEl.textContent = peak === null ? 'Peak: —' : `Peak: ${peak.toFixed(1)}%`;
+        }
+
+        if (memoryPeakEl) {
+            const peak = peakValue(memoryHistory);
+            memoryPeakEl.textContent = peak === null ? 'Peak: —' : `Peak: ${peak.toFixed(1)}%`;
+        }
+
+        if (diskPeakEl) {
+            const peak = peakValue(diskHistory);
+            diskPeakEl.textContent = peak === null ? 'Peak: —' : `Peak: ${peak.toFixed(1)}%`;
         }
     };
 

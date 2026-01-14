@@ -4,16 +4,13 @@ namespace App\Models;
 
 use App\Models\Concerns\Auditable;
 use App\Support\AuditLogWriter;
-use App\Support\MaintenanceService;
 use App\Support\SecurityAlert;
 use App\Support\SystemSettings;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Str;
 
 class SystemSetting extends Model
 {
@@ -23,8 +20,52 @@ class SystemSetting extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'data',
-        'secrets',
+        'project_name',
+        'project_description',
+        'project_url',
+        'branding_logo_disk',
+        'branding_logo_path',
+        'branding_logo_fallback_disk',
+        'branding_logo_fallback_path',
+        'branding_logo_status',
+        'branding_logo_updated_at',
+        'branding_cover_disk',
+        'branding_cover_path',
+        'branding_cover_fallback_disk',
+        'branding_cover_fallback_path',
+        'branding_cover_status',
+        'branding_cover_updated_at',
+        'branding_favicon_disk',
+        'branding_favicon_path',
+        'branding_favicon_fallback_disk',
+        'branding_favicon_fallback_path',
+        'branding_favicon_status',
+        'branding_favicon_updated_at',
+        'storage_primary_disk',
+        'storage_fallback_disk',
+        'storage_drive_root',
+        'storage_drive_folder_branding',
+        'storage_drive_folder_favicon',
+        'email_enabled',
+        'email_provider',
+        'email_from_name',
+        'email_from_address',
+        'email_auth_from_name',
+        'email_auth_from_address',
+        'email_recipients',
+        'smtp_mailer',
+        'smtp_host',
+        'smtp_port',
+        'smtp_encryption',
+        'smtp_username',
+        'smtp_password',
+        'telegram_enabled',
+        'telegram_chat_id',
+        'telegram_bot_token',
+        'google_drive_service_account_json',
+        'google_drive_client_id',
+        'google_drive_client_secret',
+        'google_drive_refresh_token',
         'updated_by',
         'updated_ip',
         'updated_user_agent',
@@ -34,15 +75,31 @@ class SystemSetting extends Model
      * @var array<string, string>
      */
     protected $casts = [
-        'data' => 'array',
-        'secrets' => 'encrypted:array',
+        'branding_logo_updated_at' => 'datetime',
+        'branding_cover_updated_at' => 'datetime',
+        'branding_favicon_updated_at' => 'datetime',
+        'email_enabled' => 'boolean',
+        'email_recipients' => 'array',
+        'smtp_port' => 'integer',
+        'telegram_enabled' => 'boolean',
+        'smtp_password' => 'encrypted',
+        'telegram_bot_token' => 'encrypted',
+        'google_drive_service_account_json' => 'encrypted',
+        'google_drive_client_id' => 'encrypted',
+        'google_drive_client_secret' => 'encrypted',
+        'google_drive_refresh_token' => 'encrypted',
     ];
 
     /**
      * @var list<string>
      */
     protected array $auditExclude = [
-        'secrets',
+        'smtp_password',
+        'telegram_bot_token',
+        'google_drive_service_account_json',
+        'google_drive_client_id',
+        'google_drive_client_secret',
+        'google_drive_refresh_token',
     ];
 
     protected static function booted(): void
@@ -64,11 +121,25 @@ class SystemSetting extends Model
                 $setting->updated_user_agent = self::truncate((string) $request->userAgent(), 255);
             }
 
-            if ($setting->isDirty('secrets') && ! self::canUpdateSecrets()) {
-                $setting->secrets = self::normalizeArray($setting->getOriginal('secrets'));
-                $setting->syncOriginalAttribute('secrets');
+            if (! self::canUpdateSecrets()) {
+                $blocked = false;
+                foreach (self::secretColumns() as $column) {
+                    if ($setting->isDirty($column)) {
+                        $setting->setAttribute($column, $setting->getOriginal($column));
+                        $setting->syncOriginalAttribute($column);
+                        $blocked = true;
+                    }
+                }
 
-                self::logSecretUpdateDenied($request, $userId);
+                if ($blocked) {
+                    self::logSecretUpdateDenied($request, $userId);
+                }
+            }
+
+            if (! self::canUpdateProjectUrl() && $setting->isDirty('project_url')) {
+                $setting->setAttribute('project_url', $setting->getOriginal('project_url'));
+                $setting->syncOriginalAttribute('project_url');
+                self::logProjectUrlUpdateDenied($request, $userId);
             }
         });
 
@@ -103,10 +174,13 @@ class SystemSetting extends Model
             return;
         }
 
-        $originalData = self::normalizeArray($this->getOriginal('data'));
-        $originalSecrets = self::normalizeArray($this->getOriginal('secrets'));
-        $currentData = self::normalizeArray($this->data);
-        $currentSecrets = self::normalizeArray($this->secrets);
+        $originalAttributes = $this->getRawOriginal();
+        $currentAttributes = $this->getAttributes();
+
+        $originalData = $this->buildDataPayload($originalAttributes);
+        $originalSecrets = $this->buildSecretsPayload($originalAttributes);
+        $currentData = $this->buildDataPayload($currentAttributes);
+        $currentSecrets = $this->buildSecretsPayload($currentAttributes);
 
         $dataChanges = self::diffKeys($originalData, $currentData);
         $secretChanges = self::diffKeys($originalSecrets, $currentSecrets);
@@ -119,11 +193,6 @@ class SystemSetting extends Model
         $request = request();
         $actorId = Auth::id();
         $sessionId = $request && $request->hasSession() ? $request->session()->getId() : null;
-        $maintenanceChanges = array_values(array_filter(
-            $dataChanges,
-            static fn (string $key): bool => Str::startsWith($key, 'maintenance.')
-        ));
-
         SystemSettingVersion::create([
             'system_setting_id' => $this->getKey(),
             'action' => $action,
@@ -147,136 +216,6 @@ class SystemSetting extends Model
                 'title' => 'System settings updated',
                 'changed_keys' => $changedKeys,
             ], $request);
-        }
-
-        $oldMaintenance = Arr::get($originalData, 'maintenance.enabled');
-        $newMaintenance = Arr::get($currentData, 'maintenance.enabled');
-        if ($oldMaintenance !== $newMaintenance) {
-            SecurityAlert::dispatch('maintenance_toggle', [
-                'title' => 'Maintenance mode toggled',
-                'enabled' => $newMaintenance,
-                'start_at' => Arr::get($currentData, 'maintenance.start_at'),
-                'end_at' => Arr::get($currentData, 'maintenance.end_at'),
-            ], $request);
-        }
-
-        if ($action === 'updated' && ! empty($maintenanceChanges)) {
-            $beforeMaintenance = Arr::get($originalData, 'maintenance', []);
-            $afterMaintenance = Arr::get($currentData, 'maintenance', []);
-            $diff = MaintenanceService::diffMaintenance($beforeMaintenance, $afterMaintenance);
-
-            AuditLogWriter::writeAudit([
-                'user_id' => $actorId,
-                'action' => 'maintenance_settings_updated',
-                'auditable_type' => self::class,
-                'auditable_id' => $this->getKey(),
-                'old_values' => null,
-                'new_values' => null,
-                'ip_address' => $request?->ip(),
-                'user_agent' => $request ? self::truncate((string) $request->userAgent(), 255) : null,
-                'url' => $request?->fullUrl(),
-                'route' => $request?->route()?->getName(),
-                'method' => $request?->method(),
-                'status_code' => null,
-                'request_id' => $request?->headers->get('X-Request-Id'),
-                'session_id' => $sessionId,
-                'duration_ms' => null,
-                'context' => [
-                    'changed_keys' => $maintenanceChanges,
-                    'changes' => $diff,
-                    'maintenance' => [
-                        'enabled' => Arr::get($currentData, 'maintenance.enabled'),
-                        'mode' => Arr::get($currentData, 'maintenance.mode'),
-                        'start_at' => Arr::get($currentData, 'maintenance.start_at'),
-                        'end_at' => Arr::get($currentData, 'maintenance.end_at'),
-                    ],
-                ],
-                'created_at' => now(),
-            ]);
-
-            $beforeEnabled = (bool) Arr::get($beforeMaintenance, 'enabled', false);
-            $afterEnabled = (bool) Arr::get($afterMaintenance, 'enabled', false);
-            if ($beforeEnabled !== $afterEnabled) {
-                AuditLogWriter::writeAudit([
-                    'user_id' => $actorId,
-                    'action' => $afterEnabled ? 'maintenance_enabled' : 'maintenance_disabled',
-                    'auditable_type' => self::class,
-                    'auditable_id' => $this->getKey(),
-                    'old_values' => ['enabled' => $beforeEnabled],
-                    'new_values' => ['enabled' => $afterEnabled],
-                    'ip_address' => $request?->ip(),
-                    'user_agent' => $request ? self::truncate((string) $request->userAgent(), 255) : null,
-                    'url' => $request?->fullUrl(),
-                    'route' => $request?->route()?->getName(),
-                    'method' => $request?->method(),
-                    'status_code' => null,
-                    'request_id' => $request?->headers->get('X-Request-Id'),
-                    'session_id' => $sessionId,
-                    'duration_ms' => null,
-                    'context' => [
-                        'reason' => 'manual_update',
-                    ],
-                    'created_at' => now(),
-                ]);
-            }
-
-            $scheduleChanged = Arr::get($beforeMaintenance, 'start_at') !== Arr::get($afterMaintenance, 'start_at')
-                || Arr::get($beforeMaintenance, 'end_at') !== Arr::get($afterMaintenance, 'end_at');
-
-            if ($scheduleChanged) {
-                AuditLogWriter::writeAudit([
-                    'user_id' => $actorId,
-                    'action' => 'maintenance_schedule_updated',
-                    'auditable_type' => self::class,
-                    'auditable_id' => $this->getKey(),
-                    'old_values' => [
-                        'start_at' => Arr::get($beforeMaintenance, 'start_at'),
-                        'end_at' => Arr::get($beforeMaintenance, 'end_at'),
-                    ],
-                    'new_values' => [
-                        'start_at' => Arr::get($afterMaintenance, 'start_at'),
-                        'end_at' => Arr::get($afterMaintenance, 'end_at'),
-                    ],
-                    'ip_address' => $request?->ip(),
-                    'user_agent' => $request ? self::truncate((string) $request->userAgent(), 255) : null,
-                    'url' => $request?->fullUrl(),
-                    'route' => $request?->route()?->getName(),
-                    'method' => $request?->method(),
-                    'status_code' => null,
-                    'request_id' => $request?->headers->get('X-Request-Id'),
-                    'session_id' => $sessionId,
-                    'duration_ms' => null,
-                    'context' => [
-                        'changes' => $diff,
-                    ],
-                    'created_at' => now(),
-                ]);
-            }
-
-            $noteChanged = Arr::get($beforeMaintenance, 'note_html') !== Arr::get($afterMaintenance, 'note_html');
-            if ($noteChanged) {
-                AuditLogWriter::writeAudit([
-                    'user_id' => $actorId,
-                    'action' => 'maintenance_note_updated',
-                    'auditable_type' => self::class,
-                    'auditable_id' => $this->getKey(),
-                    'old_values' => ['note_html' => Arr::get($beforeMaintenance, 'note_html')],
-                    'new_values' => ['note_html' => Arr::get($afterMaintenance, 'note_html')],
-                    'ip_address' => $request?->ip(),
-                    'user_agent' => $request ? self::truncate((string) $request->userAgent(), 255) : null,
-                    'url' => $request?->fullUrl(),
-                    'route' => $request?->route()?->getName(),
-                    'method' => $request?->method(),
-                    'status_code' => null,
-                    'request_id' => $request?->headers->get('X-Request-Id'),
-                    'session_id' => $sessionId,
-                    'duration_ms' => null,
-                    'context' => [
-                        'changes' => $diff,
-                    ],
-                    'created_at' => now(),
-                ]);
-            }
         }
 
         if (! empty($secretChanges)) {
@@ -309,11 +248,142 @@ class SystemSetting extends Model
         }
     }
 
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    private function buildDataPayload(array $attributes): array
+    {
+        $recipients = self::normalizeArray($attributes['email_recipients'] ?? []);
+
+        return [
+            'project' => [
+                'name' => $attributes['project_name'] ?? config('app.name', 'System'),
+                'description' => $attributes['project_description'] ?? null,
+                'url' => $attributes['project_url'] ?? config('app.url'),
+            ],
+            'branding' => [
+                'logo' => $this->brandingMetaFromAttributes($attributes, 'logo'),
+                'cover' => $this->brandingMetaFromAttributes($attributes, 'cover'),
+                'favicon' => $this->brandingMetaFromAttributes($attributes, 'favicon'),
+            ],
+            'storage' => [
+                'primary_disk' => $attributes['storage_primary_disk'] ?? 'google',
+                'fallback_disk' => $attributes['storage_fallback_disk'] ?? 'public',
+                'drive_root' => $attributes['storage_drive_root'] ?? null,
+                'drive_folder_branding' => $attributes['storage_drive_folder_branding'] ?? null,
+                'drive_folder_favicon' => $attributes['storage_drive_folder_favicon'] ?? null,
+            ],
+            'notifications' => [
+                'email' => [
+                    'enabled' => (bool) ($attributes['email_enabled'] ?? false),
+                    'recipients' => $recipients,
+                    'provider' => $attributes['email_provider'] ?? null,
+                    'from_address' => $attributes['email_from_address'] ?? null,
+                    'from_name' => $attributes['email_from_name'] ?? null,
+                    'auth_from_address' => $attributes['email_auth_from_address'] ?? null,
+                    'auth_from_name' => $attributes['email_auth_from_name'] ?? null,
+                    'mailer' => $attributes['smtp_mailer'] ?? 'smtp',
+                    'smtp_host' => $attributes['smtp_host'] ?? null,
+                    'smtp_port' => $attributes['smtp_port'] ?? 587,
+                    'smtp_encryption' => $attributes['smtp_encryption'] ?? null,
+                    'smtp_username' => $attributes['smtp_username'] ?? null,
+                ],
+                'telegram' => [
+                    'enabled' => (bool) ($attributes['telegram_enabled'] ?? false),
+                    'chat_id' => $attributes['telegram_chat_id'] ?? null,
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    private function buildSecretsPayload(array $attributes): array
+    {
+        return [
+            'notifications' => [
+                'email' => [
+                    'smtp_password' => $attributes['smtp_password'] ?? null,
+                ],
+            ],
+            'telegram' => [
+                'bot_token' => $attributes['telegram_bot_token'] ?? null,
+            ],
+            'google_drive' => [
+                'service_account_json' => $attributes['google_drive_service_account_json'] ?? null,
+                'client_id' => $attributes['google_drive_client_id'] ?? null,
+                'client_secret' => $attributes['google_drive_client_secret'] ?? null,
+                'refresh_token' => $attributes['google_drive_refresh_token'] ?? null,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @return array<string, mixed>
+     */
+    private function brandingMetaFromAttributes(array $attributes, string $key): array
+    {
+        return [
+            'disk' => $attributes["branding_{$key}_disk"] ?? null,
+            'path' => $attributes["branding_{$key}_path"] ?? null,
+            'fallback_disk' => $attributes["branding_{$key}_fallback_disk"] ?? null,
+            'fallback_path' => $attributes["branding_{$key}_fallback_path"] ?? null,
+            'status' => $attributes["branding_{$key}_status"] ?? null,
+            'updated_at' => $attributes["branding_{$key}_updated_at"] ?? null,
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function secretColumns(): array
+    {
+        return [
+            'smtp_password',
+            'telegram_bot_token',
+            'google_drive_service_account_json',
+            'google_drive_client_id',
+            'google_drive_client_secret',
+            'google_drive_refresh_token',
+        ];
+    }
+
     private static function canUpdateSecrets(): bool
     {
         $user = Auth::user();
 
-        return $user && method_exists($user, 'isDeveloper') && $user->isDeveloper();
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasElevatedPrivileges') && $user->hasElevatedPrivileges()) {
+            return true;
+        }
+
+        return $user->can('manage_system_setting_secrets')
+            || $user->can('update_system_setting')
+            || $user->can('update_system_settings');
+    }
+
+    private static function canUpdateProjectUrl(): bool
+    {
+        $user = Auth::user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasElevatedPrivileges') && $user->hasElevatedPrivileges()) {
+            return true;
+        }
+
+        return $user->can('manage_system_setting_project_url')
+            || $user->can('update_system_setting')
+            || $user->can('update_system_settings');
     }
 
     private static function logSecretUpdateDenied(?\Illuminate\Http\Request $request, ?int $userId): void
@@ -338,6 +408,33 @@ class SystemSetting extends Model
             'duration_ms' => null,
             'context' => [
                 'reason' => 'secrets_update_denied',
+            ],
+            'created_at' => now(),
+        ]);
+    }
+
+    private static function logProjectUrlUpdateDenied(?\Illuminate\Http\Request $request, ?int $userId): void
+    {
+        $sessionId = $request && $request->hasSession() ? $request->session()->getId() : null;
+
+        AuditLogWriter::writeAudit([
+            'user_id' => $userId,
+            'action' => 'system_settings_project_url_denied',
+            'auditable_type' => self::class,
+            'auditable_id' => null,
+            'old_values' => null,
+            'new_values' => null,
+            'ip_address' => $request?->ip(),
+            'user_agent' => $request ? self::truncate((string) $request->userAgent(), 255) : null,
+            'url' => $request?->fullUrl(),
+            'route' => $request?->route()?->getName(),
+            'method' => $request?->method(),
+            'status_code' => 403,
+            'request_id' => $request?->headers->get('X-Request-Id'),
+            'session_id' => $sessionId,
+            'duration_ms' => null,
+            'context' => [
+                'reason' => 'project_url_update_denied',
             ],
             'created_at' => now(),
         ]);

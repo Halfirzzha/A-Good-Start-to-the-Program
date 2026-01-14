@@ -38,4 +38,7 @@ return [
     'error_min_status' => (int) env('AUDIT_ERROR_MIN_STATUS', 400),
     'verify_chunk' => (int) env('AUDIT_VERIFY_CHUNK', 500),
     'rehash_chunk' => (int) env('AUDIT_REHASH_CHUNK', 500),
+    'signature_enabled' => env('AUDIT_SIGNATURE_ENABLED', false),
+    'signature_secret' => env('AUDIT_SIGNATURE_SECRET', ''),
+    'signature_algo' => env('AUDIT_SIGNATURE_ALGO', 'sha256'),
 ];

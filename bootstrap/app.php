@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(
             [
+                \App\Http\Middleware\SetLocale::class,
                 \App\Http\Middleware\MaintenanceModeMiddleware::class,
                 \App\Http\Middleware\EnsureAccountIsActive::class,
                 \App\Http\Middleware\EnsureSecurityStampIsValid::class,

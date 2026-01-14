@@ -21,6 +21,15 @@ class AuditVerifyCommand extends Command
             return self::FAILURE;
         }
 
+        $signatureEnabled = (bool) config('audit.signature_enabled', false);
+        $signatureSecret = (string) config('audit.signature_secret', '');
+        $signatureEnabled = $signatureEnabled && $signatureSecret !== '';
+        if ($signatureEnabled && ! Schema::hasColumn('audit_logs', 'signature')) {
+            $this->error('audit_logs is missing signature column. Run the audit signature migration first.');
+
+            return self::FAILURE;
+        }
+
         $fromId = $this->option('from-id');
         $fromId = is_numeric($fromId) ? (int) $fromId : null;
         $chunk = (int) ($this->option('chunk') ?: config('audit.verify_chunk', 500));
@@ -45,7 +54,7 @@ class AuditVerifyCommand extends Command
         $mismatches = 0;
         $missingHashes = 0;
 
-        $query->chunkById($chunk, function ($rows) use (&$previousHash, &$total, &$mismatches, &$missingHashes): void {
+        $query->chunkById($chunk, function ($rows) use (&$previousHash, &$total, &$mismatches, &$missingHashes, $signatureEnabled): void {
             foreach ($rows as $row) {
                 $total++;
 
@@ -65,6 +74,14 @@ class AuditVerifyCommand extends Command
                 if (($row->hash ?? null) !== $expected) {
                     $mismatches++;
                     $this->warn("Hash mismatch at ID {$row->id}.");
+                }
+
+                if ($signatureEnabled) {
+                    $expectedSignature = AuditHasher::signature($expected);
+                    if (($row->signature ?? null) !== $expectedSignature) {
+                        $mismatches++;
+                        $this->warn("Signature mismatch at ID {$row->id}.");
+                    }
                 }
 
                 $previousHash = $row->hash;

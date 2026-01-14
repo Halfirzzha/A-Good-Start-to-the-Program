@@ -8,6 +8,7 @@ use App\Support\AuditLogWriter;
 use App\Support\NotificationDeliveryLogger;
 use App\Support\SecurityAlert;
 use App\Support\SystemSettings;
+use App\Support\LocaleHelper;
 use Carbon\Carbon;
 use Filament\Auth\Pages\Login as BaseLogin;
 use Filament\Forms\Components\TextInput;
@@ -33,7 +34,7 @@ class Login extends BaseLogin
                 $this->getEmailFormComponent(),
                 $this->getPasswordFormComponent(),
                 TextInput::make('otp')
-                    ->label('Kode OTP Email')
+                    ->label(__('ui.auth.login.otp_label'))
                     ->numeric()
                     ->minLength(6)
                     ->maxLength(6)
@@ -41,7 +42,9 @@ class Login extends BaseLogin
                     ->visible(fn (): bool => session()->has('auth.otp_user_id'))
                     ->helperText(function (): string {
                         $email = (string) (session()->get('auth.otp_user_email') ?? '');
-                        return $email !== '' ? "Masukkan kode OTP yang dikirim ke {$email}." : 'Masukkan kode OTP dari email Anda.';
+                        return $email !== ''
+                            ? __('ui.auth.login.otp_helper_with_email', ['email' => $email])
+                            : __('ui.auth.login.otp_helper_generic');
                     }),
                 $this->getRememberFormComponent(),
             ])
@@ -74,10 +77,18 @@ class Login extends BaseLogin
         }
 
         if ($user instanceof User && $this->requiresEmailOtp($user)) {
-            if (! $this->validateOtp($user, (string) ($data['otp'] ?? ''))) {
-                $this->sendOtpIfNeeded($user);
+            if (! $this->rateLimitOtp($data)) {
                 throw ValidationException::withMessages([
-                    'data.otp' => 'Kode OTP dikirim ke email Anda. Silakan masukkan kode tersebut.',
+                    'data.otp' => __('ui.auth.login.otp_too_many'),
+                ]);
+            }
+
+            if (! $this->validateOtp($user, (string) ($data['otp'] ?? ''))) {
+                $sent = $this->sendOtpIfNeeded($user);
+                throw ValidationException::withMessages([
+                    'data.otp' => $sent
+                        ? __('ui.auth.login.otp_sent_enter')
+                        : __('ui.auth.login.otp_sent_wait'),
                 ]);
             }
 
@@ -108,7 +119,7 @@ class Login extends BaseLogin
             && filled($user->email);
     }
 
-    private function sendOtpIfNeeded(User $user): void
+    private function sendOtpIfNeeded(User $user): bool
     {
         $otpKey = 'auth:otp:' . $user->getAuthIdentifier();
         $metaKey = $otpKey . ':meta';
@@ -116,7 +127,20 @@ class Login extends BaseLogin
         $existing = Cache::get($otpKey);
         if (is_array($existing) && isset($existing['hash'])) {
             $this->storeOtpSession($user);
-            return;
+            return false;
+        }
+
+        $meta = Cache::get($metaKey);
+        if (is_array($meta) && isset($meta['sent_at'])) {
+            try {
+                $sentAt = Carbon::parse($meta['sent_at']);
+                if ($sentAt->diffInSeconds(now()) < 60) {
+                    $this->storeOtpSession($user);
+                    return false;
+                }
+            } catch (\Throwable) {
+                // Ignore malformed timestamps and send a new OTP.
+            }
         }
 
         $otp = (string) random_int(100000, 999999);
@@ -128,6 +152,7 @@ class Login extends BaseLogin
         $this->storeOtpSession($user);
         $this->sendOtpEmail($user, $otp);
         $this->auditOtpEvent('auth_otp_sent', $user);
+        return true;
     }
 
     private function validateOtp(User $user, string $input): bool
@@ -152,6 +177,20 @@ class Login extends BaseLogin
         return $valid;
     }
 
+    private function rateLimitOtp(array $data): bool
+    {
+        $username = (string) ($data['username'] ?? '');
+        $ip = (string) request()?->ip();
+        $key = 'otp:'.$username.':'.$ip;
+
+        $attempts = Cache::increment($key);
+        if ($attempts === 1) {
+            Cache::put($key, 1, now()->addMinutes(1));
+        }
+
+        return $attempts <= 6;
+    }
+
     private function sendOtpEmail(User $user, string $otp): void
     {
         $fromAddress = (string) SystemSettings::getValue('notifications.email.auth_from_address', '')
@@ -159,15 +198,46 @@ class Login extends BaseLogin
         $fromName = (string) SystemSettings::getValue('notifications.email.auth_from_name', '')
             ?: (string) SystemSettings::getValue('notifications.email.from_name', '');
 
-        $body = "Kode OTP login Anda: {$otp}\nBerlaku 5 menit.";
-
         try {
-            SystemSettings::applyMailConfig('auth');
-            Mail::raw($body, function ($mail) use ($user, $fromAddress, $fromName): void {
-                $mail->to($user->email)->subject('Kode OTP Login');
-                if ($fromAddress !== '') {
-                    $mail->from($fromAddress, $fromName !== '' ? $fromName : null);
-                }
+            $locale = LocaleHelper::resolveUserLocale($user);
+
+            LocaleHelper::withLocale($locale, function () use ($user, $otp, $fromAddress, $fromName): void {
+                $appName = (string) SystemSettings::getValue('project.name', config('app.name', 'System'));
+                $logoUrl = SystemSettings::assetUrl('logo');
+                $title = __('notifications.email.otp.subject');
+                $preheader = __('notifications.email.otp.preheader');
+                $bodyHtml = '<p>'.__('notifications.email.otp.body_html', ['otp' => $otp]).'</p>'
+                    .'<p>'.__('notifications.email.otp.expires', ['minutes' => 5]).'</p>';
+                $bodyText = __('notifications.email.otp.body_text', ['otp' => $otp])."\n"
+                    .__('notifications.email.otp.expires', ['minutes' => 5]);
+
+                SystemSettings::applyMailConfig('auth');
+                Mail::send(
+                    [
+                        'html' => 'emails.auth-otp',
+                        'text' => 'emails.text.auth-otp',
+                    ],
+                    [
+                        'title' => $title,
+                        'appName' => $appName,
+                        'logoUrl' => $logoUrl,
+                        'preheader' => $preheader,
+                        'bodyHtml' => $bodyHtml,
+                        'bodyText' => $bodyText,
+                        'otp' => $otp,
+                        'username' => $user->username ?? $user->email ?? 'User',
+                        'expires' => __('notifications.email.otp.expires_short', ['minutes' => 5]),
+                        'actionUrl' => null,
+                        'actionLabel' => null,
+                        'footer' => __('notifications.email.footer'),
+                    ],
+                    function ($mail) use ($user, $fromAddress, $fromName, $title): void {
+                        $mail->to($user->email)->subject($title);
+                        if ($fromAddress !== '') {
+                            $mail->from($fromAddress, $fromName !== '' ? $fromName : null);
+                        }
+                    }
+                );
             });
 
             NotificationDeliveryLogger::log(
@@ -241,7 +311,9 @@ class Login extends BaseLogin
         ]);
 
         SecurityAlert::dispatch($action, [
-            'title' => $action === 'auth_otp_sent' ? 'OTP sent' : 'OTP verified',
+            'title' => $action === 'auth_otp_sent'
+                ? __('ui.auth.login.otp_sent_title')
+                : __('ui.auth.login.otp_verified_title'),
             'user_id' => $user->getAuthIdentifier(),
             'email' => $user->email,
             'username' => $user->username,
@@ -250,7 +322,7 @@ class Login extends BaseLogin
     protected function getEmailFormComponent(): Component
     {
         return TextInput::make('username')
-            ->label('Username')
+            ->label(__('ui.auth.login.username_label'))
             ->required()
             ->autocomplete('username')
             ->maxLength(50);
@@ -274,7 +346,9 @@ class Login extends BaseLogin
         $user = is_string($username) ? User::where('username', $username)->first() : null;
 
         if ($user && $user->account_status !== AccountStatus::Active) {
-            $reason = $user->blocked_reason ? strip_tags($user->blocked_reason) : 'Akun sedang tidak aktif.';
+            $reason = $user->blocked_reason
+                ? strip_tags($user->blocked_reason)
+                : __('ui.auth.login.account_inactive');
             throw ValidationException::withMessages([
                 'data.username' => $reason,
             ]);
@@ -282,7 +356,7 @@ class Login extends BaseLogin
 
         if ($user && $user->blocked_until && $user->blocked_until->isFuture()) {
             $until = $user->blocked_until->timezone(config('app.timezone', 'UTC'))->format('Y-m-d H:i');
-            $message = 'Akun terkunci hingga ' . $until . '.';
+            $message = __('ui.auth.login.account_locked_until', ['until' => $until]);
             throw ValidationException::withMessages([
                 'data.username' => $message,
             ]);

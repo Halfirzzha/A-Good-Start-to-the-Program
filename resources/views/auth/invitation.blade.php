@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="{{ app()->getLocale() }}">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>Aktivasi Akun</title>
+        <title>{{ __('invitation.title') }}</title>
         <style>
             :root {
                 color-scheme: light;
@@ -85,8 +85,8 @@
     </head>
     <body>
         <main class="card">
-            <h1>Aktivasi Akun</h1>
-            <p class="email">Email: {{ $email }}</p>
+            <h1>{{ __('invitation.title') }}</h1>
+            <p class="email">{{ __('invitation.email', ['email' => $email]) }}</p>
 
             @if ($errors->any())
                 <div class="alert">
@@ -99,22 +99,22 @@
             <form method="POST" action="{{ $formAction }}">
                 @csrf
                 <div>
-                    <label for="username">Username</label>
+                    <label for="username">{{ __('invitation.fields.username') }}</label>
                     <input id="username" name="username" type="text" value="{{ old('username') }}" required>
                 </div>
                 <div>
-                    <label for="password">Password</label>
+                    <label for="password">{{ __('invitation.fields.password') }}</label>
                     <input id="password" name="password" type="password" required>
                 </div>
                 <div>
-                    <label for="password_confirmation">Konfirmasi Password</label>
+                    <label for="password_confirmation">{{ __('invitation.fields.password_confirmation') }}</label>
                     <input id="password_confirmation" name="password_confirmation" type="password" required>
                 </div>
-                <button type="submit">Aktifkan Akun</button>
+                <button type="submit">{{ __('invitation.submit') }}</button>
             </form>
 
             @if ($expiresAt)
-                <p class="meta">Tautan berlaku hingga {{ $expiresAt->format('Y-m-d H:i') }}.</p>
+                <p class="meta">{{ __('invitation.expires', ['time' => $expiresAt->format('Y-m-d H:i')]) }}</p>
             @endif
         </main>
     </body>

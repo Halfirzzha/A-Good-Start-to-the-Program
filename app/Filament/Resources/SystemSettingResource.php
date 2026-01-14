@@ -5,11 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\SystemSettingResource\Pages;
 use App\Models\SystemSetting;
 use App\Support\AuthHelper;
-use App\Support\MaintenanceService;
-use App\Support\SystemSettings;
-use Carbon\Carbon;
 use Filament\Actions\Action;
-use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\RichEditor;
@@ -29,285 +25,292 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Contracts\Validation\Rule as ValidationRuleContract;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
-use Spatie\Permission\Models\Role;
 
 class SystemSettingResource extends Resource
 {
     protected static ?string $model = SystemSetting::class;
 
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-cog-6-tooth';
-
-    protected static string|\UnitEnum|null $navigationGroup = 'System';
-
-    protected static ?int $navigationSort = 1;
+    protected static bool $shouldRegisterNavigation = false;
 
     public static function form(Schema $schema): Schema
     {
         return $schema->components([
-            Tabs::make('System Settings')
+            Tabs::make(__('ui.system_settings.tabs.settings'))
                 ->persistTabInQueryString()
                 ->tabs([
-                    Tab::make('General')
+                    Tab::make(__('ui.system_settings.tabs.general'))
+                        ->icon('heroicon-o-adjustments-horizontal')
                         ->schema([
-                            Section::make('Project')
-                                ->description('Nama dan deskripsi aplikasi yang tampil di seluruh panel.')
+                            Section::make(__('ui.system_settings.sections.project.title'))
+                                ->description(__('ui.system_settings.sections.project.description'))
+                                ->visible(fn (): bool => self::canViewProjectSettings())
                                 ->schema([
-                                    TextInput::make('data.project.name')
-                                        ->label('Project Name')
+                                    TextInput::make('project_name')
+                                        ->label(__('ui.system_settings.fields.project_name'))
+                                        ->prefixIcon('heroicon-o-building-office-2')
+                                        ->disabled(fn (): bool => ! self::canManageProjectSettings())
                                         ->required()
                                         ->maxLength(120),
-                                    Textarea::make('data.project.description')
-                                        ->label('App Description')
-                                        ->rows(3)
-                                        ->maxLength(500),
+                                    TextInput::make('project_url')
+                                        ->label(__('ui.system_settings.fields.project_url'))
+                                        ->prefixIcon('heroicon-o-link')
+                                        ->readOnly(fn (): bool => ! self::canEditProjectUrl())
+                                        ->disabled(fn (): bool => ! self::canManageProjectSettings())
+                                        ->afterStateHydrated(function (?string $state, Set $set): void {
+                                            if (! $state) {
+                                                $set('project_url', config('app.url'));
+                                            }
+                                        })
+                                        ->maxLength(191),
+                                    RichEditor::make('project_description')
+                                        ->label(__('ui.system_settings.fields.project_description'))
+                                        ->hintIcon('heroicon-o-document-text')
+                                        ->toolbarButtons([
+                                            'bold',
+                                            'italic',
+                                            'bulletList',
+                                            'orderedList',
+                                            'link',
+                                        ])
+                                        ->disabled(fn (): bool => ! self::canManageProjectSettings())
+                                        ->maxLength(500)
+                                        ->columnSpanFull(),
                                 ])
                                 ->columns(2),
                         ]),
-                    Tab::make('Branding')
+                    Tab::make(__('ui.system_settings.tabs.branding'))
+                        ->icon('heroicon-o-swatch')
                         ->schema([
-                            Section::make('Logo')
-                                ->description('Logo utama untuk header dan halaman login.')
+                            Section::make(__('ui.system_settings.sections.logo.title'))
+                                ->description(__('ui.system_settings.sections.logo.description'))
+                                ->visible(fn (): bool => self::canViewBrandingSettings())
                                 ->schema([
                                     Placeholder::make('logo_preview')
-                                        ->label('Current Logo')
+                                        ->label(__('ui.system_settings.fields.current_logo'))
+                                        ->hintIcon('heroicon-o-photo')
                                         ->content(fn (?SystemSetting $record): HtmlString => self::assetPreview($record, 'logo')),
                                     FileUpload::make('branding_logo_upload')
-                                        ->label('Upload Logo')
+                                        ->label(__('ui.system_settings.fields.upload_logo'))
+                                        ->hintIcon('heroicon-o-arrow-up-tray')
                                         ->image()
                                         ->imageEditor()
+                                        ->disabled(fn (): bool => ! self::canManageBrandingSettings())
                                         ->storeFiles(false)
                                         ->maxSize(2048)
                                         ->acceptedFileTypes(['image/png', 'image/svg+xml', 'image/jpeg', 'image/webp'])
-                                        ->helperText('PNG/SVG recommended. Stored with automatic Drive fallback.'),
+                                        ->helperText(__('ui.system_settings.helpers.logo')),
                                 ])
                                 ->columns(2),
-                            Section::make('Cover')
-                                ->description('Cover image untuk halaman landing atau maintenance.')
+                            Section::make(__('ui.system_settings.sections.cover.title'))
+                                ->description(__('ui.system_settings.sections.cover.description'))
+                                ->visible(fn (): bool => self::canViewBrandingSettings())
                                 ->schema([
                                     Placeholder::make('cover_preview')
-                                        ->label('Current Cover')
+                                        ->label(__('ui.system_settings.fields.current_cover'))
+                                        ->hintIcon('heroicon-o-photo')
                                         ->content(fn (?SystemSetting $record): HtmlString => self::assetPreview($record, 'cover')),
                                     FileUpload::make('branding_cover_upload')
-                                        ->label('Upload Cover')
+                                        ->label(__('ui.system_settings.fields.upload_cover'))
+                                        ->hintIcon('heroicon-o-arrow-up-tray')
                                         ->image()
                                         ->imageEditor()
+                                        ->disabled(fn (): bool => ! self::canManageBrandingSettings())
                                         ->storeFiles(false)
                                         ->maxSize(4096)
                                         ->acceptedFileTypes(['image/png', 'image/jpeg', 'image/webp'])
-                                        ->helperText('Wide image for landing or system pages.'),
+                                        ->helperText(__('ui.system_settings.helpers.cover')),
                                 ])
                                 ->columns(2),
-                            Section::make('Favicon')
-                                ->description('Ikon kecil untuk tab browser.')
+                            Section::make(__('ui.system_settings.sections.favicon.title'))
+                                ->description(__('ui.system_settings.sections.favicon.description'))
+                                ->visible(fn (): bool => self::canViewBrandingSettings())
                                 ->schema([
                                     Placeholder::make('favicon_preview')
-                                        ->label('Current Favicon')
+                                        ->label(__('ui.system_settings.fields.current_favicon'))
+                                        ->hintIcon('heroicon-o-photo')
                                         ->content(fn (?SystemSetting $record): HtmlString => self::assetPreview($record, 'favicon')),
                                     FileUpload::make('branding_favicon_upload')
-                                        ->label('Upload Favicon')
+                                        ->label(__('ui.system_settings.fields.upload_favicon'))
+                                        ->hintIcon('heroicon-o-arrow-up-tray')
                                         ->image()
+                                        ->disabled(fn (): bool => ! self::canManageBrandingSettings())
                                         ->storeFiles(false)
                                         ->maxSize(512)
                                         ->acceptedFileTypes(['image/png', 'image/x-icon', 'image/vnd.microsoft.icon'])
-                                        ->helperText('Square icon (PNG/ICO).'),
+                                        ->helperText(__('ui.system_settings.helpers.favicon')),
                                 ])
                                 ->columns(2),
                         ]),
-                    Tab::make('Storage')
+                    Tab::make(__('ui.system_settings.tabs.storage'))
+                        ->icon('heroicon-o-server-stack')
                         ->schema([
-                            Section::make('Storage Routing')
-                                ->description('Atur disk utama dan fallback untuk file sistem.')
+                            Section::make(__('ui.system_settings.sections.storage.title'))
+                                ->description(__('ui.system_settings.sections.storage.description'))
+                                ->visible(fn (): bool => self::canViewStorageSettings())
                                 ->schema([
-                                    Select::make('data.storage.primary_disk')
-                                        ->label('Primary Disk')
+                                    Select::make('storage_primary_disk')
+                                        ->label(__('ui.system_settings.fields.primary_disk'))
+                                        ->prefixIcon('heroicon-o-cloud')
                                         ->options(self::storageOptions())
                                         ->native(false)
+                                        ->disabled(fn (): bool => ! self::canManageStorageSettings())
                                         ->required(),
-                                    Select::make('data.storage.fallback_disk')
-                                        ->label('Fallback Disk')
+                                    Select::make('storage_fallback_disk')
+                                        ->label(__('ui.system_settings.fields.fallback_disk'))
+                                        ->prefixIcon('heroicon-o-arrow-path')
                                         ->options(self::storageOptions())
                                         ->native(false)
+                                        ->disabled(fn (): bool => ! self::canManageStorageSettings())
                                         ->required(),
-                                    TextInput::make('data.storage.drive_root')
-                                        ->label('Drive Root Folder')
+                                    TextInput::make('storage_drive_root')
+                                        ->label(__('ui.system_settings.fields.drive_root'))
+                                        ->prefixIcon('heroicon-o-folder')
+                                        ->disabled(fn (): bool => ! self::canManageStorageSettings())
                                         ->maxLength(150)
-                                        ->helperText('Base folder name on Google Drive.'),
-                                    TextInput::make('data.storage.drive_folder_branding')
-                                        ->label('Branding Folder')
+                                        ->helperText(__('ui.system_settings.helpers.drive_root')),
+                                    TextInput::make('storage_drive_folder_branding')
+                                        ->label(__('ui.system_settings.fields.branding_folder'))
+                                        ->prefixIcon('heroicon-o-swatch')
+                                        ->disabled(fn (): bool => ! self::canManageStorageSettings())
                                         ->maxLength(150),
-                                    TextInput::make('data.storage.drive_folder_favicon')
-                                        ->label('Favicon Folder')
+                                    TextInput::make('storage_drive_folder_favicon')
+                                        ->label(__('ui.system_settings.fields.favicon_folder'))
+                                        ->prefixIcon('heroicon-o-star')
+                                        ->disabled(fn (): bool => ! self::canManageStorageSettings())
                                         ->maxLength(150),
                                 ])
                                 ->columns(2),
-                            Section::make('Google Drive Credentials')
-                                ->description('Kredensial Drive untuk penyimpanan eksternal.')
+                            Section::make(__('ui.system_settings.sections.drive.title'))
+                                ->description(__('ui.system_settings.sections.drive.description'))
+                                ->visible(fn (): bool => self::canViewStorageSettings())
                                 ->schema([
-                                    Textarea::make('secrets.google_drive.service_account_json')
-                                        ->label('Service Account JSON')
+                                    Textarea::make('google_drive_service_account_json')
+                                        ->label(__('ui.system_settings.fields.service_account'))
+                                        ->hintIcon('heroicon-o-document-text')
                                         ->rows(5)
-                                        ->visible(fn (): bool => self::canEditSecrets())
-                                        ->helperText('Paste JSON or provide a file path via env.'),
-                                    TextInput::make('secrets.google_drive.client_id')
-                                        ->label('OAuth Client ID')
-                                        ->visible(fn (): bool => self::canEditSecrets())
+                                        ->visible(fn (): bool => self::canEditSecrets() && self::canManageStorageSettings())
+                                        ->disabled(fn (): bool => ! self::canEditSecrets() || ! self::canManageStorageSettings())
+                                        ->helperText(__('ui.system_settings.helpers.service_account')),
+                                    TextInput::make('google_drive_client_id')
+                                        ->label(__('ui.system_settings.fields.oauth_client_id'))
+                                        ->prefixIcon('heroicon-o-key')
+                                        ->visible(fn (): bool => self::canEditSecrets() && self::canManageStorageSettings())
+                                        ->disabled(fn (): bool => ! self::canEditSecrets() || ! self::canManageStorageSettings())
                                         ->maxLength(191),
-                                    TextInput::make('secrets.google_drive.client_secret')
-                                        ->label('OAuth Client Secret')
-                                        ->visible(fn (): bool => self::canEditSecrets())
+                                    TextInput::make('google_drive_client_secret')
+                                        ->label(__('ui.system_settings.fields.oauth_client_secret'))
+                                        ->prefixIcon('heroicon-o-lock-closed')
+                                        ->visible(fn (): bool => self::canEditSecrets() && self::canManageStorageSettings())
+                                        ->disabled(fn (): bool => ! self::canEditSecrets() || ! self::canManageStorageSettings())
                                         ->password()
                                         ->maxLength(191),
-                                    TextInput::make('secrets.google_drive.refresh_token')
-                                        ->label('OAuth Refresh Token')
-                                        ->visible(fn (): bool => self::canEditSecrets())
+                                    TextInput::make('google_drive_refresh_token')
+                                        ->label(__('ui.system_settings.fields.oauth_refresh_token'))
+                                        ->prefixIcon('heroicon-o-arrow-path-rounded-square')
+                                        ->visible(fn (): bool => self::canEditSecrets() && self::canManageStorageSettings())
+                                        ->disabled(fn (): bool => ! self::canEditSecrets() || ! self::canManageStorageSettings())
                                         ->password()
                                         ->maxLength(191),
                                 ])
                                 ->columns(2),
                         ]),
-                    Tab::make('Maintenance')
-                        ->schema([
-                            Section::make('Maintenance Mode')
-                                ->description('Status dan mode maintenance untuk kontrol akses.')
-                                ->schema([
-                                    Placeholder::make('maintenance_status')
-                                        ->label('Status')
-                                        ->content(fn (): HtmlString => self::maintenanceStatusPreview())
-                                        ->columnSpanFull(),
-                                    Toggle::make('data.maintenance.enabled')
-                                        ->label('Aktifkan maintenance manual')
-                                        ->helperText('Gunakan ini untuk memaksa mode maintenance tanpa menunggu jadwal.'),
-                                    Select::make('data.maintenance.mode')
-                                        ->label('Mode akses')
-                                        ->options([
-                                            'global' => 'Global (blokir semua akses)',
-                                            'allowlist' => 'Allowlist (hanya path yang diizinkan)',
-                                            'denylist' => 'Denylist (blokir path tertentu)',
-                                        ])
-                                        ->native(false)
-                                        ->required(),
-                                ])
-                                ->columns(2),
-                            Section::make('Jadwal Maintenance')
-                                ->description('Jadwal otomatis untuk start/end maintenance.')
-                                ->schema([
-                                    DateTimePicker::make('data.maintenance.start_at')
-                                        ->label('Maintenance Start (UTC)')
-                                        ->seconds(false)
-                                        ->timezone('UTC')
-                                        ->helperText('Waktu UTC. Sistem akan otomatis aktif saat waktu ini tercapai.')
-                                        ->rules(['nullable', 'date'])
-                                        ->required(fn (Get $get): bool => (bool) $get('data.maintenance.end_at')),
-                                    DateTimePicker::make('data.maintenance.end_at')
-                                        ->label('Maintenance End (UTC)')
-                                        ->seconds(false)
-                                        ->timezone('UTC')
-                                        ->helperText('Waktu UTC. Sistem akan otomatis nonaktif setelah waktu ini.')
-                                        ->rules(fn (Get $get): array => $get('data.maintenance.start_at')
-                                            ? ['required', 'date', 'after_or_equal:data.maintenance.start_at']
-                                            : ['nullable', 'date']),
-                                ])
-                                ->columns(2),
-                            Section::make('Pesan Publik')
-                                ->description('Konten yang tampil di halaman maintenance publik.')
-                                ->schema([
-                                    TextInput::make('data.maintenance.title')
-                                        ->label('Judul')
-                                        ->maxLength(150),
-                                    Textarea::make('data.maintenance.summary')
-                                        ->label('Ringkasan')
-                                        ->rows(3)
-                                        ->maxLength(500),
-                                    RichEditor::make('data.maintenance.note_html')
-                                        ->label('Operator Note (Rich)')
-                                        ->toolbarButtons(['bold', 'italic', 'bulletList', 'orderedList', 'link', 'undo', 'redo'])
-                                        ->helperText('Konten ini tampil di halaman publik maintenance.')
-                                        ->columnSpanFull(),
-                                ])
-                                ->columns(2),
-                            Section::make('Access Controls')
-                                ->description('Aturan allow/deny berbasis IP, role, path, dan route.')
-                                ->schema([
-                                    TagsInput::make('data.maintenance.allow_ips')
-                                        ->label('Allow IPs')
-                                        ->placeholder('203.0.113.10 or 203.0.113.0/24')
-                                        ->nestedRecursiveRules([
-                                            'string',
-                                            'max:64',
-                                            self::ipOrCidrRule(),
-                                        ]),
-                                    Select::make('data.maintenance.allow_roles')
-                                        ->label('Allow Roles')
-                                        ->options(fn (): array => Role::query()->pluck('name', 'name')->all())
-                                        ->multiple()
-                                        ->native(false),
-                                    Toggle::make('data.maintenance.allow_developer_bypass')
-                                        ->label('Allow Developer Bypass'),
-                                    Toggle::make('data.maintenance.allow_api')
-                                        ->label('Allow API Requests'),
-                                    TagsInput::make('data.maintenance.allow_paths')
-                                        ->label('Allow Paths')
-                                        ->placeholder('/admin, /status')
-                                        ->nestedRecursiveRules([
-                                            'string',
-                                            'max:160',
-                                            self::pathPatternRule(),
-                                        ]),
-                                    TagsInput::make('data.maintenance.deny_paths')
-                                        ->label('Deny Paths')
-                                        ->placeholder('/checkout, /orders')
-                                        ->nestedRecursiveRules([
-                                            'string',
-                                            'max:160',
-                                            self::pathPatternRule(),
-                                        ]),
-                                    TagsInput::make('data.maintenance.allow_routes')
-                                        ->label('Allow Route Names')
-                                        ->placeholder('filament.admin.pages.dashboard')
-                                        ->nestedRecursiveRules([
-                                            'string',
-                                            'max:160',
-                                            self::routePatternRule(),
-                                        ]),
-                                    TagsInput::make('data.maintenance.deny_routes')
-                                        ->label('Deny Route Names')
-                                        ->placeholder('orders.create')
-                                        ->nestedRecursiveRules([
-                                            'string',
-                                            'max:160',
-                                            self::routePatternRule(),
-                                        ]),
-                                ])
-                                ->columns(2),
-                            Section::make('Bypass Tokens')
-                                ->description('Token bypass untuk akses operator saat maintenance.')
-                                ->schema([
-                                    Placeholder::make('maintenance_token_manage')
-                                        ->label('Kelola token')
-                                        ->content(new HtmlString('Gunakan menu <a class="text-primary-600 underline" href="'.e(route('filament.admin.resources.maintenance-tokens.index')).'">Maintenance Tokens</a> untuk membuat, rotasi, dan mencabut token akses.')),
-                                ])
-                                ->columns(1),
-                        ]),
-                    Tab::make('Communication')
+                    Tab::make(__('ui.system_settings.tabs.communication'))
                         ->icon('heroicon-o-envelope')
                         ->schema([
                             Grid::make(2)
                                 ->schema([
-                                    Section::make('Email & Notification')
-                                        ->description('Konfigurasi pengiriman email dan notifikasi sistem.')
+                                    Section::make(__('ui.system_settings.sections.email.title'))
+                                        ->description(__('ui.system_settings.sections.email.description'))
+                                        ->visible(fn (): bool => self::canViewCommunicationSettings())
                                         ->headerActions([
+                                            Action::make('check_smtp_connection')
+                                                ->label(__('ui.system_settings.actions.check_smtp'))
+                                                ->icon('heroicon-o-signal')
+                                                ->color('secondary')
+                                                ->iconButton()
+                                                ->tooltip(__('ui.system_settings.actions.check_smtp'))
+                                                ->visible(fn (): bool => self::canManageCommunicationSettings())
+                                                ->action(function (): void {
+                                                    if (! self::canManageCommunicationSettings()) {
+                                                        abort(403);
+                                                    }
+
+                                                    if (self::isRateLimited('smtp_check', 6, 60)) {
+                                                        \Filament\Notifications\Notification::make()
+                                                            ->title(__('ui.system_settings.notifications.too_many_title'))
+                                                            ->body(__('ui.system_settings.notifications.smtp_check_wait'))
+                                                            ->warning()
+                                                            ->send();
+                                                        return;
+                                                    }
+
+                                                    $host = (string) \App\Support\SystemSettings::getValue('notifications.email.smtp_host', '');
+                                                    $port = (int) \App\Support\SystemSettings::getValue('notifications.email.smtp_port', 0);
+                                                    $encryption = (string) \App\Support\SystemSettings::getValue('notifications.email.smtp_encryption', '');
+
+                                                    if ($host === '' || $port === 0) {
+                                                        \Filament\Notifications\Notification::make()
+                                                            ->title(__('ui.system_settings.notifications.smtp_missing_title'))
+                                                            ->body(__('ui.system_settings.notifications.smtp_missing_body'))
+                                                            ->warning()
+                                                            ->send();
+
+                                                        return;
+                                                    }
+
+                                                    $transportHost = $host;
+                                                    if ($encryption === 'ssl') {
+                                                        $transportHost = 'ssl://'.$host;
+                                                    }
+
+                                                    $timeout = 5;
+                                                    $errno = 0;
+                                                    $errstr = '';
+                                                    $connection = @fsockopen($transportHost, $port, $errno, $errstr, $timeout);
+
+                                                    if (is_resource($connection)) {
+                                                        fclose($connection);
+                                                        \Filament\Notifications\Notification::make()
+                                                            ->title(__('ui.system_settings.notifications.smtp_connected_title'))
+                                                            ->body(__('ui.system_settings.notifications.smtp_connected_body', ['host' => $host, 'port' => $port]))
+                                                            ->success()
+                                                            ->send();
+
+                                                        return;
+                                                    }
+
+                                                    $message = $errstr !== '' ? $errstr : __('ui.system_settings.notifications.smtp_failed_body');
+                                                    \Filament\Notifications\Notification::make()
+                                                        ->title(__('ui.system_settings.notifications.smtp_failed_title'))
+                                                        ->body($message)
+                                                        ->danger()
+                                                        ->send();
+                                                }),
                                             Action::make('send_test_email')
                                                 ->icon('heroicon-o-paper-airplane')
                                                 ->color('warning')
                                                 ->iconButton()
-                                                ->tooltip('Send Test Email')
+                                                ->tooltip(__('ui.system_settings.actions.send_test_email'))
+                                                ->visible(fn (): bool => self::canManageCommunicationSettings())
                                                 ->action(function (): void {
+                                                    if (! self::canManageCommunicationSettings()) {
+                                                        abort(403);
+                                                    }
+
+                                                    if (self::isRateLimited('smtp_test_email', 4, 60)) {
+                                                        \Filament\Notifications\Notification::make()
+                                                            ->title(__('ui.system_settings.notifications.too_many_title'))
+                                                            ->body(__('ui.system_settings.notifications.test_wait'))
+                                                            ->warning()
+                                                            ->send();
+                                                        return;
+                                                    }
+
                                                     $recipients = \App\Support\SystemSettings::getValue('notifications.email.recipients', []);
                                                     $recipients = is_array($recipients) ? array_filter($recipients) : [];
                                                     $userEmail = AuthHelper::user()?->email;
@@ -318,8 +321,8 @@ class SystemSettingResource extends Resource
 
                                                     if (empty($recipients)) {
                                                         \Filament\Notifications\Notification::make()
-                                                            ->title('Recipients kosong')
-                                                            ->body('Tambahkan recipients email atau gunakan email user yang login.')
+                                                            ->title(__('ui.system_settings.notifications.recipients_empty_title'))
+                                                            ->body(__('ui.system_settings.notifications.recipients_empty_body'))
                                                             ->danger()
                                                             ->send();
 
@@ -329,12 +332,12 @@ class SystemSettingResource extends Resource
                                                     $fromAddress = (string) \App\Support\SystemSettings::getValue('notifications.email.from_address', '');
                                                     $fromName = (string) \App\Support\SystemSettings::getValue('notifications.email.from_name', '');
 
-                                                    $body = 'Test email berhasil. Konfigurasi komunikasi berjalan.';
+                                                    $body = __('ui.system_settings.notifications.test_body');
 
                                                     try {
                                                         \App\Support\SystemSettings::applyMailConfig('general');
                                                         \Illuminate\Support\Facades\Mail::raw($body, function ($mail) use ($recipients, $fromAddress, $fromName): void {
-                                                            $mail->to($recipients)->subject('Test Email');
+                                                            $mail->to($recipients)->subject(__('ui.system_settings.notifications.test_subject'));
                                                             if ($fromAddress !== '') {
                                                                 $mail->from($fromAddress, $fromName !== '' ? $fromName : null);
                                                             }
@@ -348,13 +351,13 @@ class SystemSettingResource extends Resource
                                                             [
                                                                 'notification_type' => 'test_email',
                                                                 'recipient' => implode(', ', $recipients),
-                                                                'summary' => 'Test email delivery',
+                                                                'summary' => __('ui.system_settings.notifications.test_delivery_summary'),
                                                                 'request_id' => request()?->headers->get('X-Request-Id'),
                                                             ],
                                                         );
 
                                                         \Filament\Notifications\Notification::make()
-                                                            ->title('Test email terkirim')
+                                                            ->title(__('ui.system_settings.notifications.test_sent_title'))
                                                             ->success()
                                                             ->send();
                                                     } catch (\Throwable $error) {
@@ -366,14 +369,14 @@ class SystemSettingResource extends Resource
                                                             [
                                                                 'notification_type' => 'test_email',
                                                                 'recipient' => implode(', ', $recipients),
-                                                                'summary' => 'Test email delivery',
+                                                                'summary' => __('ui.system_settings.notifications.test_delivery_summary'),
                                                                 'error_message' => $error->getMessage(),
                                                                 'request_id' => request()?->headers->get('X-Request-Id'),
                                                             ],
                                                         );
 
                                                         \Filament\Notifications\Notification::make()
-                                                            ->title('Test email gagal')
+                                                            ->title(__('ui.system_settings.notifications.test_failed_title'))
                                                             ->body($error->getMessage())
                                                             ->danger()
                                                             ->send();
@@ -383,139 +386,241 @@ class SystemSettingResource extends Resource
                                                 ->icon('heroicon-o-arrow-path')
                                                 ->color('warning')
                                                 ->iconButton()
-                                                ->tooltip('Refresh')
+                                                ->tooltip(__('ui.system_settings.actions.refresh'))
                                                 ->action(fn () => redirect()->to(request()->fullUrl())),
                                         ])
                                         ->schema([
-                                            Toggle::make('data.notifications.email.enabled')
-                                                ->label('Enable Email Notifications'),
-                                            TextInput::make('data.notifications.email.provider')
-                                                ->label('Email Provider')
+                                            Toggle::make('email_enabled')
+                                                ->label(__('ui.system_settings.fields.email_enabled'))
+                                                ->onIcon('heroicon-o-check-circle')
+                                                ->offIcon('heroicon-o-x-circle')
+                                                ->disabled(fn (): bool => ! self::canManageCommunicationSettings()),
+                                            TextInput::make('email_provider')
+                                                ->label(__('ui.system_settings.fields.email_provider'))
+                                                ->prefixIcon('heroicon-o-at-symbol')
+                                                ->disabled(fn (): bool => ! self::canManageCommunicationSettings())
                                                 ->maxLength(100)
-                                                ->helperText('Contoh: SMTP, SES, Mailgun, Gmail Workspace.'),
-                                    TextInput::make('data.notifications.email.from_name')
-                                        ->label('Sender Name')
-                                        ->maxLength(120)
-                                        ->live()
-                                        ->afterStateHydrated(function (?string $state, Set $set): void {
-                                            if (! $state) {
-                                                $set('data.notifications.email.from_name', config('app.name', 'System'));
-                                            }
-                                        })
-                                        ->helperText('Nama pengirim untuk notifikasi umum.'),
-                                    TextInput::make('data.notifications.email.from_address')
-                                        ->label('Sender Address')
-                                        ->email()
-                                        ->maxLength(191)
-                                        ->helperText('Alamat email pengirim untuk notifikasi umum.'),
-                                    TextInput::make('data.notifications.email.auth_from_name')
-                                        ->label('Auth Sender Name')
-                                        ->maxLength(120)
-                                        ->live()
-                                        ->afterStateHydrated(function (?string $state, Set $set): void {
-                                            if (! $state) {
-                                                $set('data.notifications.email.auth_from_name', config('app.name', 'System').' OTP');
-                                            }
-                                        })
-                                        ->helperText('Nama pengirim khusus OTP/konfirmasi login.'),
-                                    TextInput::make('data.notifications.email.auth_from_address')
-                                        ->label('Auth Sender Address')
-                                        ->email()
-                                        ->maxLength(191)
-                                        ->helperText('Alamat email khusus OTP/konfirmasi login.'),
-                                    TagsInput::make('data.notifications.email.recipients')
-                                        ->label('Recipients')
-                                        ->placeholder('ops@example.com')
-                                        ->helperText('Comma or enter-separated emails.')
-                                        ->afterStateHydrated(function ($state, Set $set): void {
-                                            if (empty($state)) {
-                                                $set('data.notifications.email.recipients', self::defaultEmailRecipients());
-                                            }
-                                        })
-                                        ->nestedRecursiveRules([
-                                            'string',
-                                            'email',
-                                            'max:254',
-                                        ])
-                                        ->columnSpanFull(),
+                                                ->helperText(__('ui.system_settings.helpers.email_provider')),
+                                            TextInput::make('email_from_name')
+                                                ->label(__('ui.system_settings.fields.email_from_name'))
+                                                ->prefixIcon('heroicon-o-user')
+                                                ->disabled(fn (): bool => ! self::canManageCommunicationSettings())
+                                                ->maxLength(120)
+                                                ->live()
+                                                ->afterStateHydrated(function (?string $state, Set $set): void {
+                                                    if (! $state) {
+                                                        $set('email_from_name', config('app.name', 'System'));
+                                                    }
+                                                })
+                                                ->helperText(__('ui.system_settings.helpers.email_from_name')),
+                                            TextInput::make('email_from_address')
+                                                ->label(__('ui.system_settings.fields.email_from_address'))
+                                                ->prefixIcon('heroicon-o-envelope')
+                                                ->email()
+                                                ->disabled(fn (): bool => ! self::canManageCommunicationSettings())
+                                                ->maxLength(191)
+                                                ->helperText(function (Get $get): string {
+                                                    $smtp = (string) $get('smtp_username');
+                                                    $from = (string) $get('email_from_address');
+                                                    $smtpDomain = self::extractEmailDomain($smtp);
+                                                    $fromDomain = self::extractEmailDomain($from);
+                                                    if ($smtpDomain && $fromDomain && $smtpDomain !== $fromDomain) {
+                                                        return __('ui.system_settings.helpers.email_domain_warning');
+                                                    }
+
+                                                    return __('ui.system_settings.helpers.email_from_address');
+                                                })
+                                                ->required(fn (Get $get): bool => (bool) $get('email_enabled'))
+                                                ->rules([
+                                                    fn (Get $get) => function (string $attribute, $value, $fail) use ($get): void {
+                                                        $smtpDomain = SystemSettingResource::extractEmailDomain(
+                                                            (string) $get('smtp_username')
+                                                        );
+                                                        $fromDomain = SystemSettingResource::extractEmailDomain((string) $value);
+                                                        if ($smtpDomain && $fromDomain && $smtpDomain !== $fromDomain) {
+                                                            $fail(__('ui.system_settings.helpers.email_domain_mismatch'));
+                                                        }
+                                                    },
+                                                ]),
+                                            TextInput::make('email_auth_from_name')
+                                                ->label(__('ui.system_settings.fields.email_auth_from_name'))
+                                                ->prefixIcon('heroicon-o-shield-check')
+                                                ->disabled(fn (): bool => ! self::canManageCommunicationSettings())
+                                                ->maxLength(120)
+                                                ->live()
+                                                ->afterStateHydrated(function (?string $state, Set $set): void {
+                                                    if (! $state) {
+                                                        $set('email_auth_from_name', config('app.name', 'System').' OTP');
+                                                    }
+                                                })
+                                                ->helperText(__('ui.system_settings.helpers.email_auth_from_name')),
+                                            TextInput::make('email_auth_from_address')
+                                                ->label(__('ui.system_settings.fields.email_auth_from_address'))
+                                                ->prefixIcon('heroicon-o-lock-closed')
+                                                ->email()
+                                                ->disabled(fn (): bool => ! self::canManageCommunicationSettings())
+                                                ->maxLength(191)
+                                                ->helperText(function (Get $get): string {
+                                                    $smtp = (string) $get('smtp_username');
+                                                    $from = (string) $get('email_auth_from_address');
+                                                    $smtpDomain = self::extractEmailDomain($smtp);
+                                                    $fromDomain = self::extractEmailDomain($from);
+                                                    if ($smtpDomain && $fromDomain && $smtpDomain !== $fromDomain) {
+                                                        return __('ui.system_settings.helpers.auth_domain_warning');
+                                                    }
+
+                                                    return __('ui.system_settings.helpers.email_auth_from_address');
+                                                })
+                                                ->required(fn (Get $get): bool => (bool) $get('email_enabled'))
+                                                ->rules([
+                                                    fn (Get $get) => function (string $attribute, $value, $fail) use ($get): void {
+                                                        $smtpDomain = SystemSettingResource::extractEmailDomain(
+                                                            (string) $get('smtp_username')
+                                                        );
+                                                        $fromDomain = SystemSettingResource::extractEmailDomain((string) $value);
+                                                        if ($smtpDomain && $fromDomain && $smtpDomain !== $fromDomain) {
+                                                            $fail(__('ui.system_settings.helpers.auth_domain_mismatch'));
+                                                        }
+                                                    },
+                                                ]),
+                                            TagsInput::make('email_recipients')
+                                                ->label(__('ui.system_settings.fields.email_recipients'))
+                                                ->prefixIcon('heroicon-o-users')
+                                                ->disabled(fn (): bool => ! self::canManageCommunicationSettings())
+                                                ->placeholder('ops@example.com')
+                                                ->helperText(__('ui.system_settings.helpers.recipients'))
+                                                ->afterStateHydrated(function ($state, Set $set): void {
+                                                    if (empty($state)) {
+                                                        $set('email_recipients', self::defaultEmailRecipients());
+                                                    }
+                                                })
+                                                ->nestedRecursiveRules([
+                                                    'string',
+                                                    'email',
+                                                    'max:254',
+                                                ])
+                                                ->columnSpanFull(),
                                         ])
                                         ->columns(2),
-                                    Section::make('SMTP Configuration')
-                                        ->description('Gunakan SMTP untuk mengirim email notifikasi dan OTP.')
+                                    Section::make(__('ui.system_settings.sections.smtp.title'))
+                                        ->description(__('ui.system_settings.sections.smtp.description'))
+                                        ->visible(fn (): bool => self::canViewCommunicationSettings())
                                         ->schema([
-                                            Select::make('data.notifications.email.mailer')
-                                                ->label('Mailer')
+                                            Select::make('smtp_mailer')
+                                                ->label(__('ui.system_settings.fields.smtp_mailer'))
+                                                ->prefixIcon('heroicon-o-cog-6-tooth')
                                                 ->options([
                                                     'smtp' => 'SMTP',
                                                 ])
-                                                ->native(false),
-                                            TextInput::make('data.notifications.email.smtp_host')
-                                                ->label('SMTP Host')
+                                                ->native(false)
+                                                ->disabled(fn (): bool => ! self::canManageCommunicationSettings()),
+                                            TextInput::make('smtp_host')
+                                                ->label(__('ui.system_settings.fields.smtp_host'))
+                                                ->prefixIcon('heroicon-o-server')
+                                                ->disabled(fn (): bool => ! self::canManageCommunicationSettings())
                                                 ->maxLength(191)
-                                                ->helperText('Contoh: smtp.gmail.com'),
-                                            TextInput::make('data.notifications.email.smtp_port')
-                                                ->label('SMTP Port')
+                                                ->required(fn (Get $get): bool => (bool) $get('email_enabled'))
+                                                ->helperText(__('ui.system_settings.helpers.smtp_host')),
+                                            TextInput::make('smtp_port')
+                                                ->label(__('ui.system_settings.fields.smtp_port'))
+                                                ->prefixIcon('heroicon-o-hashtag')
                                                 ->numeric()
+                                                ->disabled(fn (): bool => ! self::canManageCommunicationSettings())
                                                 ->minValue(1)
                                                 ->maxValue(65535)
                                                 ->live()
                                                 ->afterStateUpdated(function (?string $state, Set $set): void {
                                                     $port = (int) $state;
                                                     if ($port === 465) {
-                                                        $set('data.notifications.email.smtp_encryption', 'ssl');
+                                                        $set('smtp_encryption', 'ssl');
                                                     } elseif ($port === 587) {
-                                                        $set('data.notifications.email.smtp_encryption', 'tls');
+                                                        $set('smtp_encryption', 'tls');
                                                     }
                                                 })
-                                                ->helperText('Auto-detect: 465 = SSL, 587 = TLS.'),
-                                            Select::make('data.notifications.email.smtp_encryption')
-                                                ->label('Encryption')
+                                                ->required(fn (Get $get): bool => (bool) $get('email_enabled'))
+                                                ->helperText(__('ui.system_settings.helpers.smtp_port')),
+                                            Select::make('smtp_encryption')
+                                                ->label(__('ui.system_settings.fields.smtp_encryption'))
+                                                ->prefixIcon('heroicon-o-shield-check')
                                                 ->options([
                                                     'tls' => 'TLS',
                                                     'ssl' => 'SSL',
                                                     '' => 'None',
                                                 ])
                                                 ->native(false)
+                                                ->disabled(fn (): bool => ! self::canManageCommunicationSettings())
                                                 ->live()
                                                 ->afterStateUpdated(function (?string $state, Set $set, Get $get): void {
-                                                    $port = (int) $get('data.notifications.email.smtp_port');
+                                                    $port = (int) $get('smtp_port');
                                                     if ($state === 'ssl' && ($port === 0 || $port === 587)) {
-                                                        $set('data.notifications.email.smtp_port', 465);
+                                                        $set('smtp_port', 465);
                                                     } elseif ($state === 'tls' && ($port === 0 || $port === 465)) {
-                                                        $set('data.notifications.email.smtp_port', 587);
+                                                        $set('smtp_port', 587);
                                                     }
-                                                }),
-                                            TextInput::make('data.notifications.email.smtp_username')
-                                                ->label('SMTP Username')
-                                                ->maxLength(191),
-                                            TextInput::make('secrets.notifications.email.smtp_password')
-                                                ->label('SMTP Password')
+                                                })
+                                                ->required(fn (Get $get): bool => (bool) $get('email_enabled')),
+                                            TextInput::make('smtp_username')
+                                                ->label(__('ui.system_settings.fields.smtp_username'))
+                                                ->prefixIcon('heroicon-o-user-circle')
+                                                ->disabled(fn (): bool => ! self::canManageCommunicationSettings())
+                                                ->maxLength(191)
+                                                ->live()
+                                                ->afterStateUpdated(function (?string $state, Set $set, Get $get): void {
+                                                    $domain = self::extractEmailDomain($state);
+                                                    if (! $domain) {
+                                                        return;
+                                                    }
+
+                                                    $currentSender = (string) $get('email_from_address');
+                                                    if ($currentSender === '' || self::extractEmailDomain($currentSender) !== $domain) {
+                                                        $set('email_from_address', 'support@'.$domain);
+                                                    }
+
+                                                    $currentAuth = (string) $get('email_auth_from_address');
+                                                    if ($currentAuth === '' || self::extractEmailDomain($currentAuth) !== $domain) {
+                                                        $set('email_auth_from_address', 'no-reply@'.$domain);
+                                                    }
+                                                })
+                                                ->required(fn (Get $get): bool => (bool) $get('email_enabled')),
+                                            TextInput::make('smtp_password')
+                                                ->label(__('ui.system_settings.fields.smtp_password'))
+                                                ->prefixIcon('heroicon-o-key')
                                                 ->password()
                                                 ->revealable()
-                                                ->visible(fn (): bool => self::canEditSecrets())
+                                                ->visible(fn (): bool => self::canEditSecrets() && self::canManageCommunicationSettings())
+                                                ->disabled(fn (): bool => ! self::canEditSecrets() || ! self::canManageCommunicationSettings())
+                                                ->helperText(__('ui.system_settings.helpers.smtp_password'))
                                                 ->maxLength(191),
                                         ])
-                                        ->columns(1),
+                                        ->columns(2),
                                 ])
                                 ->columnSpanFull(),
-                            Section::make('Telegram Alerts')
-                                ->description('Notifikasi Telegram untuk event kritikal.')
+                            Section::make(__('ui.system_settings.sections.telegram.title'))
+                                ->description(__('ui.system_settings.sections.telegram.description'))
+                                ->visible(fn (): bool => self::canViewCommunicationSettings())
                                 ->schema([
-                                    Toggle::make('data.notifications.telegram.enabled')
-                                        ->label('Enable Telegram Alerts'),
-                                    TextInput::make('data.notifications.telegram.chat_id')
-                                        ->label('Chat ID')
+                                    Toggle::make('telegram_enabled')
+                                        ->label(__('ui.system_settings.fields.telegram_enabled'))
+                                        ->onIcon('heroicon-o-check-circle')
+                                        ->offIcon('heroicon-o-x-circle')
+                                        ->disabled(fn (): bool => ! self::canManageCommunicationSettings()),
+                                    TextInput::make('telegram_chat_id')
+                                        ->label(__('ui.system_settings.fields.telegram_chat_id'))
+                                        ->prefixIcon('heroicon-o-chat-bubble-left-right')
+                                        ->disabled(fn (): bool => ! self::canManageCommunicationSettings())
                                         ->maxLength(50)
-                                        ->required(fn (Get $get): bool => (bool) $get('data.notifications.telegram.enabled'))
+                                        ->required(fn (Get $get): bool => (bool) $get('telegram_enabled'))
                                         ->rules([
                                             'nullable',
                                             'regex:/^-?[0-9]+$/',
                                         ]),
-                                    TextInput::make('secrets.telegram.bot_token')
-                                        ->label('Bot Token')
+                                    TextInput::make('telegram_bot_token')
+                                        ->label(__('ui.system_settings.fields.telegram_bot_token'))
+                                        ->prefixIcon('heroicon-o-key')
                                         ->password()
-                                        ->visible(fn (): bool => self::canEditSecrets())
-                                        ->required(fn (Get $get): bool => self::canEditSecrets() && (bool) $get('data.notifications.telegram.enabled'))
+                                        ->visible(fn (): bool => self::canEditSecrets() && self::canManageCommunicationSettings())
+                                        ->disabled(fn (): bool => ! self::canEditSecrets() || ! self::canManageCommunicationSettings())
+                                        ->required(fn (Get $get): bool => self::canEditSecrets() && self::canManageCommunicationSettings() && (bool) $get('telegram_enabled'))
                                         ->maxLength(191),
                                 ])
                                 ->columns(3),
@@ -528,33 +633,29 @@ class SystemSettingResource extends Resource
     {
         return $table
             ->columns([
-                IconColumn::make('maintenance_enabled')
-                    ->label('Maintenance')
-                    ->boolean()
-                    ->getStateUsing(fn (SystemSetting $record): bool => (bool) Arr::get($record->data, 'maintenance.enabled', false)),
                 IconColumn::make('email_alerts')
-                    ->label('Email Alerts')
+                    ->label(__('ui.system_settings.table.email_alerts'))
                     ->boolean()
-                    ->getStateUsing(fn (SystemSetting $record): bool => (bool) Arr::get($record->data, 'notifications.email.enabled', false))
+                    ->getStateUsing(fn (SystemSetting $record): bool => (bool) $record->email_enabled)
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('project')
-                    ->label('Project')
-                    ->getStateUsing(fn (SystemSetting $record): ?string => Arr::get($record->data, 'project.name')),
+                    ->label(__('ui.system_settings.table.project'))
+                    ->getStateUsing(fn (SystemSetting $record): ?string => $record->project_name),
                 TextColumn::make('updated_at')
-                    ->label('Updated')
+                    ->label(__('ui.system_settings.table.updated'))
                     ->dateTime()
                     ->sortable(),
                 TextColumn::make('updated_by')
-                    ->label('Updated By')
+                    ->label(__('ui.system_settings.table.updated_by'))
                     ->getStateUsing(fn (SystemSetting $record): ?string => optional($record->updatedBy)->name ?? null),
             ])
             ->striped()
             ->paginated(false)
-            ->emptyStateHeading('Konfigurasi sistem belum tersedia')
-            ->emptyStateDescription('Initialize pengaturan sistem melalui proses provisioning agar opsi branding, maintenance, dan storage siap digunakan.')
+            ->emptyStateHeading(__('ui.system_settings.empty.heading'))
+            ->emptyStateDescription(__('ui.system_settings.empty.description'))
             ->emptyStateActions([
                 Action::make('refresh')
-                    ->label('Segarkan')
+                    ->label(__('ui.system_settings.actions.refresh'))
                     ->icon('heroicon-o-arrow-path')
                     ->color('secondary')
                     ->url(fn (): string => request()->fullUrl()),
@@ -586,6 +687,21 @@ class SystemSettingResource extends Resource
         return false;
     }
 
+    public static function canViewAny(): bool
+    {
+        return self::canViewSettings();
+    }
+
+    public static function canView(Model $record): bool
+    {
+        return self::canViewSettings();
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return self::canViewSettings();
+    }
+
     public static function canDelete(Model $record): bool
     {
         return false;
@@ -594,18 +710,20 @@ class SystemSettingResource extends Resource
     private static function assetPreview(?SystemSetting $record, string $key): HtmlString
     {
         if (! $record) {
-            return new HtmlString('<span class="text-sm text-gray-500">Belum ada</span>');
+            return new HtmlString('<span class="text-sm text-gray-500">'.__('ui.system_settings.asset.none').'</span>');
         }
 
-        $asset = Arr::get($record->data, 'branding.'.$key, []);
-        if (! is_array($asset)) {
-            return new HtmlString('<span class="text-sm text-gray-500">Belum ada</span>');
-        }
+        $asset = [
+            'disk' => $record->getAttribute("branding_{$key}_disk"),
+            'path' => $record->getAttribute("branding_{$key}_path"),
+            'fallback_disk' => $record->getAttribute("branding_{$key}_fallback_disk"),
+            'fallback_path' => $record->getAttribute("branding_{$key}_fallback_path"),
+        ];
 
         $url = self::assetUrlFromMeta($asset);
 
         if (! $url) {
-            return new HtmlString('<span class="text-sm text-gray-500">Preview tidak tersedia</span>');
+            return new HtmlString('<span class="text-sm text-gray-500">'.__('ui.system_settings.asset.no_preview').'</span>');
         }
 
         $safeUrl = e($url);
@@ -644,228 +762,15 @@ class SystemSettingResource extends Resource
         return $url ?: null;
     }
 
-    private static function maintenanceStatusPreview(): HtmlString
-    {
-        $settings = SystemSettings::get(true);
-        $maintenance = Arr::get($settings, 'data.maintenance', []);
-
-        $snapshot = MaintenanceService::snapshot($maintenance);
-        $startAt = $snapshot['start_at'];
-        $endAt = $snapshot['end_at'];
-        $timezone = config('app.timezone', 'UTC');
-
-        $windowParts = [];
-        if ($startAt) {
-            $windowParts[] = 'start: '.$startAt->copy()->timezone($timezone)->format('Y-m-d H:i:s').' '.$timezone;
-        }
-        if ($endAt) {
-            $windowParts[] = 'end: '.$endAt->copy()->timezone($timezone)->format('Y-m-d H:i:s').' '.$timezone;
-        }
-
-        $windowText = $windowParts !== [] ? implode(' · ', $windowParts) : 'Belum dijadwalkan';
-        $statusClass = match ($snapshot['status_label']) {
-            'Active' => 'text-red-600',
-            'Scheduled' => 'text-amber-600',
-            'Ended' => 'text-slate-500',
-            default => 'text-emerald-600',
-        };
-
-        $now = now();
-        $nextText = 'Tidak ada perubahan terjadwal.';
-        if ($snapshot['is_scheduled'] && $startAt) {
-            $nextText = self::formatRelative($startAt, $now, 'Mulai dalam', 'Dimulai');
-        } elseif ($snapshot['is_active'] && $endAt) {
-            $nextText = self::formatRelative($endAt, $now, 'Selesai dalam', 'Selesai');
-        }
-
-        $retryText = '—';
-        if (is_int($snapshot['retry_after'])) {
-            $readable = self::formatReadableDuration($snapshot['retry_after']);
-            $retryText = $readable ? $readable.' ('.$snapshot['retry_after'].' detik)' : $retryText;
-        }
-
-        $statusLabel = e($snapshot['status_label']);
-
-        return new HtmlString(
-            '<div class="space-y-1 text-sm">'.
-            '<div><span class="text-slate-500">Status:</span> <span class="'.$statusClass.'" data-maintenance-admin-status>'.$statusLabel.'</span></div>'.
-            '<div class="text-xs text-slate-500" data-maintenance-admin-window>'.e($windowText).'</div>'.
-            '<div class="text-xs text-slate-500" data-maintenance-admin-next>'.e($nextText).'</div>'.
-            '<div class="text-xs text-slate-500">Retry after: <span data-maintenance-admin-retry>'.e($retryText).'</span></div>'.
-            '</div>',
-        );
-    }
-
-    private static function formatRelative(?Carbon $target, Carbon $now, string $prefixFuture, string $prefixPast): string
-    {
-        if (! $target) {
-            return '—';
-        }
-
-        $seconds = $now->diffInSeconds($target, false);
-        $readable = self::formatReadableDuration(abs($seconds));
-        if (! $readable) {
-            return '—';
-        }
-
-        return ($seconds >= 0 ? $prefixFuture : $prefixPast).' '.$readable;
-    }
-
-    private static function formatReadableDuration(int $seconds): ?string
-    {
-        if ($seconds < 0) {
-            return null;
-        }
-
-        $days = intdiv($seconds, 86400);
-        $hours = intdiv($seconds % 86400, 3600);
-        $minutes = intdiv($seconds % 3600, 60);
-        $parts = [];
-
-        if ($days > 0) {
-            $parts[] = $days.' hari';
-        }
-        if ($hours > 0 || $days > 0) {
-            $parts[] = $hours.' jam';
-        }
-        $parts[] = $minutes.' menit';
-
-        return implode(' ', $parts);
-    }
-
-    private static function parseDate(mixed $value): ?Carbon
-    {
-        return MaintenanceService::parseDate($value);
-    }
-
-    public static function isValidIpOrCidr(mixed $value): bool
-    {
-        if (! is_string($value)) {
-            return false;
-        }
-
-        $value = trim($value);
-        if ($value === '') {
-            return false;
-        }
-
-        if (filter_var($value, FILTER_VALIDATE_IP) !== false) {
-            return true;
-        }
-
-        if (! str_contains($value, '/')) {
-            return false;
-        }
-
-        [$subnet, $mask] = array_pad(explode('/', $value, 2), 2, null);
-        if (! $subnet || ! is_numeric($mask)) {
-            return false;
-        }
-
-        if (filter_var($subnet, FILTER_VALIDATE_IP) === false) {
-            return false;
-        }
-
-        $packed = @inet_pton($subnet);
-        if ($packed === false) {
-            return false;
-        }
-
-        $maxBits = strlen($packed) * 8;
-        $mask = (int) $mask;
-
-        return $mask >= 0 && $mask <= $maxBits;
-    }
-
-    public static function isValidPathPattern(mixed $value): bool
-    {
-        if (! is_string($value)) {
-            return false;
-        }
-
-        $value = trim($value);
-        if ($value === '') {
-            return false;
-        }
-
-        if ($value === '/') {
-            return true;
-        }
-
-        return (bool) preg_match('/^\\/?[A-Za-z0-9\\-._~%\\/\\*{}]+$/', $value);
-    }
-
-    public static function isValidRoutePattern(mixed $value): bool
-    {
-        if (! is_string($value)) {
-            return false;
-        }
-
-        $value = trim($value);
-        if ($value === '') {
-            return false;
-        }
-
-        return (bool) preg_match('/^[A-Za-z0-9._\\-*]+$/', $value);
-    }
-
-    private static function ipOrCidrRule(): ValidationRuleContract
-    {
-        return new class implements ValidationRuleContract
-        {
-            public function passes($attribute, $value): bool
-            {
-                return SystemSettingResource::isValidIpOrCidr($value);
-            }
-
-            public function message(): string
-            {
-                return 'IP or CIDR format is invalid.';
-            }
-        };
-    }
-
-    private static function pathPatternRule(): ValidationRuleContract
-    {
-        return new class implements ValidationRuleContract
-        {
-            public function passes($attribute, $value): bool
-            {
-                return SystemSettingResource::isValidPathPattern($value);
-            }
-
-            public function message(): string
-            {
-                return 'Path pattern is invalid.';
-            }
-        };
-    }
-
-    private static function routePatternRule(): ValidationRuleContract
-    {
-        return new class implements ValidationRuleContract
-        {
-            public function passes($attribute, $value): bool
-            {
-                return SystemSettingResource::isValidRoutePattern($value);
-            }
-
-            public function message(): string
-            {
-                return 'Route pattern is invalid.';
-            }
-        };
-    }
-
     /**
      * @return array<string, string>
      */
     private static function storageOptions(): array
     {
         return [
-            'google' => 'Google Drive',
-            'public' => 'Local Public',
-            'local' => 'Local Private',
+            'google' => __('ui.system_settings.storage_options.google'),
+            'public' => __('ui.system_settings.storage_options.public'),
+            'local' => __('ui.system_settings.storage_options.local'),
         ];
     }
 
@@ -873,7 +778,208 @@ class SystemSettingResource extends Resource
     {
         $user = AuthHelper::user();
 
-        return $user && method_exists($user, 'isDeveloper') && $user->isDeveloper();
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasElevatedPrivileges') && $user->hasElevatedPrivileges()) {
+            return true;
+        }
+
+        return $user->can('manage_system_setting_secrets')
+            || $user->can('update_system_setting')
+            || $user->can('update_system_settings');
+    }
+
+    private static function canEditProjectUrl(): bool
+    {
+        $user = AuthHelper::user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasElevatedPrivileges') && $user->hasElevatedPrivileges()) {
+            return true;
+        }
+
+        return $user->can('manage_system_setting_project_url')
+            || $user->can('update_system_setting')
+            || $user->can('update_system_settings');
+    }
+
+    public static function canViewProjectSettings(): bool
+    {
+        $user = AuthHelper::user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasElevatedPrivileges') && $user->hasElevatedPrivileges()) {
+            return true;
+        }
+
+        return $user->can('manage_system_settings_project')
+            || $user->can('update_system_setting')
+            || $user->can('update_system_settings')
+            || $user->can('view_system_setting')
+            || $user->can('view_any_system_setting');
+    }
+
+    public static function canViewBrandingSettings(): bool
+    {
+        $user = AuthHelper::user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasElevatedPrivileges') && $user->hasElevatedPrivileges()) {
+            return true;
+        }
+
+        return $user->can('manage_system_settings_branding')
+            || $user->can('update_system_setting')
+            || $user->can('update_system_settings')
+            || $user->can('view_system_setting')
+            || $user->can('view_any_system_setting');
+    }
+
+    public static function canViewStorageSettings(): bool
+    {
+        $user = AuthHelper::user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasElevatedPrivileges') && $user->hasElevatedPrivileges()) {
+            return true;
+        }
+
+        return $user->can('manage_system_settings_storage')
+            || $user->can('update_system_setting')
+            || $user->can('update_system_settings')
+            || $user->can('view_system_setting')
+            || $user->can('view_any_system_setting');
+    }
+
+    public static function canViewCommunicationSettings(): bool
+    {
+        $user = AuthHelper::user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasElevatedPrivileges') && $user->hasElevatedPrivileges()) {
+            return true;
+        }
+
+        return $user->can('manage_system_settings_communication')
+            || $user->can('update_system_setting')
+            || $user->can('update_system_settings')
+            || $user->can('view_system_setting')
+            || $user->can('view_any_system_setting');
+    }
+
+    public static function canViewSettings(): bool
+    {
+        $user = AuthHelper::user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasElevatedPrivileges') && $user->hasElevatedPrivileges()) {
+            return true;
+        }
+
+        return $user->can('view_any_system_setting')
+            || $user->can('view_system_setting')
+            || $user->can('view_any_system_settings')
+            || $user->can('view_system_settings');
+    }
+
+    public static function canUpdateSettings(): bool
+    {
+        $user = AuthHelper::user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasElevatedPrivileges') && $user->hasElevatedPrivileges()) {
+            return true;
+        }
+
+        return $user->can('update_system_setting')
+            || $user->can('update_system_settings');
+    }
+
+    public static function canManageProjectSettings(): bool
+    {
+        $user = AuthHelper::user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasElevatedPrivileges') && $user->hasElevatedPrivileges()) {
+            return true;
+        }
+
+        return $user->can('manage_system_settings_project')
+            || self::canUpdateSettings();
+    }
+
+    public static function canManageBrandingSettings(): bool
+    {
+        $user = AuthHelper::user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasElevatedPrivileges') && $user->hasElevatedPrivileges()) {
+            return true;
+        }
+
+        return $user->can('manage_system_settings_branding')
+            || self::canUpdateSettings();
+    }
+
+    public static function canManageStorageSettings(): bool
+    {
+        $user = AuthHelper::user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasElevatedPrivileges') && $user->hasElevatedPrivileges()) {
+            return true;
+        }
+
+        return $user->can('manage_system_settings_storage')
+            || self::canUpdateSettings();
+    }
+
+    public static function canManageCommunicationSettings(): bool
+    {
+        $user = AuthHelper::user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasElevatedPrivileges') && $user->hasElevatedPrivileges()) {
+            return true;
+        }
+
+        return $user->can('manage_system_settings_communication')
+            || self::canUpdateSettings();
     }
 
     /**
@@ -897,5 +1003,30 @@ class SystemSettingResource extends Resource
         }
 
         return $recipients;
+    }
+
+    private static function extractEmailDomain(?string $email): ?string
+    {
+        if (! is_string($email) || $email === '' || ! str_contains($email, '@')) {
+            return null;
+        }
+
+        [$local, $domain] = explode('@', $email, 2);
+        $domain = trim($domain);
+
+        return $domain !== '' ? strtolower($domain) : null;
+    }
+
+    private static function isRateLimited(string $key, int $maxAttempts, int $seconds): bool
+    {
+        $userId = AuthHelper::id() ?: 'guest';
+        $cacheKey = "rate:system_settings:{$key}:{$userId}";
+
+        $attempts = Cache::increment($cacheKey);
+        if ($attempts === 1) {
+            Cache::put($cacheKey, 1, now()->addSeconds($seconds));
+        }
+
+        return $attempts > $maxAttempts;
     }
 }

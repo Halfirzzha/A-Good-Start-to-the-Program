@@ -21,6 +21,10 @@ class AuditRehashCommand extends Command
             return self::FAILURE;
         }
 
+        $signatureEnabled = (bool) config('audit.signature_enabled', false);
+        $signatureSecret = (string) config('audit.signature_secret', '');
+        $signatureEnabled = $signatureEnabled && $signatureSecret !== '' && Schema::hasColumn('audit_logs', 'signature');
+
         $fromId = $this->option('from-id');
         $fromId = is_numeric($fromId) ? (int) $fromId : null;
         $chunk = (int) ($this->option('chunk') ?: config('audit.rehash_chunk', 500));
@@ -46,16 +50,18 @@ class AuditRehashCommand extends Command
         $total = 0;
         $updated = 0;
 
-        $query->chunkById($chunk, function ($rows) use (&$previousHash, &$total, &$updated, $dryRun): void {
+        $query->chunkById($chunk, function ($rows) use (&$previousHash, &$total, &$updated, $dryRun, $signatureEnabled): void {
             foreach ($rows as $row) {
                 $total++;
 
                 $data = (array) $row;
                 $normalized = AuditHasher::normalize($data);
                 $expected = AuditHasher::hash($normalized, $previousHash);
+                $expectedSignature = $signatureEnabled ? AuditHasher::signature($expected) : null;
 
                 $needsUpdate = ($row->hash ?? null) !== $expected
-                    || ($row->previous_hash ?? null) !== $previousHash;
+                    || ($row->previous_hash ?? null) !== $previousHash
+                    || ($signatureEnabled && ($row->signature ?? null) !== $expectedSignature);
 
                 if ($needsUpdate) {
                     $updated++;
@@ -66,6 +72,7 @@ class AuditRehashCommand extends Command
                             ->update([
                                 'hash' => $expected,
                                 'previous_hash' => $previousHash,
+                                'signature' => $expectedSignature,
                             ]);
                     }
                 }

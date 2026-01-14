@@ -3,9 +3,12 @@
 namespace App\Providers;
 
 use App\Models\AuditLog;
+use App\Models\MaintenanceSetting;
 use App\Support\SecurityAlert;
+use App\Support\MaintenanceService;
 use App\Support\SystemSettings;
 use App\Support\AuditLogWriter;
+use App\Support\AuthHelper;
 use App\Models\SystemSetting;
 use BezhanSalleh\FilamentShield\Facades\FilamentShield;
 use Filament\Facades\Filament;
@@ -13,16 +16,22 @@ use Google\Client as GoogleClient;
 use Google\Service\Drive;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\Request;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\DB;
 use League\Flysystem\Filesystem;
+use Livewire\Livewire;
 use Masbug\Flysystem\GoogleDriveAdapter;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -65,6 +74,21 @@ class AppServiceProvider extends ServiceProvider
                     'update',
                     'delete',
                 ],
+                \App\Filament\Resources\NotificationMessageResource::class => [
+                    'viewAny',
+                    'view',
+                    'create',
+                    'update',
+                    'delete',
+                ],
+                \App\Filament\Resources\NotificationDeliveryResource::class => [
+                    'viewAny',
+                    'view',
+                ],
+                \App\Filament\Resources\UserNotificationResource::class => [
+                    'viewAny',
+                    'view',
+                ],
                 \App\Filament\Resources\UnifiedHistoryResource::class => [
                     'viewAny',
                     'view',
@@ -73,9 +97,24 @@ class AppServiceProvider extends ServiceProvider
                     'viewAny',
                     'view',
                 ],
+                \App\Filament\Resources\SystemSettingResource::class => [
+                    'viewAny',
+                    'view',
+                    'update',
+                ],
+                \App\Filament\Resources\MaintenanceSettingResource::class => [
+                    'viewAny',
+                    'view',
+                    'update',
+                ],
             ],
             'filament-shield.shield_resource.tabs.custom_permissions' => true,
-            'filament-shield.pages.exclude' => [],
+            'filament-shield.pages.exclude' => [
+                \BezhanSalleh\FilamentShield\Resources\Roles\Pages\ListRoles::class,
+                \BezhanSalleh\FilamentShield\Resources\Roles\Pages\CreateRole::class,
+                \BezhanSalleh\FilamentShield\Resources\Roles\Pages\ViewRole::class,
+                \BezhanSalleh\FilamentShield\Resources\Roles\Pages\EditRole::class,
+            ],
             'filament-shield.widgets.exclude' => [],
             'filament-shield.custom_permissions' => [
                 'access_admin_panel',
@@ -84,8 +123,23 @@ class AppServiceProvider extends ServiceProvider
                 'execute_user_activate',
                 'execute_user_force_password_reset',
                 'execute_user_revoke_sessions',
+                'manage_user_avatar',
+                'manage_user_identity',
+                'manage_user_security',
+                'manage_user_access_status',
+                'view_user_system_info',
                 'execute_maintenance_bypass_token',
+                'execute_notification_send',
                 'execute_unified_history_create',
+                'manage_system_setting_secrets',
+                'manage_system_setting_project_url',
+                'manage_system_settings_project',
+                'manage_system_settings_branding',
+                'manage_system_settings_storage',
+                'manage_system_settings_communication',
+                'manage_maintenance_schedule',
+                'manage_maintenance_message',
+                'manage_maintenance_access',
             ],
         ]);
     }
@@ -95,8 +149,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        $this->enforceHttpsScheme();
+        $this->registerLivewireComponentAliases();
         $this->registerGoogleDriveFilesystem();
+        $this->registerSlowQueryLogger();
         $this->ensureSystemSettingsRecord();
+        $this->ensureMaintenanceSettingsRecord();
         $this->ensureDeveloperBootstrapPermissions();
         $this->ensureUnifiedHistoryBootstrap();
         $this->ensureUnifiedHistoryHardeningEntry();
@@ -123,6 +181,72 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('health-check', function (Request $request): Limit {
             return Limit::perMinute(30)->by($request->ip());
+        });
+
+        RateLimiter::for('maintenance-status', function (Request $request): Limit {
+            return Limit::perMinute(30)->by($request->ip());
+        });
+
+        RateLimiter::for('maintenance-stream', function (Request $request): Limit {
+            return Limit::perMinute(6)->by($request->ip());
+        });
+
+        RateLimiter::for('invitation', function (Request $request): Limit {
+            return Limit::perMinute(6)->by($request->ip());
+        });
+
+        RateLimiter::for('auth-login', function (Request $request): Limit {
+            $identity = (string) ($request->input('username') ?? $request->ip());
+            return Limit::perMinute(10)->by($identity);
+        });
+
+        RateLimiter::for('auth-otp', function (Request $request): Limit {
+            $identity = (string) ($request->input('username') ?? $request->ip());
+            return Limit::perMinute(6)->by($identity);
+        });
+
+        Gate::before(function ($user, string $ability): ?bool {
+            if (method_exists($user, 'isDeveloper') && $user->isDeveloper()) {
+                return true;
+            }
+
+            return null;
+        });
+
+        Gate::after(function ($user, string $ability, mixed $result, array $arguments): void {
+            if ($result !== false || app()->runningInConsole()) {
+                return;
+            }
+
+            $request = request();
+            if (! $request || ! $this->shouldLogAuthorizationDenied($request)) {
+                return;
+            }
+
+            $auditableType = null;
+            $auditableId = null;
+            $firstArg = $arguments[0] ?? null;
+            if ($firstArg instanceof Model) {
+                $auditableType = $firstArg->getMorphClass();
+                $auditableId = $firstArg->getKey();
+            }
+
+            AuditLogWriter::writeAudit([
+                'user_id' => AuthHelper::id(),
+                'action' => 'authorization_denied',
+                'auditable_type' => $auditableType,
+                'auditable_id' => $auditableId,
+                'old_values' => null,
+                'new_values' => null,
+                'context' => [
+                    'ability' => $ability,
+                    'route' => $request->route()?->getName(),
+                    'path' => $request->path(),
+                    'method' => $request->method(),
+                    'arguments' => $this->summarizeGateArguments($arguments),
+                ],
+                'created_at' => now(),
+            ]);
         });
 
         Role::created(function (Role $role): void {
@@ -234,12 +358,50 @@ class AppServiceProvider extends ServiceProvider
         });
     }
 
-    private function ensureDeveloperBootstrapPermissions(): void
+    private function enforceHttpsScheme(): void
     {
-        if (app()->runningInConsole()) {
+        $appUrl = (string) config('app.url', '');
+        if (! app()->environment('production') || ! str_starts_with($appUrl, 'https://')) {
             return;
         }
 
+        URL::forceScheme('https');
+    }
+
+    private function registerSlowQueryLogger(): void
+    {
+        $threshold = (int) config('observability.slow_query_ms', 0);
+        if ($threshold <= 0) {
+            return;
+        }
+
+        DB::listen(function ($query) use ($threshold): void {
+            if ($query->time < $threshold) {
+                return;
+            }
+
+            $bindings = $query->bindings ?? [];
+            $payload = [
+                'connection' => $query->connectionName,
+                'time_ms' => $query->time,
+                'sql' => $query->sql,
+                'bindings_count' => is_array($bindings) ? count($bindings) : 0,
+            ];
+
+            if (config('observability.log_query_bindings', false)) {
+                $payload['bindings'] = $bindings;
+            }
+
+            try {
+                Log::channel('performance')->warning('slow_query', $payload);
+            } catch (\Throwable) {
+                Log::warning('slow_query', $payload);
+            }
+        });
+    }
+
+    private function ensureDeveloperBootstrapPermissions(): void
+    {
         if (! $this->safeHasTable('roles') || ! $this->safeHasTable('permissions')) {
             return;
         }
@@ -397,6 +559,57 @@ class AppServiceProvider extends ServiceProvider
         ]);
     }
 
+    private function shouldLogAuthorizationDenied(Request $request): bool
+    {
+        if (! $request->user()) {
+            return false;
+        }
+
+        if (str_starts_with((string) $request->route()?->getName(), 'filament.admin.')) {
+            return true;
+        }
+
+        return $request->is('admin/*');
+    }
+
+    /**
+     * @param array<int, mixed> $arguments
+     * @return array<int, string|array<string, mixed>>
+     */
+    private function summarizeGateArguments(array $arguments): array
+    {
+        $summary = [];
+
+        foreach ($arguments as $argument) {
+            if ($argument instanceof Model) {
+                $summary[] = [
+                    'type' => $argument->getMorphClass(),
+                    'id' => $argument->getKey(),
+                ];
+                continue;
+            }
+
+            if (is_scalar($argument) || $argument === null) {
+                $summary[] = $argument;
+                continue;
+            }
+
+            if (is_array($argument)) {
+                $summary[] = [
+                    'type' => 'array',
+                    'keys' => array_keys($argument),
+                ];
+                continue;
+            }
+
+            $summary[] = [
+                'type' => get_debug_type($argument),
+            ];
+        }
+
+        return $summary;
+    }
+
     private function ensureSystemSettingsRecord(): void
     {
         if (! $this->safeHasTable('system_settings')) {
@@ -408,11 +621,91 @@ class AppServiceProvider extends ServiceProvider
         }
 
         $defaults = SystemSettings::defaults();
+        $data = is_array($defaults['data'] ?? null) ? $defaults['data'] : [];
+        $secrets = is_array($defaults['secrets'] ?? null) ? $defaults['secrets'] : [];
 
-        SystemSetting::withoutEvents(function () use ($defaults): void {
+        SystemSetting::withoutEvents(function () use ($data, $secrets): void {
             SystemSetting::query()->create([
-                'data' => $defaults['data'] ?? [],
-                'secrets' => $defaults['secrets'] ?? [],
+                'project_name' => (string) Arr::get($data, 'project.name', config('app.name', 'System')),
+                'project_description' => Arr::get($data, 'project.description'),
+                'project_url' => Arr::get($data, 'project.url', config('app.url')),
+                'branding_logo_disk' => Arr::get($data, 'branding.logo.disk'),
+                'branding_logo_path' => Arr::get($data, 'branding.logo.path'),
+                'branding_logo_fallback_disk' => Arr::get($data, 'branding.logo.fallback_disk'),
+                'branding_logo_fallback_path' => Arr::get($data, 'branding.logo.fallback_path'),
+                'branding_logo_status' => Arr::get($data, 'branding.logo.status', 'unset'),
+                'branding_logo_updated_at' => Arr::get($data, 'branding.logo.updated_at'),
+                'branding_cover_disk' => Arr::get($data, 'branding.cover.disk'),
+                'branding_cover_path' => Arr::get($data, 'branding.cover.path'),
+                'branding_cover_fallback_disk' => Arr::get($data, 'branding.cover.fallback_disk'),
+                'branding_cover_fallback_path' => Arr::get($data, 'branding.cover.fallback_path'),
+                'branding_cover_status' => Arr::get($data, 'branding.cover.status', 'unset'),
+                'branding_cover_updated_at' => Arr::get($data, 'branding.cover.updated_at'),
+                'branding_favicon_disk' => Arr::get($data, 'branding.favicon.disk'),
+                'branding_favicon_path' => Arr::get($data, 'branding.favicon.path'),
+                'branding_favicon_fallback_disk' => Arr::get($data, 'branding.favicon.fallback_disk'),
+                'branding_favicon_fallback_path' => Arr::get($data, 'branding.favicon.fallback_path'),
+                'branding_favicon_status' => Arr::get($data, 'branding.favicon.status', 'unset'),
+                'branding_favicon_updated_at' => Arr::get($data, 'branding.favicon.updated_at'),
+                'storage_primary_disk' => Arr::get($data, 'storage.primary_disk', 'google'),
+                'storage_fallback_disk' => Arr::get($data, 'storage.fallback_disk', 'public'),
+                'storage_drive_root' => Arr::get($data, 'storage.drive_root'),
+                'storage_drive_folder_branding' => Arr::get($data, 'storage.drive_folder_branding'),
+                'storage_drive_folder_favicon' => Arr::get($data, 'storage.drive_folder_favicon'),
+                'email_enabled' => (bool) Arr::get($data, 'notifications.email.enabled', true),
+                'email_provider' => Arr::get($data, 'notifications.email.provider'),
+                'email_from_name' => Arr::get($data, 'notifications.email.from_name'),
+                'email_from_address' => Arr::get($data, 'notifications.email.from_address'),
+                'email_auth_from_name' => Arr::get($data, 'notifications.email.auth_from_name'),
+                'email_auth_from_address' => Arr::get($data, 'notifications.email.auth_from_address'),
+                'email_recipients' => Arr::get($data, 'notifications.email.recipients', []),
+                'smtp_mailer' => Arr::get($data, 'notifications.email.mailer', 'smtp'),
+                'smtp_host' => Arr::get($data, 'notifications.email.smtp_host'),
+                'smtp_port' => Arr::get($data, 'notifications.email.smtp_port', 587),
+                'smtp_encryption' => Arr::get($data, 'notifications.email.smtp_encryption'),
+                'smtp_username' => Arr::get($data, 'notifications.email.smtp_username'),
+                'smtp_password' => Arr::get($secrets, 'notifications.email.smtp_password'),
+                'telegram_enabled' => (bool) Arr::get($data, 'notifications.telegram.enabled', false),
+                'telegram_chat_id' => Arr::get($data, 'notifications.telegram.chat_id'),
+                'telegram_bot_token' => Arr::get($secrets, 'telegram.bot_token'),
+                'google_drive_service_account_json' => Arr::get($secrets, 'google_drive.service_account_json'),
+                'google_drive_client_id' => Arr::get($secrets, 'google_drive.client_id'),
+                'google_drive_client_secret' => Arr::get($secrets, 'google_drive.client_secret'),
+                'google_drive_refresh_token' => Arr::get($secrets, 'google_drive.refresh_token'),
+            ]);
+        });
+    }
+
+    private function ensureMaintenanceSettingsRecord(): void
+    {
+        if (! $this->safeHasTable('maintenance_settings')) {
+            return;
+        }
+
+        if (MaintenanceSetting::query()->exists()) {
+            return;
+        }
+
+        $defaults = MaintenanceService::getSettings();
+
+        MaintenanceSetting::withoutEvents(function () use ($defaults): void {
+            MaintenanceSetting::query()->create([
+                'enabled' => (bool) ($defaults['enabled'] ?? false),
+                'mode' => (string) ($defaults['mode'] ?? 'global'),
+                'title' => $defaults['title'] ?? null,
+                'summary' => $defaults['summary'] ?? null,
+                'note_html' => $defaults['note_html'] ?? null,
+                'start_at' => $defaults['start_at'] ?? null,
+                'end_at' => $defaults['end_at'] ?? null,
+                'retry_after' => $defaults['retry_after'] ?? null,
+                'allow_roles' => $defaults['allow_roles'] ?? [],
+                'allow_ips' => $defaults['allow_ips'] ?? [],
+                'allow_paths' => $defaults['allow_paths'] ?? [],
+                'deny_paths' => $defaults['deny_paths'] ?? [],
+                'allow_routes' => $defaults['allow_routes'] ?? [],
+                'deny_routes' => $defaults['deny_routes'] ?? [],
+                'allow_api' => (bool) ($defaults['allow_api'] ?? false),
+                'allow_developer_bypass' => (bool) ($defaults['allow_developer_bypass'] ?? false),
             ]);
         });
     }
@@ -622,10 +915,30 @@ class AppServiceProvider extends ServiceProvider
         ]);
     }
 
+    private function registerLivewireComponentAliases(): void
+    {
+        Livewire::component(
+            'filament.livewire.database-notifications',
+            \App\Filament\Livewire\DatabaseNotifications::class
+        );
+    }
+
     private function registerGoogleDriveFilesystem(): void
     {
         Storage::extend('google', function ($app, $config): FilesystemAdapter {
-            return $this->buildGoogleFilesystem((array) $config);
+            if (! class_exists(GoogleClient::class) || ! class_exists(Drive::class)) {
+                Log::warning('storage.google_drive.missing_dependency');
+                return $this->fallbackGoogleFilesystem();
+            }
+
+            try {
+                return $this->buildGoogleFilesystem((array) $config);
+            } catch (\Throwable $error) {
+                Log::warning('storage.google_drive.unavailable', [
+                    'error' => $error->getMessage(),
+                ]);
+                return $this->fallbackGoogleFilesystem();
+            }
         });
     }
 
@@ -704,6 +1017,15 @@ class AppServiceProvider extends ServiceProvider
         $filesystem = new Filesystem($adapter);
 
         return new FilesystemAdapter($filesystem, $adapter, $config);
+    }
+
+    private function fallbackGoogleFilesystem(): FilesystemAdapter
+    {
+        return Storage::build([
+            'driver' => 'local',
+            'root' => storage_path('app/google-fallback'),
+            'throw' => false,
+        ]);
     }
 
     /**

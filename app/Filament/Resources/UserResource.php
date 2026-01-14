@@ -6,6 +6,7 @@ use App\Enums\AccountStatus;
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
 use App\Support\AuthHelper;
+use App\Support\AuditLogWriter;
 use App\Support\PasswordRules;
 use App\Support\SystemSettings;
 use Filament\Actions\Action;
@@ -58,32 +59,38 @@ class UserResource extends Resource
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-users';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Security';
+    protected static string|\UnitEnum|null $navigationGroup = null;
 
     protected static ?int $navigationSort = 5;
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('ui.nav.groups.security');
+    }
 
     public static function form(Schema $schema): Schema
     {
         $isViewer = (AuthHelper::user()?->hasRole('viewer') ?? false)
             || (AuthHelper::user()?->role === 'viewer');
-        $disk = (string) SystemSettings::getValue('storage.primary_disk', 'public');
-        $fallbackDisk = (string) SystemSettings::getValue('storage.fallback_disk', 'public');
+        [$disk, $fallbackDisk] = self::resolveAvatarUploadDisks();
         $localeFallback = (string) config('app.locale', 'en');
         $timezoneFallback = (string) config('app.timezone', 'UTC');
         $countryOptions = self::asianCountryDialCodes();
 
         return $schema->components([
-            \Filament\Schemas\Components\Tabs::make('User')
+            \Filament\Schemas\Components\Tabs::make(__('ui.users.tabs.user'))
                 ->persistTabInQueryString()
                 ->tabs([
-                    \Filament\Schemas\Components\Tabs\Tab::make('Data Utama')
+                    \Filament\Schemas\Components\Tabs\Tab::make(__('ui.users.tabs.main'))
                         ->icon('heroicon-o-user')
+                        ->visible(fn (?User $record): bool => self::canViewAvatar($record) || self::canViewIdentity($record))
                         ->schema([
-                            Section::make('Avatar')
-                                ->description('Foto profil pengguna untuk konsistensi identitas di seluruh panel.')
+                            Section::make(__('ui.users.sections.avatar'))
+                                ->description(__('ui.users.descriptions.avatar'))
+                                ->visible(fn (?User $record): bool => self::canViewAvatar($record))
                                 ->schema([
                                     FileUpload::make('avatar')
-                                        ->label('Avatar')
+                                        ->label(__('ui.users.fields.avatar'))
                                         ->disk($disk)
                                         ->directory('avatars')
                                         ->avatar()
@@ -93,8 +100,8 @@ class UserResource extends Resource
                                         ->imageResizeTargetHeight('512')
                                         ->maxSize(512)
                                         ->visibility('public')
-                                        ->helperText('PNG/JPG/WebP. Disimpan di storage utama, auto resize agar tajam dan ringan.')
-                                        ->disabled(fn (): bool => $isViewer)
+                                        ->helperText(__('ui.users.helpers.avatar'))
+                                        ->disabled(fn (?User $record): bool => $isViewer || ! self::canManageAvatar($record))
                                         ->getUploadedFileUsing(function (BaseFileUpload $component, string $file, string|array|null $storedFileNames): ?array {
                                             $parsed = self::parseAvatarState($file);
                                             if ($parsed['url']) {
@@ -112,6 +119,10 @@ class UserResource extends Resource
                                             $diskName = self::resolveAvatarDiskForPath($path, $parsed['disk']);
 
                                             try {
+                                                if (! self::isPublicDisk($diskName)) {
+                                                    return null;
+                                                }
+
                                                 $storage = Storage::disk($diskName);
                                                 if (! $storage->exists($path)) {
                                                     return null;
@@ -142,65 +153,79 @@ class UserResource extends Resource
                                         }),
                                 ])
                                 ->columns(1),
-                            Section::make('Identity')
-                                ->description('Informasi inti akun pengguna untuk identitas dan peran.')
+                            Section::make(__('ui.users.sections.identity'))
+                                ->description(__('ui.users.descriptions.identity'))
+                                ->visible(fn (?User $record): bool => self::canViewIdentity($record))
                                 ->schema([
                                     TextInput::make('name')
                                         ->required()
                                         ->maxLength(255)
-                                        ->disabled(fn (?User $record): bool => $isViewer || ($record && self::isProtectedUser($record) && ! self::actorHasElevatedPrivileges())),
+                                        ->disabled(fn (?User $record): bool => $isViewer
+                                            || ! self::canManageIdentity($record)
+                                            || ($record && self::isProtectedUser($record) && ! self::actorHasElevatedPrivileges())),
                                     TextInput::make('email')
                                         ->email()
                                         ->required()
                                         ->maxLength(255)
                                         ->unique(ignoreRecord: true)
-                                        ->disabled(fn (?User $record): bool => $isViewer || ($record && self::isProtectedUser($record) && ! self::actorHasElevatedPrivileges())),
+                                        ->disabled(fn (?User $record): bool => $isViewer
+                                            || ! self::canManageIdentity($record)
+                                            || ($record && self::isProtectedUser($record) && ! self::actorHasElevatedPrivileges())),
                                     TextInput::make('username')
                                         ->maxLength(50)
                                         ->unique(ignoreRecord: true)
-                                        ->disabled(fn (string $operation, ?User $record): bool => $isViewer || $operation === 'create' || ($record && self::isProtectedUser($record) && ! self::actorHasElevatedPrivileges()))
-                                        ->helperText('Username diatur oleh pengguna setelah aktivasi.'),
+                                        ->disabled(fn (string $operation, ?User $record): bool => $isViewer
+                                            || $operation === 'create'
+                                            || ! self::canManageIdentity($record)
+                                            || ($record && self::isProtectedUser($record) && ! self::actorHasElevatedPrivileges()))
+                                        ->helperText(__('ui.users.helpers.username')),
                                     TextInput::make('position')
                                         ->maxLength(100)
-                                        ->disabled(fn (): bool => $isViewer),
+                                        ->disabled(fn (?User $record): bool => $isViewer || ! self::canManageIdentity($record)),
                                     Select::make('role')
-                                        ->label('Role')
+                                        ->label(__('ui.users.fields.role'))
                                         ->options(fn (?User $record): array => self::roleOptions($record))
                                         ->required(fn (): bool => self::canAssignRoles())
                                         ->native(false)
                                         ->searchable()
                                         ->default(fn (): ?string => self::defaultRoleName())
-                                        ->disabled(fn (?User $record): bool => $isViewer || ! self::canAssignRoles($record) || ($record?->isDeveloper() ?? false))
-                                        ->helperText(fn (?User $record): ?string => $record?->isDeveloper() ? 'Developer role is immutable.' : null),
+                                        ->disabled(fn (?User $record): bool => $isViewer
+                                            || ! self::canAssignRoles($record)
+                                            || ! self::canManageIdentity($record)
+                                            || ($record?->isDeveloper() ?? false))
+                                        ->helperText(fn (?User $record): ?string => $record?->isDeveloper() ? __('ui.users.helpers.role_immutable') : null),
                                     Select::make('phone_country_code')
-                                        ->label('Kode Negara')
+                                        ->label(__('ui.users.fields.country_code'))
                                         ->options($countryOptions)
                                         ->default(fn (): string => self::detectCountryDialCode())
                                         ->native(false)
                                         ->searchable()
                                         ->required()
-                                        ->disabled(fn (): bool => $isViewer),
+                                        ->disabled(fn (?User $record): bool => $isViewer || ! self::canManageIdentity($record)),
                                     TextInput::make('phone_number')
-                                        ->label('Nomor HP')
+                                        ->label(__('ui.users.fields.phone'))
                                         ->tel()
                                         ->numeric()
                                         ->rules(['nullable', 'regex:/^[0-9]{6,20}$/'])
                                         ->maxLength(20)
-                                        ->helperText('Hanya angka, tanpa spasi atau simbol.')
-                                        ->disabled(fn (): bool => $isViewer),
+                                        ->helperText(__('ui.users.helpers.phone'))
+                                        ->disabled(fn (?User $record): bool => $isViewer || ! self::canManageIdentity($record)),
                                 ])
                                 ->columns(2),
                         ]),
-                    \Filament\Schemas\Components\Tabs\Tab::make('Status & Keamanan')
+                    \Filament\Schemas\Components\Tabs\Tab::make(__('ui.users.tabs.security'))
                         ->icon('heroicon-o-shield-check')
+                        ->visible(fn (?User $record): bool => self::canViewSecurity($record) || self::canViewAccessStatus($record))
                         ->schema([
-                            Section::make('Security')
-                                ->description('Kredensial, 2FA, dan kebijakan keamanan pengguna.')
+                            Section::make(__('ui.users.sections.security'))
+                                ->description(__('ui.users.descriptions.security'))
+                                ->visible(fn (?User $record): bool => self::canViewSecurity($record))
                                 ->schema([
                                     TextInput::make('password')
                                         ->password()
                                         ->revealable()
                                         ->visible(fn (string $operation): bool => $operation === 'edit')
+                                        ->disabled(fn (?User $record): bool => $isViewer || ! self::canManageSecurity($record))
                                         ->rules(function (Get $get, ?User $record, string $operation): array {
                                             if ($operation !== 'edit' || blank($get('password'))) {
                                                 return [];
@@ -223,23 +248,24 @@ class UserResource extends Resource
                                         ->dehydrated(false)
                                         ->same('password')
                                         ->visible(fn (Get $get, string $operation): bool => $operation === 'edit' && filled($get('password')))
+                                        ->disabled(fn (?User $record): bool => $isViewer || ! self::canManageSecurity($record))
                                         ->required(fn (Get $get, string $operation): bool => $operation === 'edit' && filled($get('password'))),
                                     Toggle::make('must_change_password')
-                                        ->label('Require Password Change')
-                                        ->disabled(fn (): bool => $isViewer),
+                                        ->label(__('ui.users.fields.require_password_change'))
+                                        ->disabled(fn (?User $record): bool => $isViewer || ! self::canManageSecurity($record)),
                                     DateTimePicker::make('password_expires_at')
-                                        ->label('Password Expires At')
-                                        ->disabled(fn (): bool => $isViewer)
+                                        ->label(__('ui.users.fields.password_expires_at'))
+                                        ->disabled(fn (?User $record): bool => $isViewer || ! self::canManageSecurity($record))
                                         ->helperText(function (Get $get): string {
                                             $value = $get('password_expires_at');
                                             if (! $value) {
-                                                return 'Akan otomatis diisi saat password diubah.';
+                                                return __('ui.users.helpers.password_expires_default');
                                             }
 
                                             try {
                                                 $target = \Carbon\Carbon::parse($value);
                                             } catch (\Throwable) {
-                                                return 'Akan otomatis diisi saat password diubah.';
+                                                return __('ui.users.helpers.password_expires_default');
                                             }
 
                                             $now = now();
@@ -247,18 +273,22 @@ class UserResource extends Resource
                                             $days = (int) ceil(abs($seconds) / 86400);
 
                                             if ($seconds <= 0) {
-                                                return $days === 0 ? 'Kedaluwarsa hari ini.' : "Kedaluwarsa {$days} hari lalu.";
+                                                return $days === 0
+                                                    ? __('ui.users.helpers.password_expires_today')
+                                                    : __('ui.users.helpers.password_expires_past', ['days' => $days]);
                                             }
 
-                                            return $days === 0 ? 'Kedaluwarsa hari ini.' : "Kedaluwarsa {$days} hari lagi.";
+                                            return $days === 0
+                                                ? __('ui.users.helpers.password_expires_today')
+                                                : __('ui.users.helpers.password_expires_future', ['days' => $days]);
                                         }),
                                     Toggle::make('two_factor_enabled')
-                                        ->label('Two-Factor Enabled')
-                                        ->disabled(fn (): bool => $isViewer)
+                                        ->label(__('ui.users.fields.two_factor_enabled'))
+                                        ->disabled(fn (?User $record): bool => $isViewer || ! self::canManageSecurity($record))
                                         ->live()
-                                        ->helperText('Nonaktifkan untuk menghapus metode 2FA yang tersimpan.'),
+                                        ->helperText(__('ui.users.helpers.two_factor_helper')),
                                     Select::make('two_factor_method')
-                                        ->label('Two-Factor Method')
+                                        ->label(__('ui.users.fields.two_factor_method'))
                                         ->options([
                                             'app' => 'Authenticator App',
                                             'sms' => 'SMS',
@@ -266,23 +296,28 @@ class UserResource extends Resource
                                         ])
                                         ->native(false)
                                         ->live()
-                                        ->disabled(fn (Get $get): bool => $isViewer || ! $get('two_factor_enabled'))
+                                        ->disabled(fn (Get $get, ?User $record): bool => $isViewer
+                                            || ! self::canManageSecurity($record)
+                                            || ! $get('two_factor_enabled'))
                                         ->required(fn (Get $get): bool => (bool) $get('two_factor_enabled')),
                                     TextInput::make('security_stamp')
-                                        ->label('Security Stamp')
+                                        ->label(__('ui.users.fields.security_stamp'))
                                         ->disabled()
                                         ->dehydrated(false)
-                                        ->helperText('Berubah saat password atau sesi di-rotate.'),
+                                        ->helperText(__('ui.users.helpers.security_stamp')),
                                 ])
                                 ->columns(2),
-                            Section::make('Access Status')
+                            Section::make(__('ui.users.sections.access'))
+                                ->visible(fn (?User $record): bool => self::canViewAccessStatus($record))
                                 ->schema([
                                     Select::make('account_status')
                                         ->options(AccountStatus::labels())
                                         ->required()
                                         ->native(false)
                                         ->default(AccountStatus::Active->value)
-                                        ->disabled(fn (?User $record): bool => $isViewer || ($record ? ! self::canManageUser($record) : false))
+                                        ->disabled(fn (?User $record): bool => $isViewer
+                                            || ! self::canManageAccessStatus($record)
+                                            || ($record ? ! self::canManageUser($record) : false))
                                         ->afterStateUpdated(function (Set $set, Get $get, ?string $state): void {
                                             $status = $state ?? $get('account_status');
                                             if (! in_array($status, [
@@ -297,27 +332,26 @@ class UserResource extends Resource
                                                 return;
                                             }
 
-                                            $template = "Status: {$status}\n"
-                                                ."Alasan: \n"
-                                                ."Tindakan: \n"
-                                                ."PIC: \n"
-                                                .'Tanggal: '.now()->format('Y-m-d');
+                                            $template = __('ui.users.templates.blocked_reason', [
+                                                'status' => $status,
+                                                'date' => now()->format('Y-m-d'),
+                                            ]);
                                             $set('blocked_reason', $template);
                                         }),
                                     DateTimePicker::make('blocked_until')
-                                        ->disabled(fn (): bool => $isViewer),
+                                        ->disabled(fn (?User $record): bool => $isViewer || ! self::canManageAccessStatus($record)),
                                     RichEditor::make('blocked_reason')
-                                        ->label('Status Reason')
+                                        ->label(__('ui.users.fields.status_reason'))
                                         ->toolbarButtons(['bold', 'italic', 'bulletList', 'orderedList', 'link', 'undo', 'redo'])
                                         ->required(fn (Get $get): bool => in_array($get('account_status'), [
                                             AccountStatus::Blocked->value,
                                             AccountStatus::Suspended->value,
                                             AccountStatus::Terminated->value,
                                         ], true))
-                                        ->disabled(fn (): bool => $isViewer)
+                                        ->disabled(fn (?User $record): bool => $isViewer || ! self::canManageAccessStatus($record))
                                         ->columnSpanFull(),
                                     TextInput::make('blocked_by')
-                                        ->label('Blocked By (User ID)')
+                                        ->label(__('ui.users.fields.blocked_by'))
                                         ->disabled()
                                         ->dehydrated(false)
                                         ->visible(fn (?User $record): bool => filled($record?->blocked_by)),
@@ -333,10 +367,11 @@ class UserResource extends Resource
                                 ])
                                 ->columns(2),
                         ]),
-                    \Filament\Schemas\Components\Tabs\Tab::make('System Info')
+                    \Filament\Schemas\Components\Tabs\Tab::make(__('ui.users.tabs.system_info'))
                         ->icon('heroicon-o-cog-6-tooth')
+                        ->visible(fn (?User $record): bool => self::canViewSystemInfo($record))
                         ->schema([
-                            Section::make('Telemetry')
+                            Section::make(__('ui.users.sections.telemetry_audit'))
                                 ->schema([
                                     DateTimePicker::make('first_login_at')
                                         ->disabled()
@@ -366,11 +401,6 @@ class UserResource extends Resource
                                         ->disabled()
                                         ->dehydrated(false)
                                         ->visible(fn (?User $record): bool => filled($record?->last_seen_ip)),
-                                ])
-                                ->columns(2)
-                                ->collapsed(),
-                            Section::make('Audit')
-                                ->schema([
                                     DateTimePicker::make('password_changed_at')
                                         ->disabled()
                                         ->dehydrated(false)
@@ -414,38 +444,62 @@ class UserResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return $schema->components([
-            Section::make('Identity')
+            Section::make(__('ui.users.sections.identity'))
                 ->schema([
-                    TextEntry::make('name'),
-                    TextEntry::make('email'),
-                    TextEntry::make('username'),
+                    TextEntry::make('name')
+                        ->visible(fn (User $record): bool => self::canViewIdentity($record)),
+                    TextEntry::make('email')
+                        ->visible(fn (User $record): bool => self::canViewIdentity($record)),
+                    TextEntry::make('username')
+                        ->visible(fn (User $record): bool => self::canViewIdentity($record)),
                     TextEntry::make('role')
                         ->badge()
+                        ->visible(fn (User $record): bool => self::canViewIdentity($record))
                         ->formatStateUsing(fn ($state): string => self::formatRole($state)),
                     TextEntry::make('account_status')
                         ->badge()
+                        ->visible(fn (User $record): bool => self::canViewAccessStatus($record))
                         ->formatStateUsing(fn ($state): string => self::formatStatus($state)),
                 ])
-                ->columns(2),
-            Section::make('Security')
+                ->columns(2)
+                ->visible(fn (User $record): bool => self::canViewIdentity($record) || self::canViewAccessStatus($record)),
+            Section::make(__('ui.users.sections.security'))
                 ->schema([
-                    TextEntry::make('must_change_password')->label('Require Password Change'),
-                    TextEntry::make('password_expires_at')->dateTime(),
-                    TextEntry::make('two_factor_enabled')->label('Two-Factor Enabled'),
-                    TextEntry::make('two_factor_method'),
+                    TextEntry::make('must_change_password')
+                        ->label(__('ui.users.fields.require_password_change'))
+                        ->visible(fn (User $record): bool => self::canViewSecurity($record)),
+                    TextEntry::make('password_expires_at')
+                        ->dateTime()
+                        ->visible(fn (User $record): bool => self::canViewSecurity($record)),
+                    TextEntry::make('two_factor_enabled')
+                        ->label(__('ui.users.fields.two_factor_enabled'))
+                        ->visible(fn (User $record): bool => self::canViewSecurity($record)),
+                    TextEntry::make('two_factor_method')
+                        ->visible(fn (User $record): bool => self::canViewSecurity($record)),
                     TextEntry::make('security_stamp'),
                 ])
-                ->columns(2),
-            Section::make('Telemetry')
+                ->columns(2)
+                ->visible(fn (User $record): bool => self::canViewSecurity($record)),
+            Section::make(__('ui.users.sections.telemetry'))
                 ->schema([
-                    TextEntry::make('last_login_at')->dateTime(),
-                    TextEntry::make('last_login_ip'),
-                    TextEntry::make('last_failed_login_at')->dateTime(),
-                    TextEntry::make('last_failed_login_ip'),
-                    TextEntry::make('last_seen_at')->dateTime(),
-                    TextEntry::make('last_seen_ip'),
+                    TextEntry::make('last_login_at')
+                        ->dateTime()
+                        ->visible(fn (User $record): bool => self::canViewSystemInfo($record)),
+                    TextEntry::make('last_login_ip')
+                        ->visible(fn (User $record): bool => self::canViewSystemInfo($record)),
+                    TextEntry::make('last_failed_login_at')
+                        ->dateTime()
+                        ->visible(fn (User $record): bool => self::canViewSystemInfo($record)),
+                    TextEntry::make('last_failed_login_ip')
+                        ->visible(fn (User $record): bool => self::canViewSystemInfo($record)),
+                    TextEntry::make('last_seen_at')
+                        ->dateTime()
+                        ->visible(fn (User $record): bool => self::canViewSystemInfo($record)),
+                    TextEntry::make('last_seen_ip')
+                        ->visible(fn (User $record): bool => self::canViewSystemInfo($record)),
                 ])
-                ->columns(2),
+                ->columns(2)
+                ->visible(fn (User $record): bool => self::canViewSystemInfo($record)),
         ]);
     }
 
@@ -456,66 +510,78 @@ class UserResource extends Resource
             ->striped()
             ->columns([
                 ImageColumn::make('avatar')
-                    ->label('')
+                    ->label(__('ui.users.fields.avatar'))
                     ->disk(fn (User $record): string => self::resolveAvatarDiskForPath(self::stripAvatarDiskPrefix($record->avatar)))
                     ->getStateUsing(fn (User $record): ?string => self::stripAvatarDiskPrefix($record->avatar))
                     ->circular()
                     ->size(32),
                 TextColumn::make('name')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->visible(fn (): bool => self::canViewIdentity()),
                 TextColumn::make('username')
-                    ->label('Username')
-                    ->searchable(),
+                    ->label(__('ui.users.fields.username'))
+                    ->searchable()
+                    ->visible(fn (): bool => self::canViewIdentity()),
                 TextColumn::make('phone_number')
-                    ->label('Nomor HP')
+                    ->label(__('ui.users.fields.phone'))
                     ->formatStateUsing(fn (User $record): string => trim(($record->phone_country_code ?: '').' '.($record->phone_number ?: '')))
                     ->searchable()
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->visible(fn (): bool => self::canViewIdentity()),
                 TextColumn::make('email')
                     ->searchable()
-                    ->sortable(),
+                    ->sortable()
+                    ->visible(fn (): bool => self::canViewIdentity()),
                 TextColumn::make('role')
                     ->badge()
                     ->formatStateUsing(fn ($state): string => self::formatRole($state))
                     ->color(fn ($state): string => self::roleColor($state))
-                    ->sortable(),
+                    ->sortable()
+                    ->visible(fn (): bool => self::canViewIdentity()),
                 TextColumn::make('account_status')
-                    ->label('Status')
+                    ->label(__('ui.users.fields.status'))
                     ->badge()
                     ->formatStateUsing(fn ($state): string => self::formatStatus($state))
                     ->color(fn ($state): string => self::statusColor($state))
-                    ->sortable(),
+                    ->sortable()
+                    ->visible(fn (): bool => self::canViewAccessStatus()),
                 IconColumn::make('two_factor_enabled')
-                    ->label('2FA')
+                    ->label(__('ui.users.fields.two_factor'))
                     ->boolean()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->visible(fn (): bool => self::canViewSecurity()),
                 TextColumn::make('last_login_at')
-                    ->label('Last Login')
+                    ->label(__('ui.users.fields.last_login'))
                     ->dateTime()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->visible(fn (): bool => self::canViewSystemInfo()),
                 TextColumn::make('last_seen_at')
-                    ->label('Last Seen')
+                    ->label(__('ui.users.fields.last_seen'))
                     ->dateTime()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->visible(fn (): bool => self::canViewSystemInfo()),
                 TextColumn::make('failed_login_attempts')
-                    ->label('Failed Attempts')
+                    ->label(__('ui.users.fields.failed_attempts'))
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->visible(fn (): bool => self::canViewSecurity()),
                 TextColumn::make('locked_at')
-                    ->label('Locked At')
+                    ->label(__('ui.users.fields.locked_at'))
                     ->dateTime()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->visible(fn (): bool => self::canViewAccessStatus()),
                 TextColumn::make('blocked_until')
-                    ->label('Blocked Until')
+                    ->label(__('ui.users.fields.blocked_until'))
                     ->dateTime()
                     ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->toggleable(isToggledHiddenByDefault: true)
+                    ->visible(fn (): bool => self::canViewAccessStatus()),
                 TextColumn::make('created_at')
-                    ->label('Created')
+                    ->label(__('ui.users.fields.created'))
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -532,32 +598,38 @@ class UserResource extends Resource
                         }
 
                         return $query->where('role', $value);
-                    }),
+                    })
+                    ->visible(fn (): bool => self::canViewIdentity()),
                 SelectFilter::make('account_status')
-                    ->label('Status')
-                    ->options(AccountStatus::labels()),
+                    ->label(__('ui.users.fields.status'))
+                    ->options(AccountStatus::labels())
+                    ->visible(fn (): bool => self::canViewAccessStatus()),
                 Filter::make('locked')
-                    ->label('Locked')
+                    ->label(__('ui.users.fields.locked_at'))
                     ->query(fn (Builder $query): Builder => $query->where(function (Builder $query): void {
                         $query->whereNotNull('locked_at')
                             ->orWhere('blocked_until', '>', now());
-                    })),
+                    }))
+                    ->visible(fn (): bool => self::canViewAccessStatus()),
                 TrashedFilter::make(),
             ])
-            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::AboveContentCollapsible)
+            ->filtersLayout(\Filament\Tables\Enums\FiltersLayout::Dropdown)
             ->persistFiltersInSession()
-            ->emptyStateHeading('Belum ada pengguna terdaftar')
-            ->emptyStateDescription('Buat akun pertama untuk mulai mengelola peran, audit, dan akses.')
+            ->emptyStateHeading(__('ui.users.empty.heading'))
+            ->emptyStateDescription(__('ui.users.empty.description'))
             ->emptyStateActions([
                 CreateAction::make()
-                    ->label('Buat pengguna baru')
-                    ->icon('heroicon-o-user-plus'),
+                    ->label(__('ui.users.actions.create'))
+                    ->icon('heroicon-o-user-plus')
+                    ->visible(fn (): bool => self::canCreate()),
             ])
             ->recordActions([
-                ViewAction::make(),
-                EditAction::make(),
+                ViewAction::make()
+                    ->visible(fn (User $record): bool => AuthHelper::user()?->can('view', $record) ?? false),
+                EditAction::make()
+                    ->visible(fn (User $record): bool => AuthHelper::user()?->can('update', $record) ?? false),
                 Action::make('unlock')
-                    ->label('Unlock')
+                    ->label(__('ui.users.actions.unlock'))
                     ->icon('heroicon-o-lock-open')
                     ->color('warning')
                     ->requiresConfirmation()
@@ -572,7 +644,7 @@ class UserResource extends Resource
                         ])->save();
                     }),
                 Action::make('activate')
-                    ->label('Activate')
+                    ->label(__('ui.users.actions.activate'))
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
@@ -590,7 +662,7 @@ class UserResource extends Resource
                         ])->save();
                     }),
                 Action::make('force_password_reset')
-                    ->label('Force Password Reset')
+                    ->label(__('ui.users.actions.force_password_reset'))
                     ->icon('heroicon-o-key')
                     ->color('warning')
                     ->requiresConfirmation()
@@ -604,16 +676,19 @@ class UserResource extends Resource
                         ])->save();
                     }),
                 Action::make('revoke_sessions')
-                    ->label('Revoke Sessions')
+                    ->label(__('ui.users.actions.revoke_sessions'))
                     ->icon('heroicon-o-arrow-path')
                     ->color('danger')
                     ->requiresConfirmation()
                     ->authorize('execute_user_revoke_sessions')
                     ->visible(fn (): bool => AuthHelper::user()?->can('execute_user_revoke_sessions') ?? false)
                     ->action(fn (User $record) => $record->rotateSecurityStamp()),
-                RestoreAction::make(),
-                ForceDeleteAction::make(),
+                RestoreAction::make()
+                    ->visible(fn (User $record): bool => AuthHelper::user()?->can('restore', $record) ?? false),
+                ForceDeleteAction::make()
+                    ->visible(fn (User $record): bool => AuthHelper::user()?->can('forceDelete', $record) ?? false),
                 DeleteAction::make()
+                    ->visible(fn (User $record): bool => AuthHelper::user()?->can('delete', $record) ?? false)
                     ->before(function (User $record): void {
                         $record->forceFill([
                             'deleted_by' => AuthHelper::id(),
@@ -640,7 +715,7 @@ class UserResource extends Resource
                     ->authorize('force_delete_any_user')
                     ->visible(fn (): bool => AuthHelper::user()?->can('force_delete_any_user') ?? false),
                 BulkAction::make('bulk_activate')
-                    ->label('Activate Selected')
+                    ->label(__('ui.users.actions.activate_selected'))
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->requiresConfirmation()
@@ -660,10 +735,12 @@ class UserResource extends Resource
                                 'failed_login_attempts' => 0,
                             ])->save();
                         });
+
+                        self::logBulkAction('bulk_user_activate', $records);
                     })
                     ->deselectRecordsAfterCompletion(),
                 BulkAction::make('bulk_suspend')
-                    ->label('Suspend Selected')
+                    ->label(__('ui.users.actions.suspend_selected'))
                     ->icon('heroicon-o-pause-circle')
                     ->color('warning')
                     ->requiresConfirmation()
@@ -674,16 +751,18 @@ class UserResource extends Resource
                             if (! self::canActorManage($record)) {
                                 return;
                             }
-                            $record->forceFill([
-                                'account_status' => AccountStatus::Suspended,
-                                'blocked_by' => AuthHelper::id(),
-                                'blocked_reason' => 'Bulk suspension',
-                            ])->save();
+                                $record->forceFill([
+                                    'account_status' => AccountStatus::Suspended,
+                                    'blocked_by' => AuthHelper::id(),
+                                    'blocked_reason' => __('ui.users.notes.bulk_suspension'),
+                                ])->save();
                         });
+
+                        self::logBulkAction('bulk_user_suspend', $records);
                     })
                     ->deselectRecordsAfterCompletion(),
                 BulkAction::make('bulk_unlock')
-                    ->label('Unlock Selected')
+                    ->label(__('ui.users.actions.unlock_selected'))
                     ->icon('heroicon-o-lock-open')
                     ->color('warning')
                     ->requiresConfirmation()
@@ -700,10 +779,12 @@ class UserResource extends Resource
                                 'blocked_until' => null,
                             ])->save();
                         });
+
+                        self::logBulkAction('bulk_user_unlock', $records);
                     })
                     ->deselectRecordsAfterCompletion(),
                 BulkAction::make('bulk_force_password_reset')
-                    ->label('Force Password Reset')
+                    ->label(__('ui.users.actions.force_password_reset_selected'))
                     ->icon('heroicon-o-key')
                     ->color('danger')
                     ->requiresConfirmation()
@@ -720,11 +801,14 @@ class UserResource extends Resource
                                 'security_stamp' => Str::random(64),
                             ])->save();
                         });
+
+                        self::logBulkAction('bulk_user_force_password_reset', $records);
                     })
                     ->deselectRecordsAfterCompletion(),
             ])
             ->toolbarActions([
-                CreateAction::make(),
+                CreateAction::make()
+                    ->visible(fn (): bool => self::canCreate()),
             ]);
     }
 
@@ -774,6 +858,117 @@ class UserResource extends Resource
     public static function canDelete(Model $record): bool
     {
         return AuthHelper::user()?->can('delete', $record) ?? false;
+    }
+
+    public static function canViewAny(): bool
+    {
+        return AuthHelper::user()?->can('view_any_user') ?? false;
+    }
+
+    public static function canView(Model $record): bool
+    {
+        return AuthHelper::user()?->can('view', $record) ?? false;
+    }
+
+    public static function canViewAvatar(?User $record = null): bool
+    {
+        return self::canViewUserSection($record, ['manage_user_avatar', 'manage_user_identity']);
+    }
+
+    public static function canViewIdentity(?User $record = null): bool
+    {
+        return self::canViewUserSection($record, ['manage_user_identity']);
+    }
+
+    public static function canViewSecurity(?User $record = null): bool
+    {
+        return self::canViewUserSection($record, ['manage_user_security']);
+    }
+
+    public static function canViewAccessStatus(?User $record = null): bool
+    {
+        return self::canViewUserSection($record, ['manage_user_access_status']);
+    }
+
+    public static function canViewSystemInfo(?User $record = null): bool
+    {
+        return self::canViewUserSection($record, ['view_user_system_info']);
+    }
+
+    public static function canManageAvatar(?User $record = null): bool
+    {
+        return self::canManageUserSection($record, ['manage_user_avatar', 'manage_user_identity']);
+    }
+
+    public static function canManageIdentity(?User $record = null): bool
+    {
+        return self::canManageUserSection($record, ['manage_user_identity']);
+    }
+
+    public static function canManageSecurity(?User $record = null): bool
+    {
+        return self::canManageUserSection($record, ['manage_user_security']);
+    }
+
+    public static function canManageAccessStatus(?User $record = null): bool
+    {
+        return self::canManageUserSection($record, ['manage_user_access_status']);
+    }
+
+    private static function canViewUserSection(?User $record, array $permissions): bool
+    {
+        $actor = AuthHelper::user();
+        if (! $actor instanceof User) {
+            return false;
+        }
+
+        if ($record) {
+            if (! $actor->can('view', $record)) {
+                return false;
+            }
+        } elseif (! self::canViewAny() && ! self::canCreate()) {
+            return false;
+        }
+
+        if (method_exists($actor, 'hasElevatedPrivileges') && $actor->hasElevatedPrivileges()) {
+            return true;
+        }
+
+        foreach ($permissions as $permission) {
+            if ($actor->can($permission)) {
+                return true;
+            }
+        }
+
+        return $actor->can('view_any_user') || $actor->can('view_user');
+    }
+
+    private static function canManageUserSection(?User $record, array $permissions): bool
+    {
+        $actor = AuthHelper::user();
+        if (! $actor instanceof User) {
+            return false;
+        }
+
+        if ($record) {
+            if (! $actor->can('update', $record)) {
+                return false;
+            }
+        } elseif (! self::canCreate()) {
+            return false;
+        }
+
+        if (method_exists($actor, 'hasElevatedPrivileges') && $actor->hasElevatedPrivileges()) {
+            return true;
+        }
+
+        foreach ($permissions as $permission) {
+            if ($actor->can($permission)) {
+                return true;
+            }
+        }
+
+        return $actor->can('update_user');
     }
 
     public static function getPages(): array
@@ -1018,6 +1213,26 @@ class UserResource extends Resource
         return $actor->hasElevatedPrivileges();
     }
 
+    private static function logBulkAction(string $action, Collection $records): void
+    {
+        $actorId = AuthHelper::id();
+        $ids = $records->take(50)->pluck('id')->values()->all();
+
+        AuditLogWriter::writeAudit([
+            'user_id' => $actorId,
+            'action' => $action,
+            'auditable_type' => User::class,
+            'auditable_id' => null,
+            'old_values' => null,
+            'new_values' => null,
+            'context' => [
+                'count' => $records->count(),
+                'ids' => $ids,
+            ],
+            'created_at' => now(),
+        ]);
+    }
+
     /**
      * @return array{disk: string|null, path: string|null, url: string|null}
      */
@@ -1059,25 +1274,27 @@ class UserResource extends Resource
         $primary = (string) SystemSettings::getValue('storage.primary_disk', 'public');
         $fallback = (string) SystemSettings::getValue('storage.fallback_disk', 'public');
 
-        if ($preferredDisk) {
+        if ($preferredDisk && self::isPublicDisk($preferredDisk)) {
             return $preferredDisk;
         }
 
         $path = self::normalizeAvatarPath($path);
 
         if (! $path) {
-            return $primary ?: ($fallback ?: 'public');
+            return self::sanitizePublicDisk($primary)
+                ?: (self::sanitizePublicDisk($fallback) ?: 'public');
         }
 
         try {
-            if ($primary && Storage::disk($primary)->exists($path)) {
+            if ($primary && self::isPublicDisk($primary) && Storage::disk($primary)->exists($path)) {
                 return $primary;
             }
         } catch (\Throwable) {
             // Fall through to fallback.
         }
 
-        return $fallback ?: ($primary ?: 'public');
+        return self::sanitizePublicDisk($fallback)
+            ?: (self::sanitizePublicDisk($primary) ?: 'public');
     }
 
     private static function stripAvatarDiskPrefix(?string $state): ?string
@@ -1118,6 +1335,51 @@ class UserResource extends Resource
         }
 
         return 'avatars/'.ltrim($path, '/');
+    }
+
+    /**
+     * @return array{0: string, 1: string}
+     */
+    private static function resolveAvatarUploadDisks(): array
+    {
+        $primary = (string) SystemSettings::getValue('storage.primary_disk', 'public');
+        $fallback = (string) SystemSettings::getValue('storage.fallback_disk', 'public');
+
+        $primary = self::sanitizePublicDisk($primary);
+        $fallback = self::sanitizePublicDisk($fallback) ?: 'public';
+
+        if (! $primary) {
+            $primary = $fallback;
+        }
+
+        return [$primary, $fallback];
+    }
+
+    private static function isPublicDisk(?string $disk): bool
+    {
+        return self::sanitizePublicDisk($disk) !== null;
+    }
+
+    private static function sanitizePublicDisk(?string $disk): ?string
+    {
+        if (! $disk) {
+            return null;
+        }
+
+        $config = config("filesystems.disks.{$disk}");
+        if (! is_array($config)) {
+            return null;
+        }
+
+        if (($config['visibility'] ?? null) === 'public') {
+            return $disk;
+        }
+
+        if (! empty($config['url'])) {
+            return $disk;
+        }
+
+        return null;
     }
 
     /**

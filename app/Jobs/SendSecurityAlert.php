@@ -2,8 +2,13 @@
 
 namespace App\Jobs;
 
+use App\Models\NotificationChannel;
+use App\Models\NotificationMessage;
+use App\Models\NotificationTarget;
 use App\Models\User;
+use App\Support\NotificationCenterService;
 use App\Support\SystemSettings;
+use App\Support\LocaleHelper;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -52,7 +57,12 @@ class SendSecurityAlert implements ShouldQueue, ShouldBeUnique
 
     public function handle(): void
     {
+        if (! config('security.alert_enabled', true)) {
+            return;
+        }
+
         $message = $this->formatMessage($this->payload);
+        $this->sendInAppAlert($message);
 
         $telegramEnabled = (bool) SystemSettings::getValue('notifications.telegram.enabled', false);
         $telegramToken = (string) SystemSettings::getSecret('telegram.bot_token', '');
@@ -120,14 +130,45 @@ class SendSecurityAlert implements ShouldQueue, ShouldBeUnique
         }
 
         try {
-            $fromAddress = (string) SystemSettings::getValue('notifications.email.from_address', '');
-            $fromName = (string) SystemSettings::getValue('notifications.email.from_name', '');
-            SystemSettings::applyMailConfig('general');
-            Mail::raw($message, function ($mail) use ($recipients, $fromAddress, $fromName): void {
-                $mail->to($recipients)->subject('Security Alert');
-                if ($fromAddress !== '') {
-                    $mail->from($fromAddress, $fromName !== '' ? $fromName : null);
-                }
+            LocaleHelper::withLocale(config('app.locale', 'en'), function () use ($recipients, $message): void {
+                $appName = (string) SystemSettings::getValue('project.name', config('app.name', 'System'));
+                $logoUrl = SystemSettings::assetUrl('logo');
+                $title = (string) ($this->payload['title'] ?? __('notifications.email.security_alert.subject'));
+                $event = (string) ($this->payload['event'] ?? 'security_alert');
+                $requestId = (string) ($this->payload['request_id'] ?? '');
+                $ipAddress = (string) ($this->payload['ip_observed'] ?? '');
+                $messagePlain = trim(str_replace('*', '', $message));
+                $bodyHtml = nl2br(e($messagePlain));
+
+                $fromAddress = (string) SystemSettings::getValue('notifications.email.from_address', '');
+                $fromName = (string) SystemSettings::getValue('notifications.email.from_name', '');
+                SystemSettings::applyMailConfig('general');
+                Mail::send(
+                    [
+                        'html' => 'emails.security-alert',
+                        'text' => 'emails.text.security-alert',
+                    ],
+                    [
+                        'title' => $title,
+                        'appName' => $appName,
+                        'logoUrl' => $logoUrl,
+                        'preheader' => __('notifications.email.security_alert.preheader'),
+                        'bodyHtml' => $bodyHtml,
+                        'bodyText' => $messagePlain,
+                        'event' => $event,
+                        'requestId' => $requestId,
+                        'ipAddress' => $ipAddress,
+                        'actionUrl' => null,
+                        'actionLabel' => null,
+                        'footer' => __('notifications.email.footer'),
+                    ],
+                    function ($mail) use ($recipients, $fromAddress, $fromName, $title): void {
+                        $mail->to($recipients)->subject($title);
+                        if ($fromAddress !== '') {
+                            $mail->from($fromAddress, $fromName !== '' ? $fromName : null);
+                        }
+                    }
+                );
             });
             NotificationDeliveryLogger::log(
                 null,
@@ -139,7 +180,7 @@ class SendSecurityAlert implements ShouldQueue, ShouldBeUnique
                     'notifiable_type' => User::class,
                     'notifiable_id' => $this->payload['user_id'] ?? null,
                     'recipient' => implode(', ', $recipients),
-                    'summary' => $this->payload['title'] ?? 'Security Alert',
+                    'summary' => $title,
                     'data' => $this->payload,
                     'ip_address' => $this->payload['ip_observed'] ?? null,
                     'user_agent' => $this->payload['user_agent'] ?? null,
@@ -284,5 +325,79 @@ class SendSecurityAlert implements ShouldQueue, ShouldBeUnique
         }
 
         return implode("\n", $lines);
+    }
+
+    private function sendInAppAlert(string $message): void
+    {
+        if (! config('security.alert_in_app', true)) {
+            return;
+        }
+
+        $roles = config('security.alert_roles', []);
+        if (! is_array($roles) || empty($roles)) {
+            return;
+        }
+
+        $requestId = (string) ($this->payload['request_id'] ?? '');
+        $event = (string) ($this->payload['event'] ?? 'security_alert');
+        $userId = $this->payload['user_id'] ?? 'guest';
+        $hash = sha1($event.'|'.$requestId.'|'.$userId);
+
+        $existing = NotificationMessage::query()
+            ->where('metadata->security_hash', $hash)
+            ->first();
+
+        if ($existing) {
+            if ($existing->status !== 'sent') {
+                NotificationCenterService::send($existing);
+            }
+            return;
+        }
+
+        $title = (string) ($this->payload['title'] ?? 'Security Alert');
+        $now = now();
+
+        $notification = NotificationMessage::query()->create([
+            'title' => $title,
+            'message' => $message,
+            'category' => 'security',
+            'priority' => 'high',
+            'status' => 'draft',
+            'target_all' => false,
+            'scheduled_at' => null,
+            'sent_at' => null,
+            'expires_at' => $now->copy()->addDays(30),
+            'metadata' => [
+                'security_hash' => $hash,
+                'security_event' => $event,
+                'request_id' => $requestId !== '' ? $requestId : null,
+            ],
+            'created_by' => is_int($userId) ? $userId : null,
+            'updated_by' => is_int($userId) ? $userId : null,
+        ]);
+
+        $targetRows = collect($roles)
+            ->filter(fn ($role) => is_string($role) && trim($role) !== '')
+            ->map(fn ($role) => [
+                'notification_id' => $notification->getKey(),
+                'target_type' => 'role',
+                'target_value' => $role,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ])
+            ->values()
+            ->all();
+
+        if (! empty($targetRows)) {
+            NotificationTarget::query()->insert($targetRows);
+        }
+
+        NotificationChannel::query()->create([
+            'notification_id' => $notification->getKey(),
+            'channel' => 'inapp',
+            'enabled' => true,
+        ]);
+
+        NotificationCenterService::send($notification);
     }
 }

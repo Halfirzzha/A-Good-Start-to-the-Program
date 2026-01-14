@@ -11,8 +11,6 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Actions\Action;
-use Filament\Tables\Columns\Layout\Split;
-use Filament\Tables\Columns\Layout\Stack;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -28,11 +26,31 @@ class UnifiedHistoryResource extends Resource
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-clipboard-document-list';
 
-    protected static string | \UnitEnum | null $navigationGroup = 'System';
+    protected static string | \UnitEnum | null $navigationGroup = null;
 
     protected static ?int $navigationSort = 2;
 
-    protected static ?string $navigationLabel = 'Unified History';
+    protected static ?string $navigationLabel = null;
+
+    public static function getModelLabel(): string
+    {
+        return __('ui.history.unified.label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('ui.history.unified.plural');
+    }
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('ui.nav.groups.system');
+    }
+
+    public static function getNavigationLabel(): string
+    {
+        return __('ui.history.unified.label');
+    }
 
     /**
      * @var array<int, string>
@@ -50,72 +68,87 @@ class UnifiedHistoryResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return $schema->components([
-            TextEntry::make('created_at')->label('Time')->dateTime(),
-            TextEntry::make('context.category')
-                ->label('Category')
-                ->badge()
-                ->formatStateUsing(fn ($state): string => self::formatCategory($state)),
-            TextEntry::make('context.scope')
-                ->label('Scope')
-                ->formatStateUsing(fn (AuditLog $record): string => self::formatList(Arr::get($record->context, 'scope')))
-                ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'scope')),
-            TextEntry::make('context.title')
-                ->label('Title')
-                ->wrap()
-                ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'title')),
-            TextEntry::make('context.summary')
-                ->label('Summary')
-                ->wrap()
-                ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'summary')),
-            TextEntry::make('context.details')
-                ->label('Details')
-                ->wrap()
-                ->columnSpanFull()
-                ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'details')),
-            TextEntry::make('context.findings')
-                ->label('Findings')
-                ->wrap()
-                ->columnSpanFull()
-                ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'findings')),
-            TextEntry::make('context.recommendations')
-                ->label('Recommendations')
-                ->wrap()
-                ->columnSpanFull()
-                ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'recommendations')),
-            TextEntry::make('context.mitigations')
-                ->label('Mitigations')
-                ->wrap()
-                ->columnSpanFull()
-                ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'mitigations')),
-            TextEntry::make('context.decisions')
-                ->label('Decisions')
-                ->wrap()
-                ->columnSpanFull()
-                ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'decisions')),
-            TextEntry::make('context.configuration_changes')
-                ->label('Configuration Changes')
-                ->wrap()
-                ->columnSpanFull()
-                ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'configuration_changes')),
-            TextEntry::make('context.tags')
-                ->label('Tags')
-                ->formatStateUsing(fn (AuditLog $record): string => self::formatList(Arr::get($record->context, 'tags')))
-                ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'tags')),
-            TextEntry::make('context.references')
-                ->label('References')
-                ->formatStateUsing(fn (AuditLog $record): string => self::formatList(Arr::get($record->context, 'references')))
-                ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'references')),
-            TextEntry::make('context.related_request_id')
-                ->label('Related Request ID')
-                ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'related_request_id')),
-            TextEntry::make('context.related_audit_id')
-                ->label('Related Audit Log ID')
-                ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'related_audit_id')),
-            TextEntry::make('user.email')
-                ->label('Actor')
-                ->getStateUsing(fn (AuditLog $record): string => $record->user?->email ?? 'System'),
-            TextEntry::make('request_id')->label('Request ID'),
-            TextEntry::make('action')->label('Action')->badge(),
+            \Filament\Schemas\Components\Section::make(__('ui.history.unified.sections.summary'))
+                ->schema([
+                    TextEntry::make('created_at')
+                        ->label(__('ui.history.unified.columns.time'))
+                        ->dateTime(),
+                    TextEntry::make('context.category')
+                        ->label(__('ui.history.unified.columns.category'))
+                        ->badge()
+                        ->formatStateUsing(fn ($state): string => self::formatCategory($state)),
+                    TextEntry::make('context.scope')
+                        ->label(__('ui.history.unified.columns.scope'))
+                        ->formatStateUsing(fn (AuditLog $record): string => self::formatList(Arr::get($record->context, 'scope')))
+                        ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'scope')),
+                    TextEntry::make('context.title')
+                        ->label(__('ui.history.unified.columns.title'))
+                        ->wrap()
+                        ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'title')),
+                    TextEntry::make('context.summary')
+                        ->label(__('ui.history.unified.columns.summary'))
+                        ->wrap()
+                        ->columnSpanFull()
+                        ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'summary')),
+                ])
+                ->columns(2),
+            \Filament\Schemas\Components\Section::make(__('ui.history.unified.sections.detail'))
+                ->schema([
+                    TextEntry::make('context.details')
+                        ->label(__('ui.history.unified.columns.detail'))
+                        ->wrap()
+                        ->columnSpanFull()
+                        ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'details')),
+                    TextEntry::make('context.findings')
+                        ->label(__('ui.history.unified.columns.findings'))
+                        ->wrap()
+                        ->columnSpanFull()
+                        ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'findings')),
+                    TextEntry::make('context.recommendations')
+                        ->label(__('ui.history.unified.columns.recommendations'))
+                        ->wrap()
+                        ->columnSpanFull()
+                        ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'recommendations')),
+                    TextEntry::make('context.mitigations')
+                        ->label(__('ui.history.unified.columns.mitigations'))
+                        ->wrap()
+                        ->columnSpanFull()
+                        ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'mitigations')),
+                    TextEntry::make('context.decisions')
+                        ->label(__('ui.history.unified.columns.decisions'))
+                        ->wrap()
+                        ->columnSpanFull()
+                        ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'decisions')),
+                    TextEntry::make('context.configuration_changes')
+                        ->label(__('ui.history.unified.columns.config_changes'))
+                        ->wrap()
+                        ->columnSpanFull()
+                        ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'configuration_changes')),
+                ])
+                ->columns(1),
+            \Filament\Schemas\Components\Section::make(__('ui.history.unified.sections.traceability'))
+                ->schema([
+                    TextEntry::make('context.tags')
+                        ->label(__('ui.history.unified.columns.tags'))
+                        ->formatStateUsing(fn (AuditLog $record): string => self::formatList(Arr::get($record->context, 'tags')))
+                        ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'tags')),
+                    TextEntry::make('context.references')
+                        ->label(__('ui.history.unified.columns.references'))
+                        ->formatStateUsing(fn (AuditLog $record): string => self::formatList(Arr::get($record->context, 'references')))
+                        ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'references')),
+                    TextEntry::make('context.related_request_id')
+                        ->label(__('ui.history.unified.columns.related_request_id'))
+                        ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'related_request_id')),
+                    TextEntry::make('context.related_audit_id')
+                        ->label(__('ui.history.unified.columns.related_audit_id'))
+                        ->visible(fn (AuditLog $record): bool => self::contextFilled($record, 'related_audit_id')),
+                    TextEntry::make('user.email')
+                        ->label(__('ui.history.unified.columns.actor'))
+                        ->getStateUsing(fn (AuditLog $record): string => $record->user?->email ?? __('ui.common.system')),
+                    TextEntry::make('request_id')->label(__('ui.history.unified.columns.request_id')),
+                    TextEntry::make('action')->label(__('ui.history.unified.columns.action'))->badge(),
+                ])
+                ->columns(2),
         ]);
     }
 
@@ -125,50 +158,65 @@ class UnifiedHistoryResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->striped()
             ->columns([
-                Split::make([
-                    Stack::make([
-                        TextColumn::make('created_at')
-                            ->label('Time')
-                            ->dateTime()
-                            ->sortable(),
-                        TextColumn::make('context.category')
-                            ->label('Category')
-                            ->badge()
-                            ->formatStateUsing(fn ($state): string => self::formatCategory($state)),
-                    ]),
-                    Stack::make([
-                        TextColumn::make('context.title')
-                            ->label('Title')
-                            ->wrap(),
-                        TextColumn::make('user.email')
-                            ->label('Actor')
-                            ->getStateUsing(fn (AuditLog $record): string => $record->user?->email ?? 'System'),
-                    ])->space(1),
-                ])->from('md'),
-                TextColumn::make('context.summary')
-                    ->label('Summary')
-                    ->limit(120)
+                TextColumn::make('created_at')
+                    ->label(__('ui.history.unified.columns.time'))
+                    ->since()
+                    ->description(fn (AuditLog $record): string => $record->created_at?->format('d M Y, H:i:s') ?? '-')
+                    ->sortable(),
+                TextColumn::make('context.category')
+                    ->label(__('ui.history.unified.columns.category'))
+                    ->badge()
+                    ->formatStateUsing(fn ($state): string => self::formatCategory($state))
+                    ->sortable(),
+                TextColumn::make('context.title')
+                    ->label(__('ui.history.unified.columns.title'))
+                    ->searchable()
                     ->wrap()
-                    ->toggleable(isToggledHiddenByDefault: true),
+                    ->limit(80)
+                    ->formatStateUsing(function (AuditLog $record): string {
+                        $title = (string) Arr::get($record->context, 'title');
+                        if ($title !== '') {
+                            return $title;
+                        }
+
+                        return (string) Str::limit((string) Arr::get($record->context, 'summary', '—'), 80);
+                    }),
+                TextColumn::make('context.summary')
+                    ->label(__('ui.history.unified.columns.summary'))
+                    ->limit(140)
+                    ->wrap()
+                    ->toggleable(),
+                TextColumn::make('user.email')
+                    ->label(__('ui.history.unified.columns.user'))
+                    ->getStateUsing(function (AuditLog $record): string {
+                        $user = $record->user;
+                        if (! $user) {
+                            return __('ui.common.system');
+                        }
+
+                        $role = $user->role ?: $user->getRoleNames()->first();
+                        return trim(($user->name ?: $user->email).' '.($role ? "· {$role}" : ''));
+                    })
+                    ->searchable(),
+                TextColumn::make('context.scope')
+                    ->label(__('ui.history.unified.columns.scope'))
+                    ->formatStateUsing(fn (AuditLog $record): string => self::formatList(Arr::get($record->context, 'scope')))
+                    ->toggleable(),
                 IconColumn::make('has_findings')
-                    ->label('Findings')
+                    ->label(__('ui.history.unified.columns.findings'))
                     ->boolean()
                     ->getStateUsing(fn (AuditLog $record): bool => (bool) Arr::get($record->context, 'findings'))
                     ->toggleable(isToggledHiddenByDefault: true),
-                TextColumn::make('context.scope')
-                    ->label('Scope')
-                    ->formatStateUsing(fn (AuditLog $record): string => self::formatList(Arr::get($record->context, 'scope')))
-                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('request_id')
-                    ->label('Request ID')
+                    ->label(__('ui.history.unified.columns.request_id'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('action')
-                    ->label('Action')
+                    ->label(__('ui.history.unified.columns.action'))
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('category')
-                    ->label('Category')
+                    ->label(__('ui.history.unified.filters.category'))
                     ->options(self::historyCategories())
                     ->query(function (Builder $query, array $data): Builder {
                         $value = $data['value'] ?? null;
@@ -179,7 +227,7 @@ class UnifiedHistoryResource extends Resource
                         return $query->where('context->category', $value);
                     }),
                 SelectFilter::make('scope')
-                    ->label('Scope')
+                    ->label(__('ui.history.unified.filters.scope'))
                     ->options(self::historyScopes())
                     ->query(function (Builder $query, array $data): Builder {
                         $value = $data['value'] ?? null;
@@ -190,13 +238,13 @@ class UnifiedHistoryResource extends Resource
                         return $query->whereJsonContains('context->scope', $value);
                     }),
             ])
-            ->filtersLayout(FiltersLayout::AboveContentCollapsible)
+            ->filtersLayout(FiltersLayout::Dropdown)
             ->persistFiltersInSession()
-            ->emptyStateHeading('Belum ada histori terpadu')
-            ->emptyStateDescription('Kegiatan audit/hardening akan tampil setelah ada entri yang memenuhi kategori keamanan.')
+            ->emptyStateHeading(__('ui.history.unified.empty.heading'))
+            ->emptyStateDescription(__('ui.history.unified.empty.description'))
             ->emptyStateActions([
                 Action::make('refresh')
-                    ->label('Segarkan')
+                    ->label(__('ui.history.unified.actions.refresh'))
                     ->icon('heroicon-o-arrow-path')
                     ->url(fn (): string => request()->fullUrl()),
             ])

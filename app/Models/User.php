@@ -10,6 +10,7 @@ use App\Notifications\QueuedResetPassword;
 use App\Notifications\QueuedVerifyEmail;
 use App\Support\AuditLogWriter;
 use Filament\Models\Contracts\FilamentUser;
+use Filament\Models\Contracts\HasAvatar;
 use Filament\Panel;
 use Illuminate\Auth\MustVerifyEmail as MustVerifyEmailTrait;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -21,11 +22,13 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use App\Support\SystemSettings;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Traits\HasRoles;
 
-class User extends Authenticatable implements FilamentUser, MustVerifyEmail
+class User extends Authenticatable implements FilamentUser, MustVerifyEmail, HasAvatar
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use Auditable, HasFactory, HasRoles, Notifiable, SoftDeletes, MustVerifyEmailTrait;
@@ -214,6 +217,104 @@ class User extends Authenticatable implements FilamentUser, MustVerifyEmail
     public function isAdmin(): bool
     {
         return $this->can('access_admin_panel');
+    }
+
+    public function getFilamentAvatarUrl(): ?string
+    {
+        $avatar = $this->avatar;
+        if (! $avatar) {
+            return $this->buildFallbackAvatar();
+        }
+
+        if (filter_var($avatar, FILTER_VALIDATE_URL) !== false) {
+            return $avatar;
+        }
+
+        $disk = null;
+        $path = $avatar;
+
+        if (preg_match('/^([A-Za-z0-9_-]+):(.*)$/', $avatar, $matches) === 1) {
+            $disk = $matches[1] ?: null;
+            $path = $matches[2] ?: $avatar;
+        }
+
+        if (! str_contains($path, '/')) {
+            $path = 'avatars/'.ltrim($path, '/');
+        }
+
+        $primary = (string) SystemSettings::getValue('storage.primary_disk', 'public');
+        $fallback = (string) SystemSettings::getValue('storage.fallback_disk', 'public');
+
+        $disk = $this->sanitizePublicDisk($disk)
+            ?: $this->sanitizePublicDisk($primary)
+            ?: $this->sanitizePublicDisk($fallback)
+            ?: 'public';
+
+        try {
+            if (! Storage::disk($disk)->exists($path)) {
+                return null;
+            }
+        } catch (\Throwable) {
+            return $this->buildFallbackAvatar();
+        }
+
+        return Storage::disk($disk)->url($path);
+    }
+
+    private function sanitizePublicDisk(?string $disk): ?string
+    {
+        if (! $disk) {
+            return null;
+        }
+
+        $config = config("filesystems.disks.{$disk}");
+        if (! is_array($config)) {
+            return null;
+        }
+
+        if (($config['visibility'] ?? null) === 'public') {
+            return $disk;
+        }
+
+        if (! empty($config['url'])) {
+            return $disk;
+        }
+
+        return null;
+    }
+
+    private function buildFallbackAvatar(): string
+    {
+        $name = trim((string) ($this->name ?: $this->email ?: 'User'));
+        $parts = array_filter(preg_split('/\s+/', $name) ?: []);
+        $initials = '';
+        $substr = function (string $value, int $start, int $length = 1): string {
+            return function_exists('mb_substr')
+                ? mb_substr($value, $start, $length)
+                : substr($value, $start, $length);
+        };
+
+        $strlen = function (string $value): int {
+            return function_exists('mb_strlen')
+                ? mb_strlen($value)
+                : strlen($value);
+        };
+
+        foreach ($parts as $part) {
+            $initials .= $substr($part, 0, 1);
+            if ($strlen($initials) >= 2) {
+                break;
+            }
+        }
+        $initials = $initials ?: 'U';
+
+        $svg = "<svg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64' role='img' aria-label='Avatar'>"
+            ."<rect width='64' height='64' rx='32' fill='#1f2937'/>"
+            ."<text x='50%' y='52%' text-anchor='middle' dominant-baseline='middle' font-family='Arial, sans-serif' font-size='24' fill='#ffffff'>"
+            .htmlspecialchars($initials, ENT_QUOTES, 'UTF-8')
+            ."</text></svg>";
+
+        return 'data:image/svg+xml;charset=utf-8,'.rawurlencode($svg);
     }
 
     public function isSuperAdmin(): bool

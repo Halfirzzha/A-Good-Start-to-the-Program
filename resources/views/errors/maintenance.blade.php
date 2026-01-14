@@ -27,14 +27,14 @@
     $startAt = $normalizeDate($maintenanceData['start_at'] ?? null);
     $endAt = $normalizeDate($maintenanceData['end_at'] ?? null);
     $noteHtml = $maintenanceNote ?? ($maintenanceData['note_html'] ?? ($maintenanceData['note'] ?? null));
+    $noteText = is_string($noteHtml) ? trim(strip_tags($noteHtml)) : null;
     $retryAfter = $retryAfter ?? ($maintenanceData['retry'] ?? null);
 
     $appName = \App\Support\SystemSettings::getValue('project.name', config('app.name', 'System'));
-    $title = $maintenanceData['title'] ?? ($title ?? 'Kami sedang melakukan maintenance');
+    $title = $maintenanceData['title'] ?? ($title ?? __('maintenance.title_default'));
     $summary =
         $maintenanceData['summary'] ??
-        ($summary ??
-            'Tim kami sedang meningkatkan stabilitas, keamanan, dan performa layanan. Akses publik akan kembali segera.');
+        ($summary ?? __('maintenance.summary_default'));
 
     $heroImageBase = 'assets/maintenance/maintenance-illustration';
     $heroImageOriginal = $heroImageBase . '.png';
@@ -65,14 +65,13 @@
     $styleVersion = is_file($cssPath) ? substr(md5_file($cssPath), 0, 12) : $assetVersion;
 @endphp
 <!DOCTYPE html>
-<html lang="id">
+<html lang="{{ app()->getLocale() }}">
 
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
-    <meta name="description"
-        content="Halaman maintenance sedang aktif untuk memastikan stabilitas, performa, dan keamanan sistem.">
+    <meta name="description" content="{{ __('maintenance.meta_description') }}">
     <meta name="robots" content="noindex, nofollow">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title }} | 503</title>
@@ -114,7 +113,7 @@
 
     <main class="page" data-maintenance role="main" data-server-now="{{ $serverNow }}"
         data-maintenance-start="{{ $startAt }}" data-maintenance-end="{{ $endAt }}"
-        data-maintenance-note="{{ e($noteHtml ?? '') }}" data-maintenance-retry="{{ $retryAfter ?? '' }}"
+        data-maintenance-note="{{ e($noteText ?? '') }}" data-maintenance-retry="{{ $retryAfter ?? '' }}"
         data-timezone="{{ $timezone }}">
         <header class="topbar">
             <div class="brand">
@@ -123,9 +122,10 @@
             </div>
             <div class="topbar-actions">
                 <span class="status-pill" aria-live="polite" role="status" data-status>
-                    Status {{ $statusCode }}
+                    {{ __('maintenance.status_label', ['code' => $statusCode]) }}
                 </span>
-                <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false">Dark mode</button>
+                <button type="button" class="theme-toggle" data-theme-toggle
+                    aria-pressed="false">{{ __('maintenance.theme_toggle') }}</button>
             </div>
         </header>
 
@@ -140,7 +140,8 @@
                             @if ($heroPngSrcset)
                                 <source type="image/png" srcset="{{ $heroPngSrcset }}" sizes="{{ $heroSizesAttr }}">
                             @endif
-                            <img src="{{ asset($heroImageOriginal) }}" alt="Ilustrasi maintenance" loading="eager"
+                            <img src="{{ asset($heroImageOriginal) }}" alt="{{ __('maintenance.hero_alt') }}"
+                                loading="eager"
                                 decoding="async" fetchpriority="high" width="{{ $heroWidth }}"
                                 height="{{ $heroHeight }}" draggable="false">
                         </picture>
@@ -151,20 +152,21 @@
                 <div class="visual-orbit orbit-two"></div>
             </div>
             <div class="hero-content">
-                <p class="eyebrow">Maintenance mode aktif</p>
+                <p class="eyebrow">{{ __('maintenance.eyebrow') }}</p>
                 <h1>{{ $title }}</h1>
                 <p class="lead">{{ $summary }}</p>
                 <div class="status-row" role="status" aria-live="polite">
-                    <span class="pill" data-status-message>Maintenance sedang berlangsung</span>
-                    <span class="pill subtle" data-request-id>Request ID: {{ $requestId }}</span>
+                    <span class="pill" data-status-message>{{ __('maintenance.status_message') }}</span>
+                    <span class="pill subtle"
+                        data-request-id>{{ __('maintenance.request_id', ['id' => $requestId]) }}</span>
                 </div>
                 <div class="timer-group">
                     <div class="timer-card">
-                        <span class="timer-label">Waktu berjalan</span>
+                        <span class="timer-label">{{ __('maintenance.elapsed_time') }}</span>
                         <span class="timer-value" data-elapsed>00:00:00.000</span>
                     </div>
                     <div class="timer-card">
-                        <span class="timer-label">Sisa estimasi</span>
+                        <span class="timer-label">{{ __('maintenance.remaining_time') }}</span>
                         <span class="timer-value" data-remaining>00:00:00.000</span>
                     </div>
                 </div>
@@ -173,57 +175,58 @@
 
         <section class="grid">
             <div class="panel tilt-card" data-tilt="0.6">
-                <h2>Jadwal maintenance</h2>
+                <h2>{{ __('maintenance.schedule_title') }}</h2>
                 <div class="time-grid">
                     <div class="time-item">
-                        <span class="time-label">Waktu server ({{ $timezone }})</span>
+                        <span class="time-label">{{ __('maintenance.server_time', ['timezone' => $timezone]) }}</span>
                         <span class="time-value" data-time="now">--</span>
                     </div>
                     <div class="time-item">
-                        <span class="time-label">Tanggal maintenance</span>
-                        <span class="time-value" data-time="start">Belum ditentukan</span>
+                        <span class="time-label">{{ __('maintenance.start_time') }}</span>
+                        <span class="time-value" data-time="start">{{ __('maintenance.not_set') }}</span>
                     </div>
                     <div class="time-item">
-                        <span class="time-label">Tanggal selesai (rencana)</span>
-                        <span class="time-value" data-time="end">Belum ditentukan</span>
+                        <span class="time-label">{{ __('maintenance.end_time') }}</span>
+                        <span class="time-value" data-time="end">{{ __('maintenance.not_set') }}</span>
                     </div>
                     <div class="time-item" data-time="retry" aria-live="polite" aria-atomic="true"
                         style="{{ is_null($retryAfter) ? 'display:none;' : '' }}">
-                        <span class="time-label">Retry after (detik)</span>
+                        <span class="time-label">{{ __('maintenance.retry_after') }}</span>
                         <span class="time-value" data-time-value>{{ $retryAfter ?? '--' }}</span>
                     </div>
                 </div>
             </div>
 
             <div class="panel panel-token tilt-card" data-tilt="0.5">
-                <h2>Akses maintenance (token)</h2>
+                <h2>{{ __('maintenance.access_title') }}</h2>
                 <div class="field">
-                    <label for="maintenance-token">Token akses</label>
+                    <label for="maintenance-token">{{ __('maintenance.token_label') }}</label>
                     <input id="maintenance-token" name="maintenance_token" type="password"
-                        placeholder="Masukkan token maintenance" autocomplete="one-time-code">
+                        placeholder="{{ __('maintenance.token_placeholder') }}" autocomplete="one-time-code">
                 </div>
                 <div class="actions">
-                    <button type="button" class="btn primary" data-maintenance-submit>Masuk untuk perbaikan</button>
-                    <button type="button" class="btn">Saya hanya ingin menunggu</button>
+                    <button type="button" class="btn primary"
+                        data-maintenance-submit>{{ __('maintenance.token_submit') }}</button>
+                    <button type="button" class="btn">{{ __('maintenance.token_wait') }}</button>
                 </div>
                 <p class="token-feedback" data-token-feedback aria-live="polite"></p>
             </div>
 
             <div class="panel panel-note tilt-card" data-tilt="0.4">
-                <h2>Keterangan maintenance</h2>
+                <h2>{{ __('maintenance.note_title') }}</h2>
                 <div class="field">
-                    <label for="maintenance-note">Keterangan</label>
+                    <label for="maintenance-note">{{ __('maintenance.note_label') }}</label>
                     <div id="maintenance-note" class="note-box" data-maintenance-note-field></div>
                 </div>
-                <div class="hint">Area ini diisi oleh tim yang memiliki izin.</div>
+                <div class="hint">{{ __('maintenance.note_hint') }}</div>
             </div>
 
             <div class="panel mini tilt-card" data-tilt="0.4">
-                <h2>Info pemulihan</h2>
+                <h2>{{ __('maintenance.recovery_title') }}</h2>
                 <ul class="list">
-                    <li>Silakan refresh beberapa menit lagi.</li>
-                    <li>Gunakan token akses jika memiliki izin.</li>
-                    <li>Hubungi admin jika butuh akses segera.</li>
+                    @foreach (__('maintenance.recovery_items') as $item)
+                        <li>{{ $item }}</li>
+                    @endforeach
                 </ul>
             </div>
         </section>

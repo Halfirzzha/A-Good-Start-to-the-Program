@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Models\SystemSetting;
 use App\Models\MaintenanceToken;
+use App\Models\MaintenanceSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
@@ -13,20 +13,15 @@ class MaintenanceFlowTest extends TestCase
 {
     use RefreshDatabase;
 
-    private function seedSettings(array $data = [], array $secrets = []): SystemSetting
+    private function seedSettings(array $data = []): MaintenanceSetting
     {
-        return SystemSetting::query()->create([
-            'data' => $data,
-            'secrets' => $secrets,
-        ]);
+        return MaintenanceSetting::query()->create($data);
     }
 
     public function test_status_returns_disabled_when_maintenance_off(): void
     {
         $this->seedSettings([
-            'maintenance' => [
-                'enabled' => false,
-            ],
+            'enabled' => false,
         ]);
 
         $response = $this->getJson('/maintenance/status');
@@ -49,11 +44,9 @@ class MaintenanceFlowTest extends TestCase
     {
         $now = Carbon::now();
         $this->seedSettings([
-            'maintenance' => [
-                'enabled' => true,
-                'start_at' => $now->copy()->subHour()->toIso8601String(),
-                'end_at' => $now->copy()->addHour()->toIso8601String(),
-            ],
+            'enabled' => true,
+            'start_at' => $now->copy()->subHour()->toIso8601String(),
+            'end_at' => $now->copy()->addHour()->toIso8601String(),
         ]);
 
         $response = $this->getJson('/maintenance/status');

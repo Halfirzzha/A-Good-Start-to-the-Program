@@ -17,12 +17,29 @@ class EditUser extends EditRecord
     private ?string $selectedRole = null;
     private ?string $previousRole = null;
 
+    protected function getFormActions(): array
+    {
+        if (! $this->canSubmit()) {
+            return [
+                $this->getCancelFormAction(),
+            ];
+        }
+
+        return parent::getFormActions();
+    }
+
     /**
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
     protected function mutateFormDataBeforeSave(array $data): array
     {
+        if (! $this->canSubmit()) {
+            return [];
+        }
+
+        $data = $this->filterByPermissions($data);
+
         if (array_key_exists('avatar', $data) && $this->record?->avatar && $data['avatar'] !== $this->record->avatar) {
             UserResource::queueAvatarDeletion($this->record->avatar);
         }
@@ -31,18 +48,18 @@ class EditUser extends EditRecord
             $this->previousRole = $this->record?->role;
             $role = $data['role'];
             if (! is_string($role)) {
-                abort(403, 'Role assignment denied.');
+                abort(403, __('ui.users.errors.role_assignment_denied'));
             }
 
             if ($this->record?->isDeveloper()) {
                 $developerRole = (string) config('security.developer_role', 'developer');
                 if ($role !== $developerRole) {
-                    abort(403, 'Developer role is immutable.');
+                    abort(403, __('ui.users.errors.developer_role_immutable'));
                 }
                 $this->selectedRole = $developerRole;
             } elseif (! UserResource::canAssignRoleName($role, AuthHelper::user(), $this->record)) {
                 if ($role !== $this->record->role) {
-                    abort(403, 'Role assignment denied.');
+                    abort(403, __('ui.users.errors.role_assignment_denied'));
                 }
                 unset($data['role']);
             } else {
@@ -58,7 +75,7 @@ class EditUser extends EditRecord
             AccountStatus::Terminated->value,
         ], true)) {
             $data['blocked_by'] ??= $this->record->blocked_by ?? AuthHelper::id();
-            $data['blocked_reason'] ??= $this->record->blocked_reason ?? 'Status change';
+            $data['blocked_reason'] ??= $this->record->blocked_reason ?? __('ui.users.errors.status_change');
         }
 
         if ($status === AccountStatus::Active->value) {
@@ -82,6 +99,86 @@ class EditUser extends EditRecord
         }
 
         return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function filterByPermissions(array $data): array
+    {
+        if (! $this->record) {
+            return $data;
+        }
+
+        $originalKeys = array_keys($data);
+
+        if (! UserResource::canManageAvatar($this->record)) {
+            unset($data['avatar']);
+        }
+
+        if (! UserResource::canManageIdentity($this->record)) {
+            unset(
+                $data['name'],
+                $data['email'],
+                $data['username'],
+                $data['position'],
+                $data['role'],
+                $data['phone_country_code'],
+                $data['phone_number'],
+            );
+        }
+
+        if (! UserResource::canManageSecurity($this->record)) {
+            unset(
+                $data['password'],
+                $data['password_confirmation'],
+                $data['must_change_password'],
+                $data['password_expires_at'],
+                $data['two_factor_enabled'],
+                $data['two_factor_method'],
+            );
+        }
+
+        if (! UserResource::canManageAccessStatus($this->record)) {
+            unset(
+                $data['account_status'],
+                $data['blocked_until'],
+                $data['blocked_reason'],
+                $data['blocked_by'],
+            );
+        }
+
+        $blocked = array_values(array_diff($originalKeys, array_keys($data)));
+        if ($blocked !== []) {
+            AuditLogWriter::writeAudit([
+                'user_id' => AuthHelper::id(),
+                'action' => 'unauthorized_field_update',
+                'auditable_type' => $this->record->getMorphClass(),
+                'auditable_id' => $this->record->getKey(),
+                'old_values' => null,
+                'new_values' => null,
+                'context' => [
+                    'resource' => 'user',
+                    'blocked_fields' => $blocked,
+                    'operation' => 'edit',
+                ],
+                'created_at' => now(),
+            ]);
+        }
+
+        return $data;
+    }
+
+    private function canSubmit(): bool
+    {
+        return $this->record
+            && (
+                UserResource::canManageAvatar($this->record)
+                || UserResource::canManageIdentity($this->record)
+                || UserResource::canManageSecurity($this->record)
+                || UserResource::canManageAccessStatus($this->record)
+            );
     }
 
     protected function afterSave(): void
@@ -136,7 +233,7 @@ class EditUser extends EditRecord
         ]);
 
         SecurityAlert::dispatch('user_role_changed', [
-            'title' => 'User role changed',
+            'title' => __('ui.users.alerts.role_changed'),
             'target_user_id' => $this->record->getKey(),
             'target_email' => $this->record->email,
             'target_username' => $this->record->username,

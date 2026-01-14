@@ -10,8 +10,6 @@ use App\Support\SecurityAlert;
 use App\Support\SystemHealth;
 use App\Support\SystemSettings;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Response;
 use Illuminate\Support\Facades\Route;
@@ -21,6 +19,24 @@ use Illuminate\Validation\Rule;
 Route::get('/', function () {
     return redirect('/admin');
 });
+
+$resolveAllowedOrigin = function (Request $request): string {
+    $origin = $request->headers->get('Origin');
+    $appUrl = (string) config('app.url');
+
+    if (! $origin) {
+        return $appUrl;
+    }
+
+    $originHost = parse_url($origin, PHP_URL_HOST);
+    $appHost = parse_url($appUrl, PHP_URL_HOST);
+
+    if ($originHost && $appHost && strcasecmp($originHost, $appHost) === 0) {
+        return $origin;
+    }
+
+    return $appUrl;
+};
 
 Route::post('/maintenance/bypass', function (Request $request) {
     $payload = $request->validate([
@@ -36,22 +52,6 @@ Route::post('/maintenance/bypass', function (Request $request) {
     $sessionId = $request->hasSession() ? $request->session()->getId() : null;
 
     $verified = MaintenanceTokenService::verify($token);
-    if (! $verified) {
-        $settings = SystemSettings::get();
-        $tokens = Arr::get($settings, 'secrets.maintenance.bypass_tokens', []);
-        $tokens = is_array($tokens) ? $tokens : [];
-
-        foreach ($tokens as $hash) {
-            if (! is_string($hash) || $hash === '') {
-                continue;
-            }
-
-            if (Hash::check($token, $hash)) {
-                $verified = true;
-                break;
-            }
-        }
-    }
 
     if ($verified) {
         if ($request->hasSession()) {
@@ -118,6 +118,10 @@ Route::post('/maintenance/bypass', function (Request $request) {
     return response()->json(['message' => 'Token tidak valid.'], 403);
 })->middleware('throttle:maintenance-bypass');
 
+Route::post('/admin/login', function (Request $request) {
+    return redirect('/admin');
+})->middleware('throttle:auth-login');
+
 Route::get('/livewire/update', function (Request $request) {
     Log::warning('livewire.update.method_not_allowed', [
         'method' => $request->method(),
@@ -142,11 +146,10 @@ Route::get('/livewire/update', function (Request $request) {
     return redirect()->to(url()->previous() ?: $fallback);
 });
 
-Route::get('/maintenance/status', function (Request $request) {
-    $settings = SystemSettings::get(true);
-    $maintenance = Arr::get($settings, 'data.maintenance', []);
+Route::get('/maintenance/status', function (Request $request) use ($resolveAllowedOrigin) {
+    $maintenance = MaintenanceService::getSettings();
     $snapshot = MaintenanceService::snapshot($maintenance);
-    $noteHtml = $maintenance['note_html'] ?? ($maintenance['note'] ?? null);
+    $noteHtml = MaintenanceService::sanitizeNote($maintenance['note_html'] ?? ($maintenance['note'] ?? null));
     $now = now();
 
     $payload = [
@@ -168,28 +171,28 @@ Route::get('/maintenance/status', function (Request $request) {
         'allow_api' => (bool) ($maintenance['allow_api'] ?? false),
     ];
 
-    $origin = $request->headers->get('Origin');
-    $allowedOrigin = $origin ?: config('app.url');
+    $allowedOrigin = $resolveAllowedOrigin($request);
 
     return response()->json($payload)
         ->header('Cache-Control', 'no-store, no-cache, must-revalidate')
         ->header('Access-Control-Allow-Origin', $allowedOrigin)
         ->header('Access-Control-Allow-Credentials', 'true')
         ->header('Vary', 'Origin');
-});
+})->middleware('throttle:maintenance-status');
 
-Route::get('/maintenance/stream', function (Request $request) {
-    $origin = $request->headers->get('Origin');
-    $allowedOrigin = $origin ?: config('app.url');
+Route::get('/maintenance/stream', function (Request $request) use ($resolveAllowedOrigin) {
+    $allowedOrigin = $resolveAllowedOrigin($request);
 
     $response = Response::stream(function () use ($request): void {
         $start = microtime(true);
 
         while (microtime(true) - $start < 25) {
-            $settings = SystemSettings::get(true);
-            $maintenance = Arr::get($settings, 'data.maintenance', []);
+            if (connection_aborted()) {
+                break;
+            }
+            $maintenance = MaintenanceService::getSettings();
             $snapshot = MaintenanceService::snapshot($maintenance);
-            $noteHtml = $maintenance['note_html'] ?? ($maintenance['note'] ?? null);
+            $noteHtml = MaintenanceService::sanitizeNote($maintenance['note_html'] ?? ($maintenance['note'] ?? null));
 
             $payload = [
                 'status_label' => $snapshot['status_label'],
@@ -227,7 +230,7 @@ Route::get('/maintenance/stream', function (Request $request) {
     ]);
 
     return $response;
-});
+})->middleware('throttle:maintenance-stream');
 
 Route::get('/health/check', function (Request $request) {
     $results = SystemHealth::run();
@@ -262,7 +265,7 @@ Route::get('/invitation/{token}', function (Request $request, string $token) {
         'expiresAt' => $expiresAt,
         'formAction' => $formAction,
     ]);
-})->name('invitation.show')->middleware('signed');
+})->name('invitation.show')->middleware(['signed', 'throttle:invitation']);
 
 Route::post('/invitation/{token}', function (Request $request, string $token) {
     $invitation = UserInvitation::where('token_hash', UserInvitation::hashToken($token))->first();
@@ -323,4 +326,4 @@ Route::post('/invitation/{token}', function (Request $request, string $token) {
     ], $request);
 
     return redirect('/admin/login')->with('status', 'Akun berhasil diaktifkan. Silakan login.');
-})->name('invitation.store')->middleware('signed');
+})->name('invitation.store')->middleware(['signed', 'throttle:invitation']);

@@ -27,6 +27,7 @@ class MaintenanceTokenService
         self::logTokenEvent('maintenance_token_created', $model, $actorId, [
             'name' => $model->name,
             'expires_at' => $model->expires_at?->toIso8601String(),
+            'token_plain' => $plain,
         ]);
 
         return [
@@ -50,6 +51,7 @@ class MaintenanceTokenService
 
         self::logTokenEvent('maintenance_token_rotated', $token, $actorId, [
             'token_id' => $token->getKey(),
+            'token_plain' => $plain,
         ]);
 
         return $plain;
@@ -92,11 +94,19 @@ class MaintenanceTokenService
             return null;
         }
 
+        $candidates = array_values(array_unique([
+            $plain,
+            strtoupper($plain),
+            strtolower($plain),
+        ]));
+
         foreach ($tokens as $token) {
-            if (Hash::check($plain, $token->token_hash)) {
+            foreach ($candidates as $candidate) {
+                if (Hash::check($candidate, $token->token_hash)) {
                 $token->forceFill(['last_used_at' => now()])->save();
                 return $token;
             }
+        }
         }
 
         return null;
@@ -114,7 +124,6 @@ class MaintenanceTokenService
         }
 
         $clean = preg_replace('/\s+/', '', $clean) ?? '';
-        $clean = strtoupper($clean);
 
         return $clean !== '' ? $clean : null;
     }

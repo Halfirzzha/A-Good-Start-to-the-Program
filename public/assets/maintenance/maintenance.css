@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap");
-
 :root {
     color-scheme: light;
     --bg-1: #f6f9ff;
@@ -14,9 +12,10 @@
     --card: rgba(255, 255, 255, 0.96);
     --border: rgba(43, 45, 66, 0.12);
     --shadow: 0 32px 90px rgba(22, 24, 35, 0.14);
-    --mono: "JetBrains Mono", "IBM Plex Mono", "Fira Code", "SFMono-Regular",
-        "Menlo", monospace;
-    --sans: "Space Grotesk", "Manrope", "Sora", "Work Sans", sans-serif;
+    --mono: "JetBrains Mono", "SFMono-Regular", "Menlo", "Consolas",
+        "Liberation Mono", monospace;
+    --sans: "Space Grotesk", "Manrope", "Sora", "Work Sans", "Segoe UI",
+        -apple-system, system-ui, sans-serif;
 }
 
 :root[data-theme="dark"],

@@ -1,5 +1,6 @@
 <?php
 
+use Monolog\Formatter\JsonFormatter;
 use Monolog\Handler\NullHandler;
 use Monolog\Handler\StreamHandler;
 use Monolog\Handler\SyslogUdpHandler;
@@ -78,6 +79,26 @@ return [
             'path' => storage_path('logs/security.log'),
             'level' => env('SECURITY_LOG_LEVEL', 'warning'),
             'days' => env('SECURITY_LOG_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
+        'performance' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/performance.log'),
+            'level' => env('PERFORMANCE_LOG_LEVEL', 'info'),
+            'days' => env('PERFORMANCE_LOG_DAYS', 14),
+            'replace_placeholders' => true,
+        ],
+
+        'json' => [
+            'driver' => 'single',
+            'path' => storage_path('logs/structured.log'),
+            'level' => env('LOG_LEVEL', 'debug'),
+            'formatter' => JsonFormatter::class,
+            'formatter_with' => [
+                'batchMode' => JsonFormatter::BATCH_MODE_JSON,
+                'appendNewline' => true,
+            ],
             'replace_placeholders' => true,
         ],
 

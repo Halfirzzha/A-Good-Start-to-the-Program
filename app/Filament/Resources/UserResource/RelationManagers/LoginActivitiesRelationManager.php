@@ -21,33 +21,33 @@ class LoginActivitiesRelationManager extends RelationManager
             ->defaultSort('created_at', 'desc')
             ->columns([
                 TextColumn::make('created_at')
-                    ->label('Waktu')
+                    ->label(__('ui.security.login_activity.columns.time'))
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true)
                     ->color('primary'),
                 TextColumn::make('event')
-                    ->label('Event')
+                    ->label(__('ui.security.login_activity.columns.event'))
                     ->badge()
                     ->searchable(),
                 TextColumn::make('ip_address')
-                    ->label('IP')
+                    ->label(__('ui.security.login_activity.columns.ip'))
                     ->searchable()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('user_agent')
-                    ->label('User Agent')
+                    ->label(__('ui.security.login_activity.columns.user_agent'))
                     ->wrap()
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('identity')
-                    ->label('Identity')
+                    ->label(__('ui.security.login_activity.columns.identity'))
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('request_id')
-                    ->label('Request ID')
+                    ->label(__('ui.security.login_activity.columns.request_id'))
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('event')
-                    ->label('Event')
+                    ->label(__('ui.security.login_activity.filters.event'))
                     ->options(fn (): array => UserLoginActivity::query()
                         ->distinct()
                         ->pluck('event', 'event')
@@ -55,18 +55,18 @@ class LoginActivitiesRelationManager extends RelationManager
                     ->multiple()
                     ->searchable(),
             ])
-            ->emptyStateHeading('Belum ada aktivitas login')
-            ->emptyStateDescription('Pengguna ini belum memiliki aktivitas login atau audit yang tercatat.')
+            ->emptyStateHeading(__('ui.users.login_activity.empty.heading'))
+            ->emptyStateDescription(__('ui.users.login_activity.empty.description'))
             ->emptyStateActions([
                 \Filament\Actions\Action::make('refresh')
-                    ->label('Segarkan')
+                    ->label(__('ui.security.login_activity.actions.refresh'))
                     ->icon('heroicon-o-arrow-path')
                     ->color('secondary')
                     ->url(fn (): string => request()->fullUrl()),
             ])
             ->recordActions([
                 ViewAction::make()
-                    ->label('Lihat detail')
+                    ->label(__('ui.security.login_activity.actions.view'))
                     ->icon('heroicon-o-eye')
                     ->color('primary'),
             ]);

@@ -25,9 +25,24 @@ class UserLoginActivityResource extends Resource
 
     protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-finger-print';
 
-    protected static string | \UnitEnum | null $navigationGroup = 'Security';
+    protected static string | \UnitEnum | null $navigationGroup = null;
 
     protected static ?int $navigationSort = 11;
+
+    public static function getNavigationGroup(): ?string
+    {
+        return __('ui.nav.groups.security');
+    }
+
+    public static function getModelLabel(): string
+    {
+        return __('ui.security.login_activity.label');
+    }
+
+    public static function getPluralModelLabel(): string
+    {
+        return __('ui.security.login_activity.plural');
+    }
 
     public static function shouldRegisterNavigation(): bool
     {
@@ -42,16 +57,16 @@ class UserLoginActivityResource extends Resource
     public static function infolist(Schema $schema): Schema
     {
         return $schema->components([
-            TextEntry::make('created_at')->label('Time')->dateTime(),
+            TextEntry::make('created_at')->label(__('ui.security.login_activity.columns.time'))->dateTime(),
             TextEntry::make('event')->badge(),
-            TextEntry::make('user.email')->label('User'),
-            TextEntry::make('identity')->label('Identity'),
-            TextEntry::make('ip_address')->label('IP'),
-            TextEntry::make('user_agent')->label('User Agent'),
-            TextEntry::make('request_id')->label('Request ID'),
-            TextEntry::make('session_id')->label('Session ID'),
+            TextEntry::make('user.email')->label(__('ui.security.login_activity.columns.user')),
+            TextEntry::make('identity')->label(__('ui.security.login_activity.columns.identity')),
+            TextEntry::make('ip_address')->label(__('ui.security.login_activity.columns.ip')),
+            TextEntry::make('user_agent')->label(__('ui.security.login_activity.columns.user_agent')),
+            TextEntry::make('request_id')->label(__('ui.security.login_activity.columns.request_id')),
+            TextEntry::make('session_id')->label(__('ui.security.login_activity.columns.session_id')),
             KeyValueEntry::make('context')
-                ->label('Context')
+                ->label(__('ui.security.login_activity.columns.context'))
                 ->getStateUsing(fn (UserLoginActivity $record): array => self::normalizeKeyValue($record->context)),
         ]);
     }
@@ -66,7 +81,7 @@ class UserLoginActivityResource extends Resource
                 Split::make([
                     Stack::make([
                         TextColumn::make('created_at')
-                            ->label('Time')
+                            ->label(__('ui.security.login_activity.columns.time'))
                             ->dateTime()
                             ->sortable()
                             ->description(fn (UserLoginActivity $record): ?string => $record->created_at?->diffForHumans()),
@@ -84,39 +99,39 @@ class UserLoginActivityResource extends Resource
                     ]),
                     Stack::make([
                         TextColumn::make('user.email')
-                            ->label('User')
+                            ->label(__('ui.security.login_activity.columns.user'))
                             ->searchable()
-                            ->placeholder('Unknown'),
+                            ->placeholder(__('ui.security.login_activity.placeholders.user')),
                         TextColumn::make('identity')
-                            ->label('Identity')
+                            ->label(__('ui.security.login_activity.columns.identity'))
                             ->searchable()
                             ->toggleable(),
                     ])->space(1),
                 ])->from('md'),
                 TextColumn::make('ip_address')
-                    ->label('IP')
+                    ->label(__('ui.security.login_activity.columns.ip'))
                     ->searchable()
                     ->copyable()
-                    ->copyMessage('IP copied'),
+                    ->copyMessage(__('ui.security.login_activity.copy.ip')),
                 TextColumn::make('user_agent')
-                    ->label('User Agent')
+                    ->label(__('ui.security.login_activity.columns.user_agent'))
                     ->limit(40)
                     ->tooltip(fn (UserLoginActivity $record): ?string => $record->user_agent)
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('request_id')
-                    ->label('Request ID')
+                    ->label(__('ui.security.login_activity.columns.request_id'))
                     ->limit(12)
                     ->tooltip(fn (UserLoginActivity $record): ?string => $record->request_id)
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('session_id')
-                    ->label('Session ID')
+                    ->label(__('ui.security.login_activity.columns.session_id'))
                     ->limit(12)
                     ->tooltip(fn (UserLoginActivity $record): ?string => $record->session_id)
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
                 SelectFilter::make('event')
-                    ->label('Event')
+                    ->label(__('ui.security.login_activity.filters.event'))
                     ->options(fn (): array => UserLoginActivity::query()
                         ->distinct()
                         ->pluck('event', 'event')
@@ -125,13 +140,13 @@ class UserLoginActivityResource extends Resource
                     ->searchable()
                     ->multiple(),
             ])
-            ->filtersLayout(FiltersLayout::AboveContentCollapsible)
+            ->filtersLayout(FiltersLayout::Dropdown)
             ->persistFiltersInSession()
-            ->emptyStateHeading('Tidak ada aktivitas login yang tercatat')
-            ->emptyStateDescription('Pengguna belum pernah login; aktivitas baru akan muncul secara real-time setelah sesi dibuat.')
+            ->emptyStateHeading(__('ui.security.login_activity.empty.heading'))
+            ->emptyStateDescription(__('ui.security.login_activity.empty.description'))
             ->emptyStateActions([
                 Action::make('refresh')
-                    ->label('Segarkan')
+                    ->label(__('ui.security.login_activity.actions.refresh'))
                     ->icon('heroicon-o-arrow-path')
                     ->url(fn (): string => request()->fullUrl()),
             ])
@@ -160,7 +175,24 @@ class UserLoginActivityResource extends Resource
 
     public static function canViewAny(): bool
     {
-        return false;
+        $user = AuthHelper::user();
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasElevatedPrivileges') && $user->hasElevatedPrivileges()) {
+            return true;
+        }
+
+        return $user->can('view_any_user_login_activity')
+            || $user->can('view_user_login_activity')
+            || $user->can('view_any_user_login_activities')
+            || $user->can('view_user_login_activities');
+    }
+
+    public static function canView(Model $record): bool
+    {
+        return self::canViewAny();
     }
 
     public static function getPages(): array

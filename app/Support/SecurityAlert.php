@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Jobs\SendSecurityAlert;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class SecurityAlert
@@ -13,6 +14,10 @@ class SecurityAlert
      */
     public static function dispatch(string $event, array $context = [], ?Request $request = null): void
     {
+        if (! config('security.alert_enabled', true)) {
+            return;
+        }
+
         $request = $request ?: request();
         $user = $request?->user();
         $contextIdentity = self::extractIdentity($context);
@@ -43,6 +48,35 @@ class SecurityAlert
             'timestamp' => now()->toIso8601String(),
             'context' => $context,
         ];
+
+        $channel = (string) config('security.alert_log_channel', 'security');
+        $contextKeys = array_values(array_filter(array_map('strval', array_keys($context))));
+
+        try {
+            Log::channel($channel)->info('security.alert.dispatched', [
+                'event' => $event,
+                'title' => $payload['title'],
+                'user_id' => $payload['user_id'],
+                'identity' => $payload['identity'],
+                'ip_observed' => $payload['ip_observed'],
+                'path' => $payload['path'],
+                'method' => $payload['method'],
+                'request_id' => $payload['request_id'],
+                'context_keys' => $contextKeys,
+            ]);
+        } catch (\Throwable) {
+            Log::info('security.alert.dispatched', [
+                'event' => $event,
+                'title' => $payload['title'],
+                'user_id' => $payload['user_id'],
+                'identity' => $payload['identity'],
+                'ip_observed' => $payload['ip_observed'],
+                'path' => $payload['path'],
+                'method' => $payload['method'],
+                'request_id' => $payload['request_id'],
+                'context_keys' => $contextKeys,
+            ]);
+        }
 
         SendSecurityAlert::dispatch($payload)->onQueue('alerts');
     }

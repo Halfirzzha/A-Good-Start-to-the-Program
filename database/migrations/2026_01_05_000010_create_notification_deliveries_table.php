@@ -10,11 +10,17 @@ return new class extends Migration
     {
         Schema::create('notification_deliveries', function (Blueprint $table): void {
             $table->bigIncrements('id');
+            $table->unsignedBigInteger('notification_id')->nullable();
             $table->string('notification_type', 200);
             $table->string('channel', 40);
             $table->string('status', 20);
+            $table->unsignedSmallInteger('attempts')->default(0);
             $table->nullableMorphs('notifiable');
             $table->string('recipient', 200)->nullable();
+            $table->string('idempotency_key', 100)->nullable();
+            $table->timestamp('queued_at')->nullable();
+            $table->timestamp('sent_at')->nullable();
+            $table->timestamp('failed_at')->nullable();
             $table->string('summary', 250)->nullable();
             $table->json('data')->nullable();
             $table->text('error_message')->nullable();
@@ -25,6 +31,9 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['channel', 'status']);
+            $table->index(['notification_id', 'channel', 'status'], 'notification_deliveries_notification_idx');
+
+            // Foreign key added later once notification_messages exists.
         });
     }
 

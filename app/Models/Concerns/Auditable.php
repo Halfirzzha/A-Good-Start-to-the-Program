@@ -61,6 +61,7 @@ trait Auditable
             'action' => $this->normalizeAction($action),
             'auditable_type' => $this->getMorphClass(),
             'auditable_id' => $this->getKey(),
+            'auditable_label' => $this->resolveAuditLabel(),
             'old_values' => $this->filterAuditableValues($oldValues),
             'new_values' => $this->filterAuditableValues($newValues),
             'ip_address' => $request?->ip(),
@@ -77,6 +78,28 @@ trait Auditable
             ],
             'created_at' => now(),
         ]);
+    }
+
+    protected function resolveAuditLabel(): ?string
+    {
+        $candidates = ['name', 'title', 'code', 'number', 'email', 'username'];
+
+        foreach ($candidates as $field) {
+            if (! array_key_exists($field, $this->getAttributes())) {
+                continue;
+            }
+
+            $value = $this->getAttribute($field);
+            if (is_string($value) && $value !== '') {
+                return Str::limit($value, 190, '');
+            }
+
+            if (is_numeric($value)) {
+                return (string) $value;
+            }
+        }
+
+        return null;
     }
 
     /**

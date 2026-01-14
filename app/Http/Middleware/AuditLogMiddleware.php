@@ -14,6 +14,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 class AuditLogMiddleware
 {
+    private const MAX_PAYLOAD_DEPTH = 5;
+    private const MAX_PAYLOAD_ITEMS = 50;
+    private const MAX_STRING_LENGTH = 500;
+
     /**
      * @param  Closure(Request): Response  $next
      */
@@ -578,6 +582,10 @@ class AuditLogMiddleware
             return false;
         }
 
+        if ($this->isStreamingRequest($request)) {
+            return false;
+        }
+
         $ignore = config('audit.ignore_paths', []);
         if (! empty($ignore) && $request->is($ignore)) {
             return false;
@@ -611,19 +619,28 @@ class AuditLogMiddleware
         $input = $request->all();
         $sensitiveKeys = $this->sensitiveKeys();
 
-        return $this->sanitizeArray($input, $sensitiveKeys);
+        return $this->sanitizeArray($input, $sensitiveKeys, 0);
     }
 
     /**
      * @param  array<string, mixed>  $input
      * @param  list<string>  $sensitiveKeys
+     * @param  int  $depth
      * @return array<string, mixed>
      */
-    private function sanitizeArray(array $input, array $sensitiveKeys): array
+    private function sanitizeArray(array $input, array $sensitiveKeys, int $depth): array
     {
         $sanitized = [];
+        $count = 0;
 
         foreach ($input as $key => $value) {
+            if ($count >= self::MAX_PAYLOAD_ITEMS) {
+                $sanitized['__truncated__'] = 'Payload truncated (too many items)';
+                break;
+            }
+
+            $count++;
+
             if (in_array(strtolower((string) $key), $sensitiveKeys, true)) {
                 $sanitized[$key] = '[redacted]';
                 continue;
@@ -635,7 +652,17 @@ class AuditLogMiddleware
             }
 
             if (is_array($value)) {
-                $sanitized[$key] = $this->sanitizeArray($value, $sensitiveKeys);
+                if ($depth >= self::MAX_PAYLOAD_DEPTH) {
+                    $sanitized[$key] = '[truncated]';
+                    continue;
+                }
+
+                $sanitized[$key] = $this->sanitizeArray($value, $sensitiveKeys, $depth + 1);
+                continue;
+            }
+
+            if (is_string($value) && strlen($value) > self::MAX_STRING_LENGTH) {
+                $sanitized[$key] = substr($value, 0, self::MAX_STRING_LENGTH).'…';
                 continue;
             }
 
@@ -681,5 +708,14 @@ class AuditLogMiddleware
     private function sensitiveKeys(): array
     {
         return array_map('strtolower', config('audit.sensitive_keys', []));
+    }
+
+    private function isStreamingRequest(Request $request): bool
+    {
+        if ($request->headers->get('Accept') === 'text/event-stream') {
+            return true;
+        }
+
+        return $request->is('maintenance/stream');
     }
 }
