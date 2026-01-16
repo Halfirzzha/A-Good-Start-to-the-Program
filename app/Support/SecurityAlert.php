@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use App\Events\SecurityAlertEvent;
 use App\Jobs\SendSecurityAlert;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -9,6 +10,33 @@ use Illuminate\Support\Str;
 
 class SecurityAlert
 {
+    /**
+     * High-severity events that require immediate attention.
+     *
+     * @var array<string>
+     */
+    private static array $highSeverityEvents = [
+        'account_locked',
+        'brute_force_detected',
+        'suspicious_activity',
+        'unauthorized_access',
+        'permission_escalation',
+        'api_key_exposed',
+        'multiple_failed_logins',
+    ];
+
+    /**
+     * Critical events that may indicate a security breach.
+     *
+     * @var array<string>
+     */
+    private static array $criticalEvents = [
+        'data_breach_suspected',
+        'admin_account_compromised',
+        'mass_data_export',
+        'unauthorized_admin_access',
+    ];
+
     /**
      * @param  array<string, mixed>  $context
      */
@@ -49,12 +77,14 @@ class SecurityAlert
             'context' => $context,
         ];
 
+        $severity = self::determineSeverity($event);
         $channel = (string) config('security.alert_log_channel', 'security');
         $contextKeys = array_values(array_filter(array_map('strval', array_keys($context))));
 
         try {
             Log::channel($channel)->info('security.alert.dispatched', [
                 'event' => $event,
+                'severity' => $severity,
                 'title' => $payload['title'],
                 'user_id' => $payload['user_id'],
                 'identity' => $payload['identity'],
@@ -67,6 +97,7 @@ class SecurityAlert
         } catch (\Throwable) {
             Log::info('security.alert.dispatched', [
                 'event' => $event,
+                'severity' => $severity,
                 'title' => $payload['title'],
                 'user_id' => $payload['user_id'],
                 'identity' => $payload['identity'],
@@ -78,7 +109,63 @@ class SecurityAlert
             ]);
         }
 
+        // Dispatch the job for email/telegram notifications
         SendSecurityAlert::dispatch($payload)->onQueue('alerts');
+
+        // Broadcast real-time event for live monitoring
+        self::broadcastRealtime($event, $payload, $severity, $payload['user_id']);
+    }
+
+    /**
+     * Broadcast real-time security event.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private static function broadcastRealtime(string $event, array $payload, string $severity, mixed $userId): void
+    {
+        if (! config('broadcasting.default') || config('broadcasting.default') === 'null') {
+            return;
+        }
+
+        try {
+            $alertData = [
+                'event' => $event,
+                'title' => $payload['title'],
+                'identity' => $payload['identity'],
+                'ip' => $payload['ip_observed'],
+                'path' => $payload['path'],
+                'timestamp' => $payload['timestamp'],
+            ];
+
+            $userIdString = $userId !== null ? (string) $userId : null;
+
+            event(new SecurityAlertEvent($alertData, $severity, $userIdString));
+        } catch (\Throwable $e) {
+            Log::warning('Failed to broadcast security alert', [
+                'event' => $event,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Determine the severity level of an event.
+     */
+    private static function determineSeverity(string $event): string
+    {
+        if (in_array($event, self::$criticalEvents, true)) {
+            return 'critical';
+        }
+
+        if (in_array($event, self::$highSeverityEvents, true)) {
+            return 'high';
+        }
+
+        if (str_contains($event, 'failed') || str_contains($event, 'denied')) {
+            return 'warning';
+        }
+
+        return 'info';
     }
 
     private static function isPrivateIp(?string $ip): bool

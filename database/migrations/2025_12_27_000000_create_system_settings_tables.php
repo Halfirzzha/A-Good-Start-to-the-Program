@@ -67,6 +67,47 @@ return new class extends Migration
             $table->string('google_drive_client_id', 191)->nullable();
             $table->string('google_drive_client_secret', 191)->nullable();
             $table->string('google_drive_refresh_token', 191)->nullable();
+
+            // AI Configuration - OpenAI Integration
+            $table->boolean('ai_enabled')->default(false);
+            $table->string('ai_provider', 50)->default('openai');
+            $table->longText('ai_api_key')->nullable();
+            $table->string('ai_organization', 100)->nullable();
+            $table->string('ai_model', 50)->default('gpt-4o');
+            $table->unsignedSmallInteger('ai_max_tokens')->default(4096);
+            $table->decimal('ai_temperature', 3, 2)->default(0.30);
+            $table->unsignedSmallInteger('ai_timeout')->default(30);
+            $table->unsignedSmallInteger('ai_retry_attempts')->default(3);
+
+            // AI Rate Limiting
+            $table->unsignedInteger('ai_rate_limit_rpm')->default(60);
+            $table->unsignedInteger('ai_rate_limit_tpm')->default(90000);
+            $table->unsignedInteger('ai_rate_limit_tpd')->default(1000000);
+            $table->unsignedInteger('ai_daily_usage')->default(0);
+            $table->date('ai_usage_reset_date')->nullable();
+
+            // AI Feature Toggles
+            $table->boolean('ai_feature_security_analysis')->default(true);
+            $table->boolean('ai_feature_anomaly_detection')->default(true);
+            $table->boolean('ai_feature_threat_classification')->default(true);
+            $table->boolean('ai_feature_log_summarization')->default(true);
+            $table->boolean('ai_feature_smart_alerts')->default(true);
+            $table->boolean('ai_feature_auto_response')->default(false);
+            $table->boolean('ai_feature_chat_assistant')->default(false);
+
+            // AI Alert Triggers
+            $table->unsignedTinyInteger('ai_alert_high_risk_score')->default(8);
+            $table->unsignedTinyInteger('ai_alert_suspicious_patterns')->default(5);
+            $table->unsignedTinyInteger('ai_alert_failed_logins')->default(10);
+            $table->decimal('ai_alert_anomaly_confidence', 4, 2)->default(0.85);
+
+            // AI Response Actions
+            $table->boolean('ai_action_auto_block_ip')->default(false);
+            $table->boolean('ai_action_auto_lock_user')->default(false);
+            $table->boolean('ai_action_notify_admin')->default(true);
+            $table->boolean('ai_action_create_incident')->default(true);
+            $table->json('ai_action_custom_rules')->nullable();
+
             $table->unsignedBigInteger('updated_by')->nullable();
             $table->string('updated_ip', 45)->nullable();
             $table->string('updated_user_agent', 255)->nullable();

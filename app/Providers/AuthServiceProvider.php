@@ -3,14 +3,22 @@
 namespace App\Providers;
 
 use App\Models\AuditLog;
+use App\Models\MaintenanceSetting;
+use App\Models\MaintenanceToken;
+use App\Models\NotificationDelivery;
+use App\Models\NotificationMessage;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\UserLoginActivity;
 use App\Policies\AuditLogPolicy;
+use App\Policies\MaintenanceSettingPolicy;
+use App\Policies\MaintenanceTokenPolicy;
+use App\Policies\NotificationDeliveryPolicy;
+use App\Policies\NotificationMessagePolicy;
 use App\Policies\RolePolicy;
 use App\Policies\SystemSettingPolicy;
-use App\Policies\UserPolicy;
 use App\Policies\UserLoginActivityPolicy;
+use App\Policies\UserPolicy;
 use App\Support\AuditLogWriter;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Contracts\Auth\Authenticatable;
@@ -29,6 +37,10 @@ class AuthServiceProvider extends ServiceProvider
      */
     protected $policies = [
         AuditLog::class => AuditLogPolicy::class,
+        MaintenanceSetting::class => MaintenanceSettingPolicy::class,
+        MaintenanceToken::class => MaintenanceTokenPolicy::class,
+        NotificationDelivery::class => NotificationDeliveryPolicy::class,
+        NotificationMessage::class => NotificationMessagePolicy::class,
         SystemSetting::class => SystemSettingPolicy::class,
         User::class => UserPolicy::class,
         UserLoginActivity::class => UserLoginActivityPolicy::class,
@@ -94,12 +106,14 @@ class AuthServiceProvider extends ServiceProvider
                     'type' => $argument->getMorphClass(),
                     'id' => $argument->getKey(),
                 ];
+
                 continue;
             }
 
             if (is_string($argument) && class_exists($argument)) {
                 $auditableType ??= $argument;
                 $normalized[] = ['type' => $argument];
+
                 continue;
             }
 

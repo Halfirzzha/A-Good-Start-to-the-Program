@@ -625,6 +625,300 @@ class SystemSettingResource extends Resource
                                 ])
                                 ->columns(3),
                         ]),
+                    Tab::make(__('ui.system_settings.tabs.ai'))
+                        ->icon('heroicon-o-cpu-chip')
+                        ->schema([
+                            Section::make(__('ui.system_settings.sections.ai_config.title'))
+                                ->description(__('ui.system_settings.sections.ai_config.description'))
+                                ->visible(fn (): bool => self::canViewAISettings())
+                                ->headerActions([
+                                    Action::make('test_ai_connection')
+                                        ->label(__('ui.system_settings.actions.test_ai'))
+                                        ->icon('heroicon-o-bolt')
+                                        ->color('warning')
+                                        ->iconButton()
+                                        ->tooltip(__('ui.system_settings.actions.test_ai'))
+                                        ->visible(fn (): bool => self::canManageAISettings())
+                                        ->action(function (): void {
+                                            if (! self::canManageAISettings()) {
+                                                abort(403);
+                                            }
+
+                                            if (self::isRateLimited('ai_test', 3, 60)) {
+                                                \Filament\Notifications\Notification::make()
+                                                    ->title(__('ui.system_settings.notifications.too_many_title'))
+                                                    ->body(__('ui.system_settings.notifications.ai_test_wait'))
+                                                    ->warning()
+                                                    ->send();
+                                                return;
+                                            }
+
+                                            $apiKey = (string) \App\Support\SystemSettings::getSecret('ai.api_key', '');
+                                            $enabled = (bool) \App\Support\SystemSettings::getValue('ai.enabled', false);
+
+                                            if (! $enabled || $apiKey === '') {
+                                                \Filament\Notifications\Notification::make()
+                                                    ->title(__('ui.system_settings.notifications.ai_not_configured_title'))
+                                                    ->body(__('ui.system_settings.notifications.ai_not_configured_body'))
+                                                    ->warning()
+                                                    ->send();
+                                                return;
+                                            }
+
+                                            try {
+                                                $response = \Illuminate\Support\Facades\Http::withToken($apiKey)
+                                                    ->timeout(10)
+                                                    ->get('https://api.openai.com/v1/models');
+
+                                                if ($response->successful()) {
+                                                    \Filament\Notifications\Notification::make()
+                                                        ->title(__('ui.system_settings.notifications.ai_connected_title'))
+                                                        ->body(__('ui.system_settings.notifications.ai_connected_body'))
+                                                        ->success()
+                                                        ->send();
+                                                } else {
+                                                    \Filament\Notifications\Notification::make()
+                                                        ->title(__('ui.system_settings.notifications.ai_failed_title'))
+                                                        ->body($response->json('error.message', 'Connection failed'))
+                                                        ->danger()
+                                                        ->send();
+                                                }
+                                            } catch (\Throwable $e) {
+                                                \Filament\Notifications\Notification::make()
+                                                    ->title(__('ui.system_settings.notifications.ai_failed_title'))
+                                                    ->body($e->getMessage())
+                                                    ->danger()
+                                                    ->send();
+                                            }
+                                        }),
+                                ])
+                                ->schema([
+                                    Toggle::make('ai_enabled')
+                                        ->label(__('ui.system_settings.fields.ai_enabled'))
+                                        ->helperText(__('ui.system_settings.helpers.ai_enabled'))
+                                        ->onIcon('heroicon-o-cpu-chip')
+                                        ->offIcon('heroicon-o-x-circle')
+                                        ->live()
+                                        ->disabled(fn (): bool => ! self::canManageAISettings())
+                                        ->columnSpanFull(),
+                                    Select::make('ai_provider')
+                                        ->label(__('ui.system_settings.fields.ai_provider'))
+                                        ->prefixIcon('heroicon-o-cloud')
+                                        ->options([
+                                            'openai' => 'OpenAI (GPT-4)',
+                                        ])
+                                        ->native(false)
+                                        ->disabled(fn (): bool => ! self::canManageAISettings())
+                                        ->visible(fn (Get $get): bool => (bool) $get('ai_enabled')),
+                                    TextInput::make('ai_api_key')
+                                        ->label(__('ui.system_settings.fields.ai_api_key'))
+                                        ->prefixIcon('heroicon-o-key')
+                                        ->password()
+                                        ->revealable()
+                                        ->visible(fn (): bool => self::canEditSecrets() && self::canManageAISettings())
+                                        ->disabled(fn (): bool => ! self::canEditSecrets() || ! self::canManageAISettings())
+                                        ->helperText(__('ui.system_settings.helpers.ai_api_key'))
+                                        ->maxLength(191)
+                                        ->required(fn (Get $get): bool => self::canEditSecrets() && (bool) $get('ai_enabled')),
+                                    TextInput::make('ai_organization')
+                                        ->label(__('ui.system_settings.fields.ai_organization'))
+                                        ->prefixIcon('heroicon-o-building-office')
+                                        ->disabled(fn (): bool => ! self::canManageAISettings())
+                                        ->visible(fn (Get $get): bool => (bool) $get('ai_enabled'))
+                                        ->helperText(__('ui.system_settings.helpers.ai_organization'))
+                                        ->maxLength(100),
+                                    Select::make('ai_model')
+                                        ->label(__('ui.system_settings.fields.ai_model'))
+                                        ->prefixIcon('heroicon-o-cube')
+                                        ->options([
+                                            'gpt-4o' => 'GPT-4o (Recommended)',
+                                            'gpt-4o-mini' => 'GPT-4o Mini (Faster)',
+                                            'gpt-4-turbo' => 'GPT-4 Turbo',
+                                            'gpt-4' => 'GPT-4',
+                                            'gpt-3.5-turbo' => 'GPT-3.5 Turbo (Economy)',
+                                        ])
+                                        ->native(false)
+                                        ->disabled(fn (): bool => ! self::canManageAISettings())
+                                        ->visible(fn (Get $get): bool => (bool) $get('ai_enabled')),
+                                    TextInput::make('ai_max_tokens')
+                                        ->label(__('ui.system_settings.fields.ai_max_tokens'))
+                                        ->prefixIcon('heroicon-o-calculator')
+                                        ->numeric()
+                                        ->minValue(256)
+                                        ->maxValue(128000)
+                                        ->disabled(fn (): bool => ! self::canManageAISettings())
+                                        ->visible(fn (Get $get): bool => (bool) $get('ai_enabled'))
+                                        ->helperText(__('ui.system_settings.helpers.ai_max_tokens')),
+                                    TextInput::make('ai_temperature')
+                                        ->label(__('ui.system_settings.fields.ai_temperature'))
+                                        ->prefixIcon('heroicon-o-fire')
+                                        ->numeric()
+                                        ->step(0.01)
+                                        ->minValue(0)
+                                        ->maxValue(2)
+                                        ->disabled(fn (): bool => ! self::canManageAISettings())
+                                        ->visible(fn (Get $get): bool => (bool) $get('ai_enabled'))
+                                        ->helperText(__('ui.system_settings.helpers.ai_temperature')),
+                                    TextInput::make('ai_timeout')
+                                        ->label(__('ui.system_settings.fields.ai_timeout'))
+                                        ->prefixIcon('heroicon-o-clock')
+                                        ->numeric()
+                                        ->suffix('seconds')
+                                        ->minValue(5)
+                                        ->maxValue(300)
+                                        ->disabled(fn (): bool => ! self::canManageAISettings())
+                                        ->visible(fn (Get $get): bool => (bool) $get('ai_enabled')),
+                                ])
+                                ->columns(2),
+                            Section::make(__('ui.system_settings.sections.ai_rate_limit.title'))
+                                ->description(__('ui.system_settings.sections.ai_rate_limit.description'))
+                                ->visible(fn (): bool => self::canViewAISettings())
+                                ->collapsed()
+                                ->schema([
+                                    TextInput::make('ai_rate_limit_rpm')
+                                        ->label(__('ui.system_settings.fields.ai_rate_limit_rpm'))
+                                        ->prefixIcon('heroicon-o-clock')
+                                        ->numeric()
+                                        ->suffix('req/min')
+                                        ->minValue(1)
+                                        ->maxValue(10000)
+                                        ->disabled(fn (): bool => ! self::canManageAISettings()),
+                                    TextInput::make('ai_rate_limit_tpm')
+                                        ->label(__('ui.system_settings.fields.ai_rate_limit_tpm'))
+                                        ->prefixIcon('heroicon-o-calculator')
+                                        ->numeric()
+                                        ->suffix('tokens/min')
+                                        ->minValue(1000)
+                                        ->maxValue(10000000)
+                                        ->disabled(fn (): bool => ! self::canManageAISettings()),
+                                    TextInput::make('ai_rate_limit_tpd')
+                                        ->label(__('ui.system_settings.fields.ai_rate_limit_tpd'))
+                                        ->prefixIcon('heroicon-o-calendar')
+                                        ->numeric()
+                                        ->suffix('tokens/day')
+                                        ->minValue(10000)
+                                        ->maxValue(100000000)
+                                        ->disabled(fn (): bool => ! self::canManageAISettings()),
+                                    Placeholder::make('ai_usage_info')
+                                        ->label(__('ui.system_settings.fields.ai_usage_today'))
+                                        ->content(function (?SystemSetting $record): string {
+                                            if (! $record) {
+                                                return '0 tokens';
+                                            }
+                                            $usage = (int) $record->ai_daily_usage;
+                                            $limit = (int) ($record->ai_rate_limit_tpd ?? 1000000);
+                                            $percent = $limit > 0 ? round(($usage / $limit) * 100, 1) : 0;
+                                            return number_format($usage)." / ".number_format($limit)." tokens ({$percent}%)";
+                                        }),
+                                ])
+                                ->columns(2),
+                            Section::make(__('ui.system_settings.sections.ai_features.title'))
+                                ->description(__('ui.system_settings.sections.ai_features.description'))
+                                ->visible(fn (): bool => self::canViewAISettings())
+                                ->schema([
+                                    Toggle::make('ai_feature_security_analysis')
+                                        ->label(__('ui.system_settings.fields.ai_feature_security_analysis'))
+                                        ->helperText(__('ui.system_settings.helpers.ai_feature_security_analysis'))
+                                        ->onIcon('heroicon-o-shield-check')
+                                        ->disabled(fn (): bool => ! self::canManageAISettings()),
+                                    Toggle::make('ai_feature_anomaly_detection')
+                                        ->label(__('ui.system_settings.fields.ai_feature_anomaly_detection'))
+                                        ->helperText(__('ui.system_settings.helpers.ai_feature_anomaly_detection'))
+                                        ->onIcon('heroicon-o-exclamation-triangle')
+                                        ->disabled(fn (): bool => ! self::canManageAISettings()),
+                                    Toggle::make('ai_feature_threat_classification')
+                                        ->label(__('ui.system_settings.fields.ai_feature_threat_classification'))
+                                        ->helperText(__('ui.system_settings.helpers.ai_feature_threat_classification'))
+                                        ->onIcon('heroicon-o-bug-ant')
+                                        ->disabled(fn (): bool => ! self::canManageAISettings()),
+                                    Toggle::make('ai_feature_log_summarization')
+                                        ->label(__('ui.system_settings.fields.ai_feature_log_summarization'))
+                                        ->helperText(__('ui.system_settings.helpers.ai_feature_log_summarization'))
+                                        ->onIcon('heroicon-o-document-text')
+                                        ->disabled(fn (): bool => ! self::canManageAISettings()),
+                                    Toggle::make('ai_feature_smart_alerts')
+                                        ->label(__('ui.system_settings.fields.ai_feature_smart_alerts'))
+                                        ->helperText(__('ui.system_settings.helpers.ai_feature_smart_alerts'))
+                                        ->onIcon('heroicon-o-bell-alert')
+                                        ->disabled(fn (): bool => ! self::canManageAISettings()),
+                                    Toggle::make('ai_feature_auto_response')
+                                        ->label(__('ui.system_settings.fields.ai_feature_auto_response'))
+                                        ->helperText(__('ui.system_settings.helpers.ai_feature_auto_response'))
+                                        ->onIcon('heroicon-o-bolt')
+                                        ->disabled(fn (): bool => ! self::canManageAISettings()),
+                                    Toggle::make('ai_feature_chat_assistant')
+                                        ->label(__('ui.system_settings.fields.ai_feature_chat_assistant'))
+                                        ->helperText(__('ui.system_settings.helpers.ai_feature_chat_assistant'))
+                                        ->onIcon('heroicon-o-chat-bubble-bottom-center-text')
+                                        ->disabled(fn (): bool => ! self::canManageAISettings()),
+                                ])
+                                ->columns(2),
+                            Section::make(__('ui.system_settings.sections.ai_alerts.title'))
+                                ->description(__('ui.system_settings.sections.ai_alerts.description'))
+                                ->visible(fn (): bool => self::canViewAISettings())
+                                ->collapsed()
+                                ->schema([
+                                    TextInput::make('ai_alert_high_risk_score')
+                                        ->label(__('ui.system_settings.fields.ai_alert_high_risk_score'))
+                                        ->prefixIcon('heroicon-o-exclamation-circle')
+                                        ->numeric()
+                                        ->minValue(1)
+                                        ->maxValue(10)
+                                        ->disabled(fn (): bool => ! self::canManageAISettings())
+                                        ->helperText(__('ui.system_settings.helpers.ai_alert_high_risk_score')),
+                                    TextInput::make('ai_alert_suspicious_patterns')
+                                        ->label(__('ui.system_settings.fields.ai_alert_suspicious_patterns'))
+                                        ->prefixIcon('heroicon-o-eye')
+                                        ->numeric()
+                                        ->minValue(1)
+                                        ->maxValue(50)
+                                        ->disabled(fn (): bool => ! self::canManageAISettings()),
+                                    TextInput::make('ai_alert_failed_logins')
+                                        ->label(__('ui.system_settings.fields.ai_alert_failed_logins'))
+                                        ->prefixIcon('heroicon-o-lock-closed')
+                                        ->numeric()
+                                        ->minValue(1)
+                                        ->maxValue(100)
+                                        ->disabled(fn (): bool => ! self::canManageAISettings()),
+                                    TextInput::make('ai_alert_anomaly_confidence')
+                                        ->label(__('ui.system_settings.fields.ai_alert_anomaly_confidence'))
+                                        ->prefixIcon('heroicon-o-chart-bar')
+                                        ->numeric()
+                                        ->step(0.01)
+                                        ->minValue(0.5)
+                                        ->maxValue(1.0)
+                                        ->disabled(fn (): bool => ! self::canManageAISettings())
+                                        ->helperText(__('ui.system_settings.helpers.ai_alert_anomaly_confidence')),
+                                ])
+                                ->columns(2),
+                            Section::make(__('ui.system_settings.sections.ai_actions.title'))
+                                ->description(__('ui.system_settings.sections.ai_actions.description'))
+                                ->visible(fn (): bool => self::canViewAISettings())
+                                ->collapsed()
+                                ->schema([
+                                    Toggle::make('ai_action_auto_block_ip')
+                                        ->label(__('ui.system_settings.fields.ai_action_auto_block_ip'))
+                                        ->helperText(__('ui.system_settings.helpers.ai_action_auto_block_ip'))
+                                        ->onIcon('heroicon-o-no-symbol')
+                                        ->disabled(fn (): bool => ! self::canManageAISettings()),
+                                    Toggle::make('ai_action_auto_lock_user')
+                                        ->label(__('ui.system_settings.fields.ai_action_auto_lock_user'))
+                                        ->helperText(__('ui.system_settings.helpers.ai_action_auto_lock_user'))
+                                        ->onIcon('heroicon-o-lock-closed')
+                                        ->disabled(fn (): bool => ! self::canManageAISettings()),
+                                    Toggle::make('ai_action_notify_admin')
+                                        ->label(__('ui.system_settings.fields.ai_action_notify_admin'))
+                                        ->helperText(__('ui.system_settings.helpers.ai_action_notify_admin'))
+                                        ->onIcon('heroicon-o-bell')
+                                        ->disabled(fn (): bool => ! self::canManageAISettings()),
+                                    Toggle::make('ai_action_create_incident')
+                                        ->label(__('ui.system_settings.fields.ai_action_create_incident'))
+                                        ->helperText(__('ui.system_settings.helpers.ai_action_create_incident'))
+                                        ->onIcon('heroicon-o-clipboard-document-list')
+                                        ->disabled(fn (): bool => ! self::canManageAISettings()),
+                                ])
+                                ->columns(2),
+                        ]),
                 ]),
         ]);
     }
@@ -638,6 +932,11 @@ class SystemSettingResource extends Resource
                     ->boolean()
                     ->getStateUsing(fn (SystemSetting $record): bool => (bool) $record->email_enabled)
                     ->toggleable(isToggledHiddenByDefault: true),
+                IconColumn::make('ai_status')
+                    ->label(__('ui.system_settings.table.ai_status'))
+                    ->boolean()
+                    ->getStateUsing(fn (SystemSetting $record): bool => (bool) $record->ai_enabled)
+                    ->toggleable(isToggledHiddenByDefault: false),
                 TextColumn::make('project')
                     ->label(__('ui.system_settings.table.project'))
                     ->getStateUsing(fn (SystemSetting $record): ?string => $record->project_name),
@@ -979,6 +1278,42 @@ class SystemSettingResource extends Resource
         }
 
         return $user->can('manage_system_settings_communication')
+            || self::canUpdateSettings();
+    }
+
+    public static function canViewAISettings(): bool
+    {
+        $user = AuthHelper::user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasElevatedPrivileges') && $user->hasElevatedPrivileges()) {
+            return true;
+        }
+
+        return $user->can('manage_system_settings_ai')
+            || $user->can('view_system_setting_ai')
+            || $user->can('update_system_setting')
+            || $user->can('update_system_settings')
+            || $user->can('view_system_setting')
+            || $user->can('view_any_system_setting');
+    }
+
+    public static function canManageAISettings(): bool
+    {
+        $user = AuthHelper::user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasElevatedPrivileges') && $user->hasElevatedPrivileges()) {
+            return true;
+        }
+
+        return $user->can('manage_system_settings_ai')
             || self::canUpdateSettings();
     }
 

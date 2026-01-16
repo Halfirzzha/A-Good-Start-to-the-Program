@@ -226,6 +226,45 @@ class SystemSettings
                         'chat_id' => null,
                     ],
                 ],
+                'ai' => [
+                    'enabled' => false,
+                    'provider' => 'openai',
+                    'organization' => null,
+                    'model' => 'gpt-4o',
+                    'max_tokens' => 4096,
+                    'temperature' => 0.30,
+                    'timeout' => 30,
+                    'retry_attempts' => 3,
+                    'rate_limit' => [
+                        'rpm' => 60,
+                        'tpm' => 90000,
+                        'tpd' => 1000000,
+                    ],
+                    'daily_usage' => 0,
+                    'usage_reset_date' => null,
+                    'features' => [
+                        'security_analysis' => true,
+                        'anomaly_detection' => true,
+                        'threat_classification' => true,
+                        'log_summarization' => true,
+                        'smart_alerts' => true,
+                        'auto_response' => false,
+                        'chat_assistant' => false,
+                    ],
+                    'alerts' => [
+                        'high_risk_score' => 8,
+                        'suspicious_patterns' => 5,
+                        'failed_logins' => 10,
+                        'anomaly_confidence' => 0.85,
+                    ],
+                    'actions' => [
+                        'auto_block_ip' => false,
+                        'auto_lock_user' => false,
+                        'notify_admin' => true,
+                        'create_incident' => true,
+                        'custom_rules' => [],
+                    ],
+                ],
             ],
             'secrets' => [
                 'telegram' => [
@@ -241,6 +280,9 @@ class SystemSettings
                     'client_id' => null,
                     'client_secret' => null,
                     'refresh_token' => null,
+                ],
+                'ai' => [
+                    'api_key' => null,
                 ],
             ],
         ];
@@ -295,6 +337,45 @@ class SystemSettings
                         'chat_id' => $setting->telegram_chat_id,
                     ],
                 ],
+                'ai' => [
+                    'enabled' => (bool) $setting->ai_enabled,
+                    'provider' => $setting->ai_provider ?? 'openai',
+                    'organization' => $setting->ai_organization,
+                    'model' => $setting->ai_model ?? 'gpt-4o',
+                    'max_tokens' => (int) ($setting->ai_max_tokens ?? 4096),
+                    'temperature' => (float) ($setting->ai_temperature ?? 0.30),
+                    'timeout' => (int) ($setting->ai_timeout ?? 30),
+                    'retry_attempts' => (int) ($setting->ai_retry_attempts ?? 3),
+                    'rate_limit' => [
+                        'rpm' => (int) ($setting->ai_rate_limit_rpm ?? 60),
+                        'tpm' => (int) ($setting->ai_rate_limit_tpm ?? 90000),
+                        'tpd' => (int) ($setting->ai_rate_limit_tpd ?? 1000000),
+                    ],
+                    'daily_usage' => (int) ($setting->ai_daily_usage ?? 0),
+                    'usage_reset_date' => $setting->ai_usage_reset_date,
+                    'features' => [
+                        'security_analysis' => (bool) ($setting->ai_feature_security_analysis ?? true),
+                        'anomaly_detection' => (bool) ($setting->ai_feature_anomaly_detection ?? true),
+                        'threat_classification' => (bool) ($setting->ai_feature_threat_classification ?? true),
+                        'log_summarization' => (bool) ($setting->ai_feature_log_summarization ?? true),
+                        'smart_alerts' => (bool) ($setting->ai_feature_smart_alerts ?? true),
+                        'auto_response' => (bool) ($setting->ai_feature_auto_response ?? false),
+                        'chat_assistant' => (bool) ($setting->ai_feature_chat_assistant ?? false),
+                    ],
+                    'alerts' => [
+                        'high_risk_score' => (int) ($setting->ai_alert_high_risk_score ?? 8),
+                        'suspicious_patterns' => (int) ($setting->ai_alert_suspicious_patterns ?? 5),
+                        'failed_logins' => (int) ($setting->ai_alert_failed_logins ?? 10),
+                        'anomaly_confidence' => (float) ($setting->ai_alert_anomaly_confidence ?? 0.85),
+                    ],
+                    'actions' => [
+                        'auto_block_ip' => (bool) ($setting->ai_action_auto_block_ip ?? false),
+                        'auto_lock_user' => (bool) ($setting->ai_action_auto_lock_user ?? false),
+                        'notify_admin' => (bool) ($setting->ai_action_notify_admin ?? true),
+                        'create_incident' => (bool) ($setting->ai_action_create_incident ?? true),
+                        'custom_rules' => $setting->ai_action_custom_rules ?? [],
+                    ],
+                ],
             ],
             'secrets' => [
                 'notifications' => [
@@ -310,6 +391,9 @@ class SystemSettings
                     'client_id' => $setting->google_drive_client_id,
                     'client_secret' => $setting->google_drive_client_secret,
                     'refresh_token' => $setting->google_drive_refresh_token,
+                ],
+                'ai' => [
+                    'api_key' => $setting->ai_api_key,
                 ],
             ],
         ];
