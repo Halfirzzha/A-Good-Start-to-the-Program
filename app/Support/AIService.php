@@ -299,6 +299,287 @@ PROMPT;
     }
 
     /**
+     * Generate notification content using AI.
+     *
+     * @param  string  $category  Notification category (maintenance, announcement, update, security)
+     * @param  string  $priority  Priority level (normal, high, critical)
+     * @param  string  $context  Additional context for generation
+     * @param  string  $language  Target language (en, id)
+     * @return array{title: string, message: string}|null
+     */
+    public function generateNotificationContent(
+        string $category,
+        string $priority = 'normal',
+        string $context = '',
+        string $language = 'en'
+    ): ?array {
+        if (! $this->isEnabled()) {
+            Log::debug('[AIService] AI is not enabled for notification generation');
+
+            return null;
+        }
+
+        // Check daily cost limit
+        if ($this->orchestrator->isOverDailyLimit()) {
+            Log::info('[AIService] Daily cost limit reached for notification');
+
+            return null;
+        }
+
+        $prompt = $this->buildNotificationPrompt($category, $priority, $context, $language);
+        $systemPrompt = $this->getSystemPrompt($language);
+
+        try {
+            $response = $this->orchestrator->complete($prompt, [
+                'system' => $systemPrompt,
+                'max_tokens' => 400,
+                'temperature' => 0.7,
+            ]);
+
+            if ($response->success) {
+                $content = $this->parseNotificationResponse($response->content);
+
+                if ($content) {
+                    Log::info('[AIService] Notification content generated', [
+                        'provider' => $response->provider,
+                        'category' => $category,
+                        'cost' => '$' . number_format($response->cost, 6),
+                    ]);
+
+                    return $content;
+                }
+            }
+
+            Log::warning('[AIService] Notification generation failed', [
+                'error' => $response->error ?? 'Parse failed',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('[AIService] Exception during notification generation', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
+     * Build the notification prompt.
+     */
+    protected function buildNotificationPrompt(
+        string $category,
+        string $priority,
+        string $context,
+        string $language
+    ): string {
+        $lang = $language === 'id' ? 'Indonesian' : 'English';
+
+        $categoryDesc = match ($category) {
+            'maintenance' => 'System maintenance or downtime notification',
+            'announcement' => 'General announcement to users',
+            'update' => 'Important system update or change notification',
+            'security' => 'Security-related notice or alert',
+            default => 'General notification',
+        };
+
+        $priorityDesc = match ($priority) {
+            'high' => 'This is HIGH priority - use urgent, attention-grabbing language',
+            'critical' => 'This is CRITICAL - use very urgent language, emphasize importance',
+            default => 'Normal priority - use professional, friendly tone',
+        };
+
+        $contextInfo = $context ? "Additional context: {$context}" : '';
+
+        return <<<PROMPT
+Generate a professional notification message for a web application.
+
+Category: {$category} - {$categoryDesc}
+Priority: {$priority} - {$priorityDesc}
+Language: {$lang}
+{$contextInfo}
+
+Return ONLY valid JSON with this exact structure:
+{
+    "title": "Maximum 100 characters, clear and attention-appropriate title",
+    "message": "<p>Well-structured HTML message with 2-4 paragraphs. Use <strong> for emphasis, <ul> for lists if needed.</p>"
+}
+
+Requirements:
+- Title should match the priority level (urgent for high/critical)
+- Message should be informative and professional
+- Include relevant details based on category
+- HTML must use only: p, ul, ol, li, strong, em, br tags
+- Be specific, avoid generic phrases
+PROMPT;
+    }
+
+    /**
+     * Parse the notification response.
+     *
+     * @return array{title: string, message: string}|null
+     */
+    protected function parseNotificationResponse(string $response): ?array
+    {
+        $response = preg_replace('/```json\s*/', '', $response) ?? $response;
+        $response = preg_replace('/```\s*/', '', $response) ?? $response;
+        $response = trim($response);
+
+        try {
+            $data = json_decode($response, true, 512, JSON_THROW_ON_ERROR);
+
+            if (! is_array($data)) {
+                return null;
+            }
+
+            $title = $data['title'] ?? '';
+            $message = $data['message'] ?? '';
+
+            if (empty($title) || empty($message)) {
+                return null;
+            }
+
+            return [
+                'title' => mb_substr(strip_tags($title), 0, 200),
+                'message' => strip_tags($message, '<p><ul><ol><li><strong><em><br>'),
+            ];
+        } catch (\JsonException $e) {
+            Log::warning('[AIService] Failed to parse notification JSON', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Generate project information using AI.
+     *
+     * @param  string  $projectName  Current or suggested project name
+     * @param  string  $context  Additional context (e.g., existing description, industry)
+     * @param  string  $language  Target language (en, id)
+     * @return array{name: string, description: string}|null
+     */
+    public function generateProjectContent(
+        string $projectName = '',
+        string $context = '',
+        string $language = 'en'
+    ): ?array {
+        if (! $this->isEnabled()) {
+            Log::debug('[AIService] AI is not enabled for project generation');
+
+            return null;
+        }
+
+        if ($this->orchestrator->isOverDailyLimit()) {
+            Log::info('[AIService] Daily cost limit reached for project');
+
+            return null;
+        }
+
+        $prompt = $this->buildProjectPrompt($projectName, $context, $language);
+        $systemPrompt = $this->getSystemPrompt($language);
+
+        try {
+            $response = $this->orchestrator->complete($prompt, [
+                'system' => $systemPrompt,
+                'max_tokens' => 300,
+                'temperature' => 0.7,
+            ]);
+
+            if ($response->success) {
+                $content = $this->parseProjectResponse($response->content);
+
+                if ($content) {
+                    Log::info('[AIService] Project content generated', [
+                        'provider' => $response->provider,
+                        'cost' => '$' . number_format($response->cost, 6),
+                    ]);
+
+                    return $content;
+                }
+            }
+
+            Log::warning('[AIService] Project generation failed', [
+                'error' => $response->error ?? 'Parse failed',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('[AIService] Exception during project generation', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
+     * Build the project prompt.
+     */
+    protected function buildProjectPrompt(string $projectName, string $context, string $language): string
+    {
+        $lang = $language === 'id' ? 'Indonesian' : 'English';
+        $nameInfo = $projectName ? "Current project name: {$projectName}" : 'No project name provided';
+        $contextInfo = $context ? "Additional context: {$context}" : '';
+
+        return <<<PROMPT
+Generate professional project branding content for a web application.
+
+{$nameInfo}
+{$contextInfo}
+Language: {$lang}
+
+Return ONLY valid JSON with this exact structure:
+{
+    "name": "Professional project/application name (max 60 characters). If current name is good, improve or keep it.",
+    "description": "<p>Compelling project description in HTML format. 2-3 sentences describing the application's purpose, target audience, and key benefits.</p>"
+}
+
+Requirements:
+- Name should be memorable, professional, and suitable for branding
+- Description should be concise but informative
+- Focus on value proposition and key features
+- HTML must use only: p, strong, em tags
+- Be creative but professional
+PROMPT;
+    }
+
+    /**
+     * Parse the project response.
+     *
+     * @return array{name: string, description: string}|null
+     */
+    protected function parseProjectResponse(string $response): ?array
+    {
+        $response = preg_replace('/```json\s*/', '', $response) ?? $response;
+        $response = preg_replace('/```\s*/', '', $response) ?? $response;
+        $response = trim($response);
+
+        try {
+            $data = json_decode($response, true, 512, JSON_THROW_ON_ERROR);
+
+            if (! is_array($data)) {
+                return null;
+            }
+
+            $name = $data['name'] ?? '';
+            $description = $data['description'] ?? '';
+
+            if (empty($name)) {
+                return null;
+            }
+
+            return [
+                'name' => mb_substr(strip_tags($name), 0, 120),
+                'description' => strip_tags($description, '<p><strong><em>'),
+            ];
+        } catch (\JsonException $e) {
+            Log::warning('[AIService] Failed to parse project JSON', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
      * Test AI connection by testing all providers.
      *
      * @return array{success: bool, message: string, providers?: array}

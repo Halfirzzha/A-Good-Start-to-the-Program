@@ -10,7 +10,7 @@
 [![Redis](https://img.shields.io/badge/Redis-First-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io)
 [![License](https://img.shields.io/badge/License-MIT-16A34A?style=for-the-badge)](LICENSE)
 
-[![Version](https://img.shields.io/badge/Version-1.2.1-blue?style=for-the-badge)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program/releases)
+[![Version](https://img.shields.io/badge/Version-1.2.3-blue?style=for-the-badge)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program/releases)
 [![Tests](https://img.shields.io/badge/Tests-Passing-success?style=for-the-badge&logo=github-actions)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program/actions)
 [![Security](https://img.shields.io/badge/Security-A%2B-brightgreen?style=for-the-badge&logo=shield)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program#-security)
 [![Code Quality](https://img.shields.io/badge/Code_Quality-Excellent-brightgreen?style=for-the-badge&logo=codacy)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program)
@@ -575,62 +575,63 @@ graph TD
 <summary><strong>Click to view all permissions by role</strong></summary>
 
 #### Developer Role (Level 100) - Auto-grants ALL permissions
+
 Developers bypass all permission checks via `isDeveloper()` in every policy.
 
 #### Super Admin Role (Level 90)
 
-| Category | Permissions |
-|----------|------------|
-| **Users** | `view_any_user`, `view_user`, `create_user`, `update_user`, `delete_user`, `delete_any_user`, `restore_user`, `restore_any_user`, `force_delete_user` |
-| **User Sections** | `manage_user_avatar`, `manage_user_identity`, `manage_user_security`, `manage_user_access_status`, `view_user_system_info`, `assign_roles` |
-| **User Actions** | `execute_user_unlock`, `execute_user_activate`, `execute_user_force_password_reset`, `execute_user_revoke_sessions` |
-| **Audit Logs** | `view_any_audit_log`, `view_audit_log` |
-| **Login Activities** | `view_any_user_login_activity`, `view_user_login_activity` |
-| **System Settings** | `view_any_system_setting`, `view_system_setting`, `update_system_setting` |
+| Category                     | Permissions                                                                                                                                                                                                                                                                                                                                                                                |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Users**                    | `view_any_user`, `view_user`, `create_user`, `update_user`, `delete_user`, `delete_any_user`, `restore_user`, `restore_any_user`, `force_delete_user`                                                                                                                                                                                                                                      |
+| **User Sections**            | `manage_user_avatar`, `manage_user_identity`, `manage_user_security`, `manage_user_access_status`, `view_user_system_info`, `assign_roles`                                                                                                                                                                                                                                                 |
+| **User Actions**             | `execute_user_unlock`, `execute_user_activate`, `execute_user_force_password_reset`, `execute_user_revoke_sessions`                                                                                                                                                                                                                                                                        |
+| **Audit Logs**               | `view_any_audit_log`, `view_audit_log`                                                                                                                                                                                                                                                                                                                                                     |
+| **Login Activities**         | `view_any_user_login_activity`, `view_user_login_activity`                                                                                                                                                                                                                                                                                                                                 |
+| **System Settings**          | `view_any_system_setting`, `view_system_setting`, `update_system_setting`                                                                                                                                                                                                                                                                                                                  |
 | **System Settings Sections** | `view_system_setting_branding`, `manage_system_setting_branding`, `view_system_setting_storage`, `manage_system_setting_storage`, `view_system_setting_communication`, `manage_system_setting_communication`, `view_system_setting_ai`, `manage_system_setting_ai`, `edit_system_setting_secrets`, `edit_system_setting_project_url`, `test_system_setting_smtp`, `test_system_setting_ai` |
-| **Notifications** | `view_any_notification_message`, `view_notification_message`, `create_notification_message`, `update_notification_message`, `delete_notification_message`, `delete_any_notification_message`, `execute_notification_send`, `delete_sent_notification_message`, `send_notification_message` |
-| **Notification Delivery** | `view_any_notification_delivery`, `view_notification_delivery`, `retry_notification_delivery` |
-| **User Notifications** | `view_any_user_notification`, `view_user_notification`, `update_user_notification`, `delete_user_notification`, `delete_any_user_notification` |
-| **Maintenance** | `view_any_maintenance_setting`, `view_maintenance_setting`, `update_maintenance_setting`, `manage_maintenance_tokens`, `toggle_maintenance` |
-| **Maintenance Tokens** | `view_any_maintenance_token`, `view_maintenance_token`, `create_maintenance_token`, `update_maintenance_token`, `delete_maintenance_token`, `delete_any_maintenance_token` |
-| **Roles** | `view_any_role`, `view_role`, `create_role`, `update_role`, `delete_role`, `delete_any_role`, `restore_role`, `restore_any_role`, `force_delete_role`, `force_delete_any_role` |
-| **Admin Panel** | `access_admin_panel` |
+| **Notifications**            | `view_any_notification_message`, `view_notification_message`, `create_notification_message`, `update_notification_message`, `delete_notification_message`, `delete_any_notification_message`, `execute_notification_send`, `delete_sent_notification_message`, `send_notification_message`                                                                                                 |
+| **Notification Delivery**    | `view_any_notification_delivery`, `view_notification_delivery`, `retry_notification_delivery`                                                                                                                                                                                                                                                                                              |
+| **User Notifications**       | `view_any_user_notification`, `view_user_notification`, `update_user_notification`, `delete_user_notification`, `delete_any_user_notification`                                                                                                                                                                                                                                             |
+| **Maintenance**              | `view_any_maintenance_setting`, `view_maintenance_setting`, `update_maintenance_setting`, `manage_maintenance_tokens`, `toggle_maintenance`                                                                                                                                                                                                                                                |
+| **Maintenance Tokens**       | `view_any_maintenance_token`, `view_maintenance_token`, `create_maintenance_token`, `update_maintenance_token`, `delete_maintenance_token`, `delete_any_maintenance_token`                                                                                                                                                                                                                 |
+| **Roles**                    | `view_any_role`, `view_role`, `create_role`, `update_role`, `delete_role`, `delete_any_role`, `restore_role`, `restore_any_role`, `force_delete_role`, `force_delete_any_role`                                                                                                                                                                                                             |
+| **Admin Panel**              | `access_admin_panel`                                                                                                                                                                                                                                                                                                                                                                       |
 
 #### Admin Role (Level 80)
 
-| Category | Permissions |
-|----------|------------|
-| **Users** | `view_any_user`, `view_user`, `create_user`, `update_user` |
-| **User Sections** | `manage_user_avatar`, `manage_user_identity`, `manage_user_security`, `manage_user_access_status`, `view_user_system_info` |
-| **User Actions** | `execute_user_unlock`, `execute_user_activate` |
-| **Audit Logs** | `view_any_audit_log`, `view_audit_log` |
-| **Login Activities** | `view_any_user_login_activity`, `view_user_login_activity` |
-| **System Settings** | `view_any_system_setting`, `view_system_setting`, `view_system_setting_branding`, `manage_system_setting_branding`, `view_system_setting_communication`, `manage_system_setting_communication` |
-| **Notifications** | `view_any_notification_message`, `view_notification_message`, `create_notification_message`, `update_notification_message`, `delete_notification_message`, `execute_notification_send` |
-| **Notification Delivery** | `view_any_notification_delivery`, `view_notification_delivery` |
-| **Maintenance** | `view_any_maintenance_setting`, `view_maintenance_setting` |
-| **Admin Panel** | `access_admin_panel` |
+| Category                  | Permissions                                                                                                                                                                                    |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Users**                 | `view_any_user`, `view_user`, `create_user`, `update_user`                                                                                                                                     |
+| **User Sections**         | `manage_user_avatar`, `manage_user_identity`, `manage_user_security`, `manage_user_access_status`, `view_user_system_info`                                                                     |
+| **User Actions**          | `execute_user_unlock`, `execute_user_activate`                                                                                                                                                 |
+| **Audit Logs**            | `view_any_audit_log`, `view_audit_log`                                                                                                                                                         |
+| **Login Activities**      | `view_any_user_login_activity`, `view_user_login_activity`                                                                                                                                     |
+| **System Settings**       | `view_any_system_setting`, `view_system_setting`, `view_system_setting_branding`, `manage_system_setting_branding`, `view_system_setting_communication`, `manage_system_setting_communication` |
+| **Notifications**         | `view_any_notification_message`, `view_notification_message`, `create_notification_message`, `update_notification_message`, `delete_notification_message`, `execute_notification_send`         |
+| **Notification Delivery** | `view_any_notification_delivery`, `view_notification_delivery`                                                                                                                                 |
+| **Maintenance**           | `view_any_maintenance_setting`, `view_maintenance_setting`                                                                                                                                     |
+| **Admin Panel**           | `access_admin_panel`                                                                                                                                                                           |
 
 #### Manager Role (Level 70)
 
-| Category | Permissions |
-|----------|------------|
-| **Users** | `view_any_user`, `view_user`, `manage_user_avatar`, `view_user_system_info` |
-| **Audit Logs** | `view_any_audit_log`, `view_audit_log` |
-| **Login Activities** | `view_any_user_login_activity`, `view_user_login_activity` |
-| **System Settings** | `view_any_system_setting`, `view_system_setting`, `view_system_setting_branding` |
-| **Notifications** | `view_any_notification_message`, `view_notification_message`, `create_notification_message`, `update_notification_message` |
-| **Notification Delivery** | `view_any_notification_delivery`, `view_notification_delivery` |
-| **Admin Panel** | `access_admin_panel` |
+| Category                  | Permissions                                                                                                                |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| **Users**                 | `view_any_user`, `view_user`, `manage_user_avatar`, `view_user_system_info`                                                |
+| **Audit Logs**            | `view_any_audit_log`, `view_audit_log`                                                                                     |
+| **Login Activities**      | `view_any_user_login_activity`, `view_user_login_activity`                                                                 |
+| **System Settings**       | `view_any_system_setting`, `view_system_setting`, `view_system_setting_branding`                                           |
+| **Notifications**         | `view_any_notification_message`, `view_notification_message`, `create_notification_message`, `update_notification_message` |
+| **Notification Delivery** | `view_any_notification_delivery`, `view_notification_delivery`                                                             |
+| **Admin Panel**           | `access_admin_panel`                                                                                                       |
 
 #### User Role (Level 10)
 
-| Category | Permissions |
-|----------|------------|
-| **Users** | `view_user` (own profile only) |
-| **Notifications** | `view_any_notification_message`, `view_notification_message` |
+| Category                  | Permissions                                                    |
+| ------------------------- | -------------------------------------------------------------- |
+| **Users**                 | `view_user` (own profile only)                                 |
+| **Notifications**         | `view_any_notification_message`, `view_notification_message`   |
 | **Notification Delivery** | `view_any_notification_delivery`, `view_notification_delivery` |
-| **Admin Panel** | `access_admin_panel` |
+| **Admin Panel**           | `access_admin_panel`                                           |
 
 </details>
 
@@ -638,19 +639,19 @@ Developers bypass all permission checks via `isDeveloper()` in every policy.
 
 All 11 Filament Resources are protected by policies:
 
-| Resource | Policy | Model |
-|----------|--------|-------|
-| UserResource | UserPolicy | User |
-| AuditLogResource | AuditLogPolicy | AuditLog |
-| MaintenanceHistoryResource | AuditLogPolicy | AuditLog (filtered) |
-| UnifiedHistoryResource | AuditLogPolicy | AuditLog (unified) |
-| MaintenanceSettingResource | MaintenanceSettingPolicy | MaintenanceSetting |
-| MaintenanceTokenResource | MaintenanceTokenPolicy | MaintenanceToken |
-| NotificationMessageResource | NotificationMessagePolicy | NotificationMessage |
+| Resource                     | Policy                     | Model                |
+| ---------------------------- | -------------------------- | -------------------- |
+| UserResource                 | UserPolicy                 | User                 |
+| AuditLogResource             | AuditLogPolicy             | AuditLog             |
+| MaintenanceHistoryResource   | AuditLogPolicy             | AuditLog (filtered)  |
+| UnifiedHistoryResource       | AuditLogPolicy             | AuditLog (unified)   |
+| MaintenanceSettingResource   | MaintenanceSettingPolicy   | MaintenanceSetting   |
+| MaintenanceTokenResource     | MaintenanceTokenPolicy     | MaintenanceToken     |
+| NotificationMessageResource  | NotificationMessagePolicy  | NotificationMessage  |
 | NotificationDeliveryResource | NotificationDeliveryPolicy | NotificationDelivery |
-| UserNotificationResource | UserNotificationPolicy | UserNotification |
-| SystemSettingResource | SystemSettingPolicy | SystemSetting |
-| UserLoginActivityResource | UserLoginActivityPolicy | UserLoginActivity |
+| UserNotificationResource     | UserNotificationPolicy     | UserNotification     |
+| SystemSettingResource        | SystemSettingPolicy        | SystemSetting        |
+| UserLoginActivityResource    | UserLoginActivityPolicy    | UserLoginActivity    |
 
 **Role Management:** RolePolicy (Spatie Permission models)
 
@@ -3312,6 +3313,16 @@ timeline
                : 100% Policy Coverage
                : 48 Custom Permissions
                : All Resources Protected
+        v1.2.2 : Real-Time Live Toggles ⚡
+               : Instant Auto-Save
+               : AI-Smart Notifications
+               : Cache Auto-Clear
+        v1.2.3 : AI Auto-Fill Content ✨
+               : Notification Center AI Generate
+               : Project Settings AI Generate
+               : 8 Varied Project Templates
+               : 12 Notification Templates (4 categories × 3 priorities)
+               : Random Template Selection for Variety
 ```
 
 ---
@@ -3398,7 +3409,95 @@ timeline
 ### 🎯 Version Milestones
 
 <details open>
-<summary><strong>� v1.2.1 - Enterprise RBAC & Policy Completion</strong> (January 16, 2026)</summary>
+<summary><strong>✨ v1.2.3 - AI Auto-Fill Content Generation</strong> (January 16, 2026)</summary>
+
+#### 🎊 Smart AI Content Generation Across the Platform!
+
+This release introduces **AI-powered auto-fill** functionality for Notification Center and Project Settings with varied templates for maximum content diversity.
+
+#### ✨ New Features
+
+**🤖 AI Auto-Fill System**
+
+-   ✅ **Notification Center AI Generate**: Click the sparkles ✨ button to auto-fill title and message
+-   ✅ **Project Settings AI Generate**: Auto-generate professional project name and description
+-   ✅ **Random Template Selection**: Each click gives different content variation
+-   ✅ **Multi-Language Support**: Templates available in English and Indonesian
+
+**📝 Template Varieties**
+
+| Component           | Templates | Categories/Variations                          |
+| ------------------- | --------- | ---------------------------------------------- |
+| Notification Center | 12        | 4 categories × 3 priorities                    |
+| Project Settings    | 8         | Diverse naming styles and descriptions         |
+
+**🎯 Notification Categories**
+
+-   **Maintenance**: Scheduled/Urgent/Emergency maintenance notices
+-   **Announcement**: General/Urgent/Critical announcements
+-   **Update**: System updates with varying urgency levels
+-   **Security**: Security notices/alerts from normal to critical
+
+**🏢 Project Template Styles**
+
+1. Enterprise Admin Panel
+2. Unified Management System
+3. Digital Control Center
+4. Operations Dashboard
+5. Admin Portal Pro
+6. Smart Management Platform
+7. Integrated Business Console
+8. Modern Admin Hub
+
+#### 🔧 Bug Fixes
+
+-   ✅ Fixed "Array to string conversion" error in SystemSettingResource
+-   ✅ Proper handling of RichEditor content as array/string
+
+#### 🗂️ Files Changed
+
+```
+app/Support/AIService.php
+├── generateNotificationContent()  # NEW - AI notification generation
+├── generateProjectContent()       # NEW - AI project content generation
+├── buildNotificationPrompt()      # Prompt builder for notifications
+├── parseNotificationResponse()    # Response parser
+├── buildProjectPrompt()           # Prompt builder for project
+└── parseProjectResponse()         # Response parser
+
+app/Filament/Resources/
+├── NotificationMessageResource.php # AI auto-fill + 12 templates
+└── SystemSettingResource.php       # AI auto-fill + 8 templates + bug fix
+
+resources/lang/en/
+├── notifications.php              # +7 translation keys
+└── ui.php                         # +8 translation keys
+
+resources/lang/id/
+├── notifications.php              # +7 translation keys (Indonesian)
+└── ui.php                         # +8 translation keys (Indonesian)
+```
+
+</details>
+
+<details>
+<summary><strong>⚡ v1.2.2 - Real-Time Live Toggles</strong> (January 16, 2026)</summary>
+
+#### 🎊 Instant Toggle Updates Without Page Reload!
+
+This release introduces **real-time live toggles** with instant auto-save and smart notifications.
+
+#### ✨ New Features
+
+-   ✅ **Live Toggles**: All maintenance toggles update instantly without save button
+-   ✅ **Auto-Save**: Changes saved to database immediately on toggle
+-   ✅ **Cache Auto-Clear**: `Cache::forget('maintenance_settings')` on every change
+-   ✅ **AI-Smart Notifications**: Context-aware success messages
+
+</details>
+
+<details>
+<summary><strong>🔐 v1.2.1 - Enterprise RBAC & Policy Completion</strong> (January 16, 2026)</summary>
 
 #### 🎊 Complete Permission Coverage for All Resources!
 
@@ -3420,6 +3519,7 @@ This release ensures **100% policy coverage** for all Filament Resources with pr
 **📋 Policy Pattern Standardization**
 
 All policies now follow the correct Developer bypass pattern:
+
 ```php
 if ($user->isDeveloper()) {
     return true;
@@ -3429,16 +3529,16 @@ return $user->can('permission_name');
 
 **🔑 New Custom Permissions Added**
 
-| Permission | Purpose |
-|------------|---------|
-| `test_system_setting_smtp` | Test SMTP connection |
-| `test_system_setting_ai` | Test AI provider connections |
-| `send_notification_message` | Send notification messages |
-| `view_any_user_notification` | View user notification inbox |
-| `view_user_notification` | View individual notifications |
-| `update_user_notification` | Mark notifications as read |
-| `delete_user_notification` | Delete own notifications |
-| `delete_any_user_notification` | Delete any notifications (admin) |
+| Permission                                | Purpose                              |
+| ----------------------------------------- | ------------------------------------ |
+| `test_system_setting_smtp`                | Test SMTP connection                 |
+| `test_system_setting_ai`                  | Test AI provider connections         |
+| `send_notification_message`               | Send notification messages           |
+| `view_any_user_notification`              | View user notification inbox         |
+| `view_user_notification`                  | View individual notifications        |
+| `update_user_notification`                | Mark notifications as read           |
+| `delete_user_notification`                | Delete own notifications             |
+| `delete_any_user_notification`            | Delete any notifications (admin)     |
 | `view_any_role` - `force_delete_any_role` | Complete role management permissions |
 
 **🗂️ Files Changed**
@@ -3462,12 +3562,12 @@ database/seeders/
 
 #### 📊 Statistics
 
-| Metric | Before | After |
-|--------|--------|-------|
-| Policies with complete methods | 3/9 | 9/10 |
-| Total policy methods | ~60 | ~100 |
-| Custom permissions | 26 | 48 |
-| Resources with policies | 9/11 | 11/11 |
+| Metric                         | Before | After |
+| ------------------------------ | ------ | ----- |
+| Policies with complete methods | 3/9    | 9/10  |
+| Total policy methods           | ~60    | ~100  |
+| Custom permissions             | 26     | 48    |
+| Resources with policies        | 9/11   | 11/11 |
 
 </details>
 

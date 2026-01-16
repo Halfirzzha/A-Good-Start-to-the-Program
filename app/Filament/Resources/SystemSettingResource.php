@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\SystemSettingResource\Pages;
 use App\Models\SystemSetting;
+use App\Support\AIService;
 use App\Support\AuthHelper;
 use Filament\Actions\Action;
 use Filament\Forms\Components\FileUpload;
@@ -14,6 +15,7 @@ use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
@@ -49,6 +51,73 @@ class SystemSettingResource extends Resource
                             Section::make(__('ui.system_settings.sections.project.title'))
                                 ->description(__('ui.system_settings.sections.project.description'))
                                 ->visible(fn (): bool => self::canViewProjectSettings())
+                                ->headerActions([
+                                    Action::make('auto_fill_project')
+                                        ->label(__('ui.system_settings.actions.auto_fill'))
+                                        ->icon('heroicon-o-sparkles')
+                                        ->iconButton()
+                                        ->tooltip(__('ui.system_settings.actions.auto_fill_tooltip'))
+                                        ->action(function (Get $get, Set $set): void {
+                                            $currentName = $get('project_name');
+                                            $currentName = is_string($currentName) ? $currentName : '';
+                                            $currentDesc = $get('project_description');
+                                            $currentDesc = is_string($currentDesc) ? $currentDesc : '';
+                                            $language = app()->getLocale();
+
+                                            // Build context from current values
+                                            $context = $currentDesc;
+
+                                            // Try AI first
+                                            $aiService = new AIService;
+                                            if ($aiService->isEnabled()) {
+                                                $aiContent = $aiService->generateProjectContent(
+                                                    $currentName,
+                                                    $context,
+                                                    $language
+                                                );
+
+                                                if ($aiContent) {
+                                                    $set('project_name', $aiContent['name']);
+                                                    $set('project_description', $aiContent['description']);
+
+                                                    // Show usage stats
+                                                    $stats = $aiService->getUsageStats();
+                                                    $usageInfo = $stats['percentage'] > 0
+                                                        ? ' (' . $stats['percentage'] . '% ' . __('ui.system_settings.notifications.daily_usage') . ')'
+                                                        : '';
+
+                                                    Notification::make()
+                                                        ->title(__('ui.system_settings.notifications.ai_generated'))
+                                                        ->body(__('ui.system_settings.notifications.ai_generated_body') . $usageInfo)
+                                                        ->success()
+                                                        ->send();
+
+                                                    return;
+                                                }
+
+                                                // AI failed
+                                                Notification::make()
+                                                    ->title(__('ui.system_settings.notifications.ai_fallback'))
+                                                    ->body(__('ui.system_settings.notifications.ai_fallback_body'))
+                                                    ->warning()
+                                                    ->send();
+                                            }
+
+                                            // Fallback to template
+                                            $template = self::getProjectTemplate($language);
+                                            if (empty($currentName)) {
+                                                $set('project_name', $template['name']);
+                                            }
+                                            $set('project_description', $template['description']);
+
+                                            Notification::make()
+                                                ->title(__('ui.system_settings.notifications.template_used'))
+                                                ->body(__('ui.system_settings.notifications.template_used_body'))
+                                                ->info()
+                                                ->send();
+                                        })
+                                        ->visible(fn (): bool => self::canManageProjectSettings()),
+                                ])
                                 ->schema([
                                     TextInput::make('project_name')
                                         ->label(__('ui.system_settings.fields.project_name'))
@@ -866,12 +935,44 @@ class SystemSettingResource extends Resource
                                                 ->maxValue(100000000)
                                                 ->helperText('Daily token budget. When reached, AI features pause until reset at midnight UTC.')
                                                 ->disabled(fn (): bool => ! self::canManageAISettings()),
-                                            TextInput::make('ai_usage_display')
+                                            Placeholder::make('ai_usage_display')
                                                 ->label(__('ui.system_settings.fields.ai_usage_today'))
-                                                ->prefixIcon('heroicon-o-chart-bar')
-                                                ->suffix(fn (?SystemSetting $record): string => $record ? round((int) $record->ai_daily_usage / max((int) ($record->ai_rate_limit_tpd ?? 1000000), 1) * 100, 1).'%' : '0%')
-                                                ->default(fn (?SystemSetting $record): string => $record ? number_format((int) $record->ai_daily_usage).' / '.number_format((int) ($record->ai_rate_limit_tpd ?? 1000000)).' tokens' : '0 / 1,000,000 tokens')
-                                                ->disabled()
+                                                ->content(function (?SystemSetting $record): HtmlString {
+                                                    if (! $record) {
+                                                        return new HtmlString('<div class="flex items-center gap-2"><span class="text-gray-500">0 / 1,000,000 tokens (0%)</span></div>');
+                                                    }
+
+                                                    $usage = (int) ($record->ai_daily_usage ?? 0);
+                                                    $limit = (int) ($record->ai_rate_limit_tpd ?? 1000000);
+                                                    $percent = $limit > 0 ? round(($usage / $limit) * 100, 1) : 0;
+
+                                                    // Color based on usage percentage
+                                                    $color = match (true) {
+                                                        $percent >= 90 => 'text-red-500',
+                                                        $percent >= 70 => 'text-yellow-500',
+                                                        $percent >= 50 => 'text-blue-500',
+                                                        default => 'text-green-500',
+                                                    };
+
+                                                    $progressColor = match (true) {
+                                                        $percent >= 90 => 'bg-red-500',
+                                                        $percent >= 70 => 'bg-yellow-500',
+                                                        $percent >= 50 => 'bg-blue-500',
+                                                        default => 'bg-green-500',
+                                                    };
+
+                                                    return new HtmlString('
+                                                        <div class="space-y-2">
+                                                            <div class="flex items-center justify-between">
+                                                                <span class="font-medium '.$color.'">'.number_format($usage).' / '.number_format($limit).' tokens</span>
+                                                                <span class="text-sm font-bold '.$color.'">'.$percent.'%</span>
+                                                            </div>
+                                                            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                                                                <div class="'.$progressColor.' h-2 rounded-full transition-all duration-300" style="width: '.min($percent, 100).'%"></div>
+                                                            </div>
+                                                        </div>
+                                                    ');
+                                                })
                                                 ->helperText('Current token usage today. Resets at midnight UTC automatically.'),
                                         ]),
                                 ]),
@@ -1499,5 +1600,70 @@ class SystemSettingResource extends Resource
         }
 
         return $attempts > $maxAttempts;
+    }
+
+    /**
+     * Get project template as fallback when AI is not available.
+     * Returns different templates on each call for variety.
+     *
+     * @return array{name: string, description: string}
+     */
+    private static function getProjectTemplate(string $language): array
+    {
+        $isId = $language === 'id';
+
+        $templates = [
+            [
+                'name' => $isId ? 'Panel Admin Enterprise' : 'Enterprise Admin Panel',
+                'description' => $isId
+                    ? '<p><strong>Panel Admin Enterprise</strong> adalah solusi manajemen lengkap yang dirancang untuk mengelola pengguna, pengaturan sistem, dan operasi harian dengan efisien.</p><p>Dibangun dengan teknologi modern untuk memberikan performa terbaik dan keamanan tingkat enterprise.</p>'
+                    : '<p><strong>Enterprise Admin Panel</strong> is a comprehensive management solution designed to efficiently manage users, system settings, and daily operations.</p><p>Built with modern technology to deliver optimal performance and enterprise-grade security.</p>',
+            ],
+            [
+                'name' => $isId ? 'Sistem Manajemen Terpadu' : 'Unified Management System',
+                'description' => $isId
+                    ? '<p><strong>Sistem Manajemen Terpadu</strong> menyediakan antarmuka terpusat untuk mengontrol semua aspek bisnis Anda.</p><p>Dengan fitur keamanan canggih dan dashboard intuitif, kelola tim Anda dengan mudah dan efektif.</p>'
+                    : '<p><strong>Unified Management System</strong> provides a centralized interface to control all aspects of your business.</p><p>With advanced security features and an intuitive dashboard, manage your team easily and effectively.</p>',
+            ],
+            [
+                'name' => $isId ? 'Pusat Kontrol Digital' : 'Digital Control Center',
+                'description' => $isId
+                    ? '<p><strong>Pusat Kontrol Digital</strong> adalah platform generasi baru untuk manajemen organisasi modern.</p><p>Dilengkapi dengan analitik real-time, notifikasi cerdas, dan integrasi AI untuk pengambilan keputusan yang lebih baik.</p>'
+                    : '<p><strong>Digital Control Center</strong> is a next-generation platform for modern organization management.</p><p>Equipped with real-time analytics, smart notifications, and AI integration for better decision-making.</p>',
+            ],
+            [
+                'name' => $isId ? 'Dashboard Operasional' : 'Operations Dashboard',
+                'description' => $isId
+                    ? '<p><strong>Dashboard Operasional</strong> memberikan visibilitas penuh terhadap seluruh proses bisnis Anda.</p><p>Pantau kinerja, kelola sumber daya, dan optimalkan operasi dengan satu platform terintegrasi.</p>'
+                    : '<p><strong>Operations Dashboard</strong> provides full visibility into all your business processes.</p><p>Monitor performance, manage resources, and optimize operations with one integrated platform.</p>',
+            ],
+            [
+                'name' => $isId ? 'Portal Administrasi Pro' : 'Admin Portal Pro',
+                'description' => $isId
+                    ? '<p><strong>Portal Administrasi Pro</strong> adalah solusi enterprise untuk pengelolaan sistem yang kompleks.</p><p>Fitur lengkap termasuk manajemen pengguna, audit trail, dan konfigurasi keamanan tingkat lanjut.</p>'
+                    : '<p><strong>Admin Portal Pro</strong> is an enterprise solution for complex system management.</p><p>Complete features including user management, audit trails, and advanced security configuration.</p>',
+            ],
+            [
+                'name' => $isId ? 'Platform Manajemen Cerdas' : 'Smart Management Platform',
+                'description' => $isId
+                    ? '<p><strong>Platform Manajemen Cerdas</strong> menggunakan kecerdasan buatan untuk menyederhanakan tugas administratif.</p><p>Otomatisasi alur kerja, deteksi ancaman proaktif, dan laporan yang dapat disesuaikan.</p>'
+                    : '<p><strong>Smart Management Platform</strong> uses artificial intelligence to simplify administrative tasks.</p><p>Workflow automation, proactive threat detection, and customizable reports.</p>',
+            ],
+            [
+                'name' => $isId ? 'Konsol Bisnis Terintegrasi' : 'Integrated Business Console',
+                'description' => $isId
+                    ? '<p><strong>Konsol Bisnis Terintegrasi</strong> menyatukan semua alat manajemen dalam satu tempat.</p><p>Dari pengelolaan tim hingga konfigurasi sistem, semuanya tersedia dalam antarmuka yang ramah pengguna.</p>'
+                    : '<p><strong>Integrated Business Console</strong> unifies all management tools in one place.</p><p>From team management to system configuration, everything is available in a user-friendly interface.</p>',
+            ],
+            [
+                'name' => $isId ? 'Hub Administrasi Modern' : 'Modern Admin Hub',
+                'description' => $isId
+                    ? '<p><strong>Hub Administrasi Modern</strong> dirancang untuk kebutuhan bisnis masa kini.</p><p>Responsif, aman, dan skalabel - siap mendukung pertumbuhan organisasi Anda.</p>'
+                    : '<p><strong>Modern Admin Hub</strong> is designed for today\'s business needs.</p><p>Responsive, secure, and scalable - ready to support your organization\'s growth.</p>',
+            ],
+        ];
+
+        // Pick a random template for variety
+        return $templates[array_rand($templates)];
     }
 }

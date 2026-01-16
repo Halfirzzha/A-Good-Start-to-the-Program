@@ -119,6 +119,29 @@ class MaintenanceSettingResource extends Resource
                             ->label(__('ui.maintenance.settings.fields.enabled'))
                             ->onIcon('heroicon-o-check-circle')
                             ->offIcon('heroicon-o-x-circle')
+                            ->onColor('success')
+                            ->offColor('danger')
+                            ->live()
+                            ->afterStateUpdated(function (bool $state, ?Model $record): void {
+                                if ($record instanceof MaintenanceSetting) {
+                                    $record->update(['enabled' => $state]);
+                                    Cache::forget('maintenance_settings');
+
+                                    // AI-smart notification based on state
+                                    $aiService = new AIService;
+                                    $message = $state
+                                        ? __('ui.maintenance.settings.notifications.enabled_live')
+                                        : __('ui.maintenance.settings.notifications.disabled_live');
+
+                                    Notification::make()
+                                        ->title($state ? __('ui.maintenance.settings.notifications.maintenance_on') : __('ui.maintenance.settings.notifications.maintenance_off'))
+                                        ->body($message)
+                                        ->icon($state ? 'heroicon-o-wrench-screwdriver' : 'heroicon-o-check-circle')
+                                        ->iconColor($state ? 'warning' : 'success')
+                                        ->success()
+                                        ->send();
+                                }
+                            })
                             ->disabled(fn (): bool => ! self::canManageAccess())
                             ->helperText(__('ui.maintenance.settings.fields.enabled_help')),
                         Select::make('mode')
@@ -130,6 +153,38 @@ class MaintenanceSettingResource extends Resource
                                 'denylist' => __('ui.maintenance.settings.mode_options.denylist'),
                             ])
                             ->native(false)
+                            ->live()
+                            ->afterStateUpdated(function (?string $state, ?Model $record, Set $set): void {
+                                if ($record instanceof MaintenanceSetting && $state !== null) {
+                                    $record->update(['mode' => $state]);
+                                    Cache::forget('maintenance_settings');
+
+                                    // AI-smart auto-fill suggestion
+                                    $aiService = new AIService;
+                                    $modeLabel = match ($state) {
+                                        'global' => __('ui.maintenance.settings.mode_options.global'),
+                                        'allowlist' => __('ui.maintenance.settings.mode_options.allowlist'),
+                                        'denylist' => __('ui.maintenance.settings.mode_options.denylist'),
+                                        default => $state,
+                                    };
+
+                                    if ($aiService->isEnabled()) {
+                                        Notification::make()
+                                            ->title(__('ui.maintenance.settings.notifications.mode_changed'))
+                                            ->body(__('ui.maintenance.settings.notifications.mode_changed_body', ['mode' => $modeLabel]).' '.__('ui.maintenance.settings.actions.ai_suggest'))
+                                            ->icon('heroicon-o-sparkles')
+                                            ->iconColor('info')
+                                            ->success()
+                                            ->send();
+                                    } else {
+                                        Notification::make()
+                                            ->title(__('ui.maintenance.settings.notifications.mode_changed'))
+                                            ->body(__('ui.maintenance.settings.notifications.mode_saved').': '.$modeLabel)
+                                            ->success()
+                                            ->send();
+                                    }
+                                }
+                            })
                             ->disabled(fn (): bool => ! self::canManageAccess())
                             ->required(),
                     ]),
@@ -231,11 +286,43 @@ class MaintenanceSettingResource extends Resource
                                 ->label(__('ui.maintenance.settings.fields.allow_api'))
                                 ->onIcon('heroicon-o-check-circle')
                                 ->offIcon('heroicon-o-x-circle')
+                                ->onColor('success')
+                                ->offColor('gray')
+                                ->live()
+                                ->afterStateUpdated(function (bool $state, ?Model $record): void {
+                                    if ($record instanceof MaintenanceSetting) {
+                                        $record->update(['allow_api' => $state]);
+                                        Cache::forget('maintenance_settings');
+
+                                        Notification::make()
+                                            ->title($state ? __('ui.maintenance.settings.notifications.api_allowed') : __('ui.maintenance.settings.notifications.api_blocked'))
+                                            ->icon($state ? 'heroicon-o-check-circle' : 'heroicon-o-no-symbol')
+                                            ->iconColor($state ? 'success' : 'warning')
+                                            ->success()
+                                            ->send();
+                                    }
+                                })
                                 ->disabled(fn (): bool => ! self::canManageAccess()),
                             Toggle::make('allow_developer_bypass')
                                 ->label(__('ui.maintenance.settings.fields.allow_developer_bypass'))
                                 ->onIcon('heroicon-o-check-circle')
                                 ->offIcon('heroicon-o-x-circle')
+                                ->onColor('success')
+                                ->offColor('gray')
+                                ->live()
+                                ->afterStateUpdated(function (bool $state, ?Model $record): void {
+                                    if ($record instanceof MaintenanceSetting) {
+                                        $record->update(['allow_developer_bypass' => $state]);
+                                        Cache::forget('maintenance_settings');
+
+                                        Notification::make()
+                                            ->title($state ? __('ui.maintenance.settings.notifications.dev_bypass_on') : __('ui.maintenance.settings.notifications.dev_bypass_off'))
+                                            ->icon('heroicon-o-code-bracket')
+                                            ->iconColor($state ? 'success' : 'warning')
+                                            ->success()
+                                            ->send();
+                                    }
+                                })
                                 ->disabled(fn (): bool => ! self::canManageAccess()),
                         ])
                         ->columns(2),

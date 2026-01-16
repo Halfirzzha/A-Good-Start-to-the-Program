@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\NotificationMessageResource\Pages;
 use App\Models\NotificationMessage;
 use App\Models\NotificationTarget;
+use App\Support\AIService;
 use App\Support\AuthHelper;
 use App\Support\NotificationCenterService;
 use Filament\Actions\Action;
@@ -14,9 +15,11 @@ use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -54,11 +57,89 @@ class NotificationMessageResource extends Resource
     {
         return $schema->components([
             Section::make(__('notifications.ui.center.sections.content'))
+                ->headerActions([
+                    Action::make('auto_fill')
+                        ->label(__('notifications.ui.center.actions.auto_fill'))
+                        ->icon('heroicon-o-sparkles')
+                        ->iconButton()
+                        ->tooltip(__('notifications.ui.center.actions.auto_fill_tooltip'))
+                        ->action(function (Get $get, Set $set): void {
+                            $category = (string) $get('category');
+                            $priority = (string) ($get('priority') ?? 'normal');
+                            $language = app()->getLocale();
+
+                            // Use current title as context if available
+                            $context = (string) $get('title');
+
+                            // Try AI first
+                            $aiService = new AIService;
+                            if ($aiService->isEnabled()) {
+                                $aiContent = $aiService->generateNotificationContent(
+                                    $category ?: 'announcement',
+                                    $priority,
+                                    $context,
+                                    $language
+                                );
+
+                                if ($aiContent) {
+                                    $set('title', $aiContent['title']);
+                                    $set('message', $aiContent['message']);
+
+                                    // Show usage stats
+                                    $stats = $aiService->getUsageStats();
+                                    $usageInfo = $stats['percentage'] > 0
+                                        ? ' (' . $stats['percentage'] . '% ' . __('notifications.ui.center.actions.daily_usage') . ')'
+                                        : '';
+
+                                    Notification::make()
+                                        ->title(__('notifications.ui.center.actions.ai_generated'))
+                                        ->body(__('notifications.ui.center.actions.ai_generated_body') . $usageInfo)
+                                        ->success()
+                                        ->send();
+
+                                    return;
+                                }
+
+                                // AI failed, show warning
+                                Notification::make()
+                                    ->title(__('notifications.ui.center.actions.ai_fallback'))
+                                    ->body(__('notifications.ui.center.actions.ai_fallback_body'))
+                                    ->warning()
+                                    ->send();
+                            }
+
+                            // Fallback to template
+                            $template = self::getNotificationTemplate($category ?: 'announcement', $priority, $language);
+                            $set('title', $template['title']);
+                            $set('message', $template['message']);
+
+                            Notification::make()
+                                ->title(__('notifications.ui.center.actions.template_used'))
+                                ->body(__('notifications.ui.center.actions.template_used_body'))
+                                ->info()
+                                ->send();
+                        })
+                        ->visible(fn (): bool => self::canCreate()),
+                ])
                 ->schema([
+                    Select::make('category')
+                        ->label(__('notifications.ui.center.fields.category'))
+                        ->options(NotificationCenterService::categoryOptions())
+                        ->native(false)
+                        ->required()
+                        ->live(),
+                    Select::make('priority')
+                        ->label(__('notifications.ui.center.fields.priority'))
+                        ->options(NotificationCenterService::priorityOptions())
+                        ->native(false)
+                        ->required()
+                        ->default('normal')
+                        ->live(),
                     TextInput::make('title')
                         ->label(__('notifications.ui.center.fields.title'))
                         ->required()
-                        ->maxLength(200),
+                        ->maxLength(200)
+                        ->columnSpanFull(),
                     RichEditor::make('message')
                         ->label(__('notifications.ui.center.fields.message'))
                         ->toolbarButtons([
@@ -70,17 +151,6 @@ class NotificationMessageResource extends Resource
                         ])
                         ->required()
                         ->columnSpanFull(),
-                    Select::make('category')
-                        ->label(__('notifications.ui.center.fields.category'))
-                        ->options(NotificationCenterService::categoryOptions())
-                        ->native(false)
-                        ->required(),
-                    Select::make('priority')
-                        ->label(__('notifications.ui.center.fields.priority'))
-                        ->options(NotificationCenterService::priorityOptions())
-                        ->native(false)
-                        ->required()
-                        ->default('normal'),
                 ])
                 ->columns(2),
             Section::make(__('notifications.ui.center.sections.targeting'))
@@ -360,5 +430,102 @@ class NotificationMessageResource extends Resource
         }
 
         return $attempts > $maxAttempts;
+    }
+
+    /**
+     * Get notification template as fallback when AI is not available.
+     *
+     * @return array{title: string, message: string}
+     */
+    private static function getNotificationTemplate(string $category, string $priority, string $language): array
+    {
+        $isId = $language === 'id';
+
+        $templates = [
+            'maintenance' => [
+                'normal' => [
+                    'title' => $isId ? 'Jadwal Pemeliharaan Sistem' : 'Scheduled System Maintenance',
+                    'message' => $isId
+                        ? '<p>Sistem akan menjalani pemeliharaan terjadwal untuk meningkatkan performa dan keamanan.</p><p>Selama periode ini, beberapa layanan mungkin tidak tersedia. Kami akan memberitahu Anda setelah pemeliharaan selesai.</p>'
+                        : '<p>The system will undergo scheduled maintenance to improve performance and security.</p><p>During this period, some services may be temporarily unavailable. We will notify you once maintenance is complete.</p>',
+                ],
+                'high' => [
+                    'title' => $isId ? 'Pemberitahuan Pemeliharaan Mendesak' : 'Urgent Maintenance Notice',
+                    'message' => $isId
+                        ? '<p><strong>Perhatian:</strong> Sistem memerlukan pemeliharaan mendesak.</p><p>Mohon simpan pekerjaan Anda segera. Layanan akan terganggu dalam waktu dekat.</p>'
+                        : '<p><strong>Attention:</strong> The system requires urgent maintenance.</p><p>Please save your work immediately. Services will be interrupted shortly.</p>',
+                ],
+                'critical' => [
+                    'title' => $isId ? 'KRITIS: Pemeliharaan Darurat Sistem' : 'CRITICAL: Emergency System Maintenance',
+                    'message' => $isId
+                        ? '<p><strong>PERINGATAN KRITIS:</strong> Pemeliharaan darurat diperlukan.</p><p>Semua layanan akan segera dihentikan. Mohon simpan pekerjaan Anda sekarang.</p>'
+                        : '<p><strong>CRITICAL WARNING:</strong> Emergency maintenance is required.</p><p>All services will be stopped immediately. Please save your work now.</p>',
+                ],
+            ],
+            'announcement' => [
+                'normal' => [
+                    'title' => $isId ? 'Pengumuman Penting' : 'Important Announcement',
+                    'message' => $isId
+                        ? '<p>Kami ingin menginformasikan kepada Anda tentang pembaruan terbaru dari sistem kami.</p><p>Silakan periksa dashboard untuk informasi lebih lanjut.</p>'
+                        : '<p>We would like to inform you about the latest updates from our system.</p><p>Please check the dashboard for more information.</p>',
+                ],
+                'high' => [
+                    'title' => $isId ? 'Pengumuman Mendesak' : 'Urgent Announcement',
+                    'message' => $isId
+                        ? '<p><strong>Perhatian:</strong> Ada pengumuman penting yang memerlukan tindakan segera dari Anda.</p>'
+                        : '<p><strong>Attention:</strong> There is an important announcement that requires your immediate action.</p>',
+                ],
+                'critical' => [
+                    'title' => $isId ? 'PENGUMUMAN KRITIS' : 'CRITICAL ANNOUNCEMENT',
+                    'message' => $isId
+                        ? '<p><strong>KRITIS:</strong> Diperlukan tindakan segera. Mohon baca dengan seksama.</p>'
+                        : '<p><strong>CRITICAL:</strong> Immediate action required. Please read carefully.</p>',
+                ],
+            ],
+            'update' => [
+                'normal' => [
+                    'title' => $isId ? 'Pembaruan Sistem Tersedia' : 'System Update Available',
+                    'message' => $isId
+                        ? '<p>Pembaruan sistem baru telah tersedia dengan peningkatan performa dan fitur baru.</p><p>Pembaruan akan diterapkan secara otomatis.</p>'
+                        : '<p>A new system update is available with performance improvements and new features.</p><p>The update will be applied automatically.</p>',
+                ],
+                'high' => [
+                    'title' => $isId ? 'Pembaruan Penting Diperlukan' : 'Important Update Required',
+                    'message' => $isId
+                        ? '<p><strong>Tindakan Diperlukan:</strong> Pembaruan penting harus segera diterapkan untuk keamanan sistem.</p>'
+                        : '<p><strong>Action Required:</strong> An important update must be applied immediately for system security.</p>',
+                ],
+                'critical' => [
+                    'title' => $isId ? 'PEMBARUAN KEAMANAN KRITIS' : 'CRITICAL SECURITY UPDATE',
+                    'message' => $isId
+                        ? '<p><strong>PERINGATAN KEAMANAN:</strong> Pembaruan keamanan kritis harus segera diterapkan.</p>'
+                        : '<p><strong>SECURITY WARNING:</strong> A critical security update must be applied immediately.</p>',
+                ],
+            ],
+            'security' => [
+                'normal' => [
+                    'title' => $isId ? 'Pemberitahuan Keamanan' : 'Security Notice',
+                    'message' => $isId
+                        ? '<p>Ini adalah pemberitahuan keamanan rutin. Pastikan kredensial Anda tetap aman.</p>'
+                        : '<p>This is a routine security notice. Please ensure your credentials remain secure.</p>',
+                ],
+                'high' => [
+                    'title' => $isId ? 'Peringatan Keamanan' : 'Security Alert',
+                    'message' => $isId
+                        ? '<p><strong>Peringatan:</strong> Aktivitas mencurigakan terdeteksi. Mohon verifikasi aktivitas akun Anda.</p>'
+                        : '<p><strong>Warning:</strong> Suspicious activity detected. Please verify your account activity.</p>',
+                ],
+                'critical' => [
+                    'title' => $isId ? 'PERINGATAN KEAMANAN KRITIS' : 'CRITICAL SECURITY ALERT',
+                    'message' => $isId
+                        ? '<p><strong>KRITIS:</strong> Ancaman keamanan terdeteksi. Tindakan segera diperlukan untuk melindungi akun Anda.</p>'
+                        : '<p><strong>CRITICAL:</strong> Security threat detected. Immediate action required to protect your account.</p>',
+                ],
+            ],
+        ];
+
+        $categoryTemplates = $templates[$category] ?? $templates['announcement'];
+
+        return $categoryTemplates[$priority] ?? $categoryTemplates['normal'];
     }
 }
