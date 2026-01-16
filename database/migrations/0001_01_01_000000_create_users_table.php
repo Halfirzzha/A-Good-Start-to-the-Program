@@ -67,6 +67,7 @@ return new class extends Migration
             $table->index('account_status', 'users_account_status_index');
             $table->index('last_login_at', 'users_last_login_at_index');
             $table->index('locked_at', 'users_locked_at_index');
+            $table->index('blocked_until', 'users_blocked_until_index');
             $table->index(['email', 'account_status'], 'users_email_account_status_index');
             $table->index('deleted_at', 'users_deleted_at_index');
 
@@ -111,6 +112,7 @@ return new class extends Migration
             $table->timestamp('created_at')->useCurrent();
 
             $table->index(['event', 'created_at'], 'user_login_activities_event_created_at_index');
+            $table->index('ip_address', 'user_login_activities_ip_address_index');
             $table->foreign('user_id', 'user_login_activities_user_id_foreign')
                 ->references('id')->on('users')->nullOnDelete();
         });
@@ -156,6 +158,7 @@ return new class extends Migration
             $table->index('request_id', 'audit_logs_request_id_idx');
             $table->index('session_id', 'audit_logs_session_id_idx');
             $table->index('status_code', 'audit_logs_status_code_idx');
+            $table->index('method', 'audit_logs_method_idx');
             $table->index('ip_address', 'audit_logs_ip_address_idx');
             $table->index('user_agent_hash', 'audit_logs_user_agent_hash_idx');
             $table->index('request_payload_hash', 'audit_logs_request_payload_hash_idx');

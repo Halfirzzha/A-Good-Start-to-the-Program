@@ -50,6 +50,12 @@ class DatabaseSeeder extends Seeder
         'test_system_setting_smtp',
         'test_system_setting_ai',
 
+        // Security Management
+        'manage_security',
+        'view_security_logs',
+        'manage_ip_blocklist',
+        'view_security_dashboard',
+
         // Notification Actions
         'execute_notification_send',
         'retry_notification_delivery',
@@ -111,6 +117,9 @@ class DatabaseSeeder extends Seeder
             'view_system_setting_communication', 'manage_system_setting_communication',
             'view_system_setting_ai', 'manage_system_setting_ai',
             'edit_system_setting_secrets', 'edit_system_setting_project_url',
+
+            // Security Management
+            'manage_security', 'view_security_logs', 'manage_ip_blocklist', 'view_security_dashboard',
 
             // Full access to notifications
             'view_any_notification_message', 'view_notification_message',

@@ -6,9 +6,10 @@ use App\Models\NotificationChannel;
 use App\Models\NotificationMessage;
 use App\Models\NotificationTarget;
 use App\Models\User;
-use App\Support\NotificationCenterService;
-use App\Support\SystemSettings;
 use App\Support\LocaleHelper;
+use App\Support\NotificationCenterService;
+use App\Support\NotificationDeliveryLogger;
+use App\Support\SystemSettings;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -19,9 +20,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
-use App\Support\NotificationDeliveryLogger;
 
-class SendSecurityAlert implements ShouldQueue, ShouldBeUnique
+class SendSecurityAlert implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -52,7 +52,8 @@ class SendSecurityAlert implements ShouldQueue, ShouldBeUnique
         $event = (string) ($this->payload['event'] ?? 'alert');
         $requestId = (string) ($this->payload['request_id'] ?? '');
 
-        return sha1($event.'|'.$requestId.'|'.($this->payload['user_id'] ?? 'guest'));
+        // Use SHA256 for secure unique identifier generation
+        return hash('sha256', $event.'|'.$requestId.'|'.($this->payload['user_id'] ?? 'guest'));
     }
 
     public function handle(): void
@@ -94,6 +95,7 @@ class SendSecurityAlert implements ShouldQueue, ShouldBeUnique
                     'request_id' => $this->payload['request_id'] ?? null,
                 ],
             );
+
             return;
         }
 
@@ -129,11 +131,12 @@ class SendSecurityAlert implements ShouldQueue, ShouldBeUnique
             return;
         }
 
+        $title = (string) ($this->payload['title'] ?? __('notifications.email.security_alert.subject'));
+
         try {
-            LocaleHelper::withLocale(config('app.locale', 'en'), function () use ($recipients, $message): void {
+            LocaleHelper::withLocale(config('app.locale', 'en'), function () use ($recipients, $message, $title): void {
                 $appName = (string) SystemSettings::getValue('project.name', config('app.name', 'System'));
                 $logoUrl = SystemSettings::assetUrl('logo');
-                $title = (string) ($this->payload['title'] ?? __('notifications.email.security_alert.subject'));
                 $event = (string) ($this->payload['event'] ?? 'security_alert');
                 $requestId = (string) ($this->payload['request_id'] ?? '');
                 $ipAddress = (string) ($this->payload['ip_observed'] ?? '');
@@ -171,6 +174,7 @@ class SendSecurityAlert implements ShouldQueue, ShouldBeUnique
                 );
             });
             NotificationDeliveryLogger::log(
+
                 null,
                 null,
                 'mail',
@@ -214,11 +218,14 @@ class SendSecurityAlert implements ShouldQueue, ShouldBeUnique
     }
 
     /**
+     * Send security alert to Telegram
+     *
      * @return array{ok: bool, error: string|null}
      */
     private function sendTelegram(string $token, string $chatId, string $message): array
     {
         try {
+            /** @var \Illuminate\Http\Client\Response $response */
             $response = Http::timeout(6)
                 ->retry(2, 200)
                 ->post("https://api.telegram.org/bot{$token}/sendMessage", [
@@ -235,11 +242,13 @@ class SendSecurityAlert implements ShouldQueue, ShouldBeUnique
                 'status' => $response->status(),
                 'body' => $response->body(),
             ]);
+
             return ['ok' => false, 'error' => 'HTTP '.$response->status()];
         } catch (\Throwable $error) {
             Log::channel('security')->warning('security.alert.telegram_exception', [
                 'error' => $error->getMessage(),
             ]);
+
             return ['ok' => false, 'error' => $error->getMessage()];
         }
     }
@@ -260,7 +269,7 @@ class SendSecurityAlert implements ShouldQueue, ShouldBeUnique
         }
 
         $lines = [
-            "*Security Alert*",
+            '*Security Alert*',
             "*Event:* {$title}",
             "*User:* {$identity}",
         ];
@@ -296,7 +305,7 @@ class SendSecurityAlert implements ShouldQueue, ShouldBeUnique
 
         $userAgent = (string) ($payload['user_agent'] ?? '');
         if ($userAgent !== '') {
-            $lines[] = "*User-Agent:* ".Str::limit($userAgent, 180, '...');
+            $lines[] = '*User-Agent:* '.Str::limit($userAgent, 180, '...');
         }
 
         $method = (string) ($payload['method'] ?? '');
@@ -341,7 +350,8 @@ class SendSecurityAlert implements ShouldQueue, ShouldBeUnique
         $requestId = (string) ($this->payload['request_id'] ?? '');
         $event = (string) ($this->payload['event'] ?? 'security_alert');
         $userId = $this->payload['user_id'] ?? 'guest';
-        $hash = sha1($event.'|'.$requestId.'|'.$userId);
+        // Use SHA256 for secure hash generation
+        $hash = hash('sha256', $event.'|'.$requestId.'|'.$userId);
 
         $existing = NotificationMessage::query()
             ->where('metadata->security_hash', $hash)
@@ -351,6 +361,7 @@ class SendSecurityAlert implements ShouldQueue, ShouldBeUnique
             if ($existing->status !== 'sent') {
                 NotificationCenterService::send($existing);
             }
+
             return;
         }
 

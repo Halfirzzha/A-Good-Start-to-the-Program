@@ -303,6 +303,13 @@
         return new Date(serverEpochMs + delta);
     };
 
+    const escapeHtml = (str) => {
+        if (!str) return "";
+        const div = document.createElement("div");
+        div.textContent = str;
+        return div.innerHTML;
+    };
+
     const renderTimeValue = (el, mainText, metaText) => {
         if (!el) {
             return;
@@ -311,7 +318,10 @@
             el.textContent = mainText;
             return;
         }
-        el.innerHTML = `<span class="time-main">${mainText}</span><span class="time-meta">${metaText}</span>`;
+        // Sanitize inputs before using innerHTML
+        const safeMain = escapeHtml(mainText);
+        const safeMeta = escapeHtml(metaText);
+        el.innerHTML = `<span class="time-main">${safeMain}</span><span class="time-meta">${safeMeta}</span>`;
     };
 
     const updateTimers = () => {

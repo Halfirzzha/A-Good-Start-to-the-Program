@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Support\AuditLogWriter;
 use App\Support\SecurityAlert;
+use App\Support\SecurityService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -91,7 +92,10 @@ class AuditLogMiddleware
         $userId = $user?->getAuthIdentifier();
         $isDeveloper = $user && method_exists($user, 'isDeveloper') && $user->isDeveloper();
 
-        $blockedIp = $ip !== '' && $cache->has($this->cacheKey('block:ip', $ip));
+        // Check SecurityService blocklist first
+        $globalBlocked = SecurityService::isIpBlocked($ip);
+
+        $blockedIp = $globalBlocked || ($ip !== '' && $cache->has($this->cacheKey('block:ip', $ip)));
         $blockedUser = $userId && $cache->has($this->cacheKey('block:user', (string) $userId));
 
         if (! $blockedIp && ! $blockedUser) {
@@ -367,7 +371,8 @@ class AuditLogMiddleware
 
     private function cacheKey(string $scope, string $value): string
     {
-        $safe = str_contains($scope, 'ip') ? sha1($value) : $value;
+        // Use SHA256 for secure hashing of sensitive values like IP addresses
+        $safe = str_contains($scope, 'ip') ? hash('sha256', $value) : $value;
 
         return "security:{$scope}:{$safe}";
     }

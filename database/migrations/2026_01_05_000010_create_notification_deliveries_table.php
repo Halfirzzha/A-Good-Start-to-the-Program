@@ -31,6 +31,8 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['channel', 'status']);
+            $table->index('status', 'notification_deliveries_status_idx');
+            $table->index('created_at', 'notification_deliveries_created_at_idx');
             $table->index(['notification_id', 'channel', 'status'], 'notification_deliveries_notification_idx');
 
             // Foreign key added later once notification_messages exists.
