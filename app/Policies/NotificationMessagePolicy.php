@@ -123,4 +123,52 @@ class NotificationMessagePolicy
         return $user->can('send_notification_message')
             || $user->can('create_notification_message');
     }
+
+    /**
+     * Determine whether the user can restore the notification message.
+     */
+    public function restore(User $user, NotificationMessage $message): bool
+    {
+        if ($user->isDeveloper()) {
+            return true;
+        }
+
+        return $user->can('restore_notification_message');
+    }
+
+    /**
+     * Determine whether the user can restore any notification messages.
+     */
+    public function restoreAny(User $user): bool
+    {
+        if ($user->isDeveloper()) {
+            return true;
+        }
+
+        return $user->can('restore_any_notification_message');
+    }
+
+    /**
+     * Determine whether the user can force delete the notification message.
+     */
+    public function forceDelete(User $user, NotificationMessage $message): bool
+    {
+        if ($user->isDeveloper()) {
+            return true;
+        }
+
+        return $user->can('force_delete_notification_message');
+    }
+
+    /**
+     * Determine whether the user can force delete any notification messages.
+     */
+    public function forceDeleteAny(User $user): bool
+    {
+        if ($user->isDeveloper()) {
+            return true;
+        }
+
+        return $user->can('force_delete_any_notification_message');
+    }
 }

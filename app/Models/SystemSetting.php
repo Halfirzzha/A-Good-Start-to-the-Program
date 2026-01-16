@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Casts\SafeEncrypted;
 use App\Models\Concerns\Auditable;
 use App\Support\AuditLogWriter;
 use App\Support\SecurityAlert;
@@ -66,12 +67,23 @@ class SystemSetting extends Model
         'google_drive_client_id',
         'google_drive_client_secret',
         'google_drive_refresh_token',
-        // AI Configuration
+        // Legacy AI Configuration
         'ai_enabled',
         'ai_provider',
         'ai_api_key',
         'ai_organization',
         'ai_model',
+        // Multi-Provider AI (Enterprise)
+        'openai_api_key',
+        'anthropic_api_key',
+        'gemini_api_key',
+        'groq_api_key',
+        'openrouter_api_key',
+        'ai_failover_enabled',
+        'ai_smart_selection',
+        'ai_daily_limit',
+        'ai_provider_priorities',
+        'ai_preferred_models',
         'ai_max_tokens',
         'ai_temperature',
         'ai_timeout',
@@ -113,15 +125,26 @@ class SystemSetting extends Model
         'email_recipients' => 'array',
         'smtp_port' => 'integer',
         'telegram_enabled' => 'boolean',
-        'smtp_password' => 'encrypted',
-        'telegram_bot_token' => 'encrypted',
-        'google_drive_service_account_json' => 'encrypted',
-        'google_drive_client_id' => 'encrypted',
-        'google_drive_client_secret' => 'encrypted',
-        'google_drive_refresh_token' => 'encrypted',
-        // AI Casts
+        'smtp_password' => SafeEncrypted::class,
+        'telegram_bot_token' => SafeEncrypted::class,
+        'google_drive_service_account_json' => SafeEncrypted::class,
+        'google_drive_client_id' => SafeEncrypted::class,
+        'google_drive_client_secret' => SafeEncrypted::class,
+        'google_drive_refresh_token' => SafeEncrypted::class,
+        // Legacy AI Casts
         'ai_enabled' => 'boolean',
-        'ai_api_key' => 'encrypted',
+        'ai_api_key' => SafeEncrypted::class,
+        // Multi-Provider AI Casts (Enterprise)
+        'openai_api_key' => SafeEncrypted::class,
+        'anthropic_api_key' => SafeEncrypted::class,
+        'gemini_api_key' => SafeEncrypted::class,
+        'groq_api_key' => SafeEncrypted::class,
+        'openrouter_api_key' => SafeEncrypted::class,
+        'ai_failover_enabled' => 'boolean',
+        'ai_smart_selection' => 'boolean',
+        'ai_daily_limit' => 'decimal:2',
+        'ai_provider_priorities' => 'array',
+        'ai_preferred_models' => 'array',
         'ai_max_tokens' => 'integer',
         'ai_temperature' => 'decimal:2',
         'ai_timeout' => 'integer',
@@ -160,6 +183,12 @@ class SystemSetting extends Model
         'google_drive_client_secret',
         'google_drive_refresh_token',
         'ai_api_key',
+        // Multi-Provider AI Keys
+        'openai_api_key',
+        'anthropic_api_key',
+        'gemini_api_key',
+        'groq_api_key',
+        'openrouter_api_key',
     ];
 
     protected static function booted(): void

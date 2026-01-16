@@ -10,6 +10,7 @@ use App\Models\NotificationMessage;
 use App\Models\SystemSetting;
 use App\Models\User;
 use App\Models\UserLoginActivity;
+use App\Models\UserNotification;
 use App\Policies\AuditLogPolicy;
 use App\Policies\MaintenanceSettingPolicy;
 use App\Policies\MaintenanceTokenPolicy;
@@ -18,6 +19,7 @@ use App\Policies\NotificationMessagePolicy;
 use App\Policies\RolePolicy;
 use App\Policies\SystemSettingPolicy;
 use App\Policies\UserLoginActivityPolicy;
+use App\Policies\UserNotificationPolicy;
 use App\Policies\UserPolicy;
 use App\Support\AuditLogWriter;
 use Illuminate\Auth\Access\Response;
@@ -44,6 +46,7 @@ class AuthServiceProvider extends ServiceProvider
         SystemSetting::class => SystemSettingPolicy::class,
         User::class => UserPolicy::class,
         UserLoginActivity::class => UserLoginActivityPolicy::class,
+        UserNotification::class => UserNotificationPolicy::class,
         Role::class => RolePolicy::class,
     ];
 

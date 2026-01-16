@@ -9,11 +9,24 @@ class UserLoginActivityPolicy
 {
     public function viewAny(User $user): bool
     {
+        if ($user->isDeveloper()) {
+            return true;
+        }
+
         return $user->can('view_any_user_login_activity');
     }
 
     public function view(User $user, UserLoginActivity $activity): bool
     {
+        if ($user->isDeveloper()) {
+            return true;
+        }
+
+        // Users can view their own login activities
+        if ($activity->user_id === $user->id) {
+            return true;
+        }
+
         return $user->can('view_user_login_activity') || $user->can('view_any_user_login_activity');
     }
 

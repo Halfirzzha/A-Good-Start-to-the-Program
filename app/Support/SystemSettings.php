@@ -426,7 +426,10 @@ class SystemSettings
         }
 
         try {
-            return Storage::disk($disk)->url($path);
+            /** @var \Illuminate\Filesystem\FilesystemAdapter $storage */
+            $storage = Storage::disk($disk);
+
+            return $storage->url($path);
         } catch (\Throwable) {
             return null;
         }

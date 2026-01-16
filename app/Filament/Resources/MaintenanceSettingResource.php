@@ -3,8 +3,9 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\MaintenanceSettingResource\Pages;
-use App\Models\MaintenanceToken;
 use App\Models\MaintenanceSetting;
+use App\Models\MaintenanceToken;
+use App\Support\AIService;
 use App\Support\AuthHelper;
 use App\Support\MaintenanceTokenService;
 use Filament\Actions\Action;
@@ -13,8 +14,8 @@ use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TagsInput;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
@@ -35,9 +36,9 @@ class MaintenanceSettingResource extends Resource
 {
     protected static ?string $model = MaintenanceSetting::class;
 
-    protected static string | \UnitEnum | null $navigationGroup = null;
+    protected static string|\UnitEnum|null $navigationGroup = null;
 
-    protected static string | \BackedEnum | null $navigationIcon = 'heroicon-o-wrench-screwdriver';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-wrench-screwdriver';
 
     protected static ?int $navigationSort = 2;
 
@@ -58,13 +59,57 @@ class MaintenanceSettingResource extends Resource
                         ->iconButton()
                         ->tooltip(__('ui.maintenance.settings.actions.auto_fill_tooltip'))
                         ->action(function (Get $get, Set $set): void {
-                            $currentTitle = (string) $get('title');
                             $mode = (string) $get('mode');
+                            $currentTitle = (string) $get('title');
+                            $language = app()->getLocale();
+
+                            // Try AI first
+                            $aiService = new AIService;
+                            if ($aiService->isEnabled()) {
+                                $context = self::buildAIContext($get);
+                                $aiContent = $aiService->generateMaintenanceContent($mode, $context, $language);
+
+                                if ($aiContent) {
+                                    $set('title', $aiContent['title']);
+                                    $set('summary', $aiContent['summary']);
+                                    $set('note_html', $aiContent['note_html']);
+
+                                    // Show usage stats
+                                    $stats = $aiService->getUsageStats();
+                                    $usageInfo = $stats['percentage'] > 0
+                                        ? ' ('.$stats['percentage'].'% '.__('ui.maintenance.settings.notifications.daily_usage').')'
+                                        : '';
+
+                                    Notification::make()
+                                        ->title(__('ui.maintenance.settings.notifications.ai_generated'))
+                                        ->body(__('ui.maintenance.settings.notifications.ai_generated_body').$usageInfo)
+                                        ->success()
+                                        ->send();
+
+                                    return;
+                                }
+
+                                // AI failed, show warning and fallback
+                                Notification::make()
+                                    ->title(__('ui.maintenance.settings.notifications.ai_fallback'))
+                                    ->body(__('ui.maintenance.settings.notifications.ai_fallback_body'))
+                                    ->warning()
+                                    ->send();
+                            }
+
+                            // Fallback to templates
                             $key = self::pickRandomTemplateKey($mode, $currentTitle);
                             $payload = self::maintenanceTemplatePayload($key);
+                            $set('title', $payload['title']);
                             $set('summary', $payload['summary']);
                             $set('note_html', $payload['note_html']);
-                            $set('title', $payload['title']);
+
+                            // Notify using template
+                            Notification::make()
+                                ->title(__('ui.maintenance.settings.notifications.template_used'))
+                                ->body(__('ui.maintenance.settings.notifications.template_used_body'))
+                                ->info()
+                                ->send();
                         })
                         ->visible(fn (): bool => self::canManageMessage()),
                 ])
@@ -223,6 +268,7 @@ class MaintenanceSettingResource extends Resource
                                             ->body(__('ui.maintenance.tokens.notifications.too_many_body_create'))
                                             ->warning()
                                             ->send();
+
                                         return;
                                     }
 
@@ -262,6 +308,7 @@ class MaintenanceSettingResource extends Resource
                                             ->body(__('ui.maintenance.tokens.notifications.too_many_body_revoke'))
                                             ->warning()
                                             ->send();
+
                                         return;
                                     }
 
@@ -272,6 +319,7 @@ class MaintenanceSettingResource extends Resource
                                             ->title(__('ui.maintenance.settings.notifications.token_not_found'))
                                             ->danger()
                                             ->send();
+
                                         return;
                                     }
 
@@ -307,6 +355,7 @@ class MaintenanceSettingResource extends Resource
                                             ->body(__('ui.maintenance.tokens.notifications.too_many_body_revoke'))
                                             ->warning()
                                             ->send();
+
                                         return;
                                     }
 
@@ -317,6 +366,7 @@ class MaintenanceSettingResource extends Resource
                                             ->title(__('ui.maintenance.settings.notifications.token_not_found'))
                                             ->danger()
                                             ->send();
+
                                         return;
                                     }
 
@@ -374,6 +424,7 @@ class MaintenanceSettingResource extends Resource
                     ->getStateUsing(function (MaintenanceSetting $record): string {
                         $start = $record->start_at?->format('d M Y, H:i') ?? '—';
                         $end = $record->end_at?->format('d M Y, H:i') ?? '—';
+
                         return $start.' → '.$end;
                     }),
                 TextColumn::make('updatedBy.name')
@@ -551,6 +602,7 @@ class MaintenanceSettingResource extends Resource
                 $status = $token->isActive() ? 'Active' : 'Revoked/Expired';
                 $name = $token->name ?: 'Token';
                 $label = "{$name} #{$token->getKey()} ({$status})";
+
                 return [$token->getKey() => $label];
             })
             ->all();
@@ -666,5 +718,57 @@ class MaintenanceSettingResource extends Resource
         }
 
         return $attempts > $maxAttempts;
+    }
+
+    /**
+     * Build context for AI content generation based on current form state.
+     */
+    private static function buildAIContext(Get $get): string
+    {
+        $parts = [];
+
+        // Include schedule info if available
+        $startAt = $get('start_at');
+        $endAt = $get('end_at');
+        if ($startAt || $endAt) {
+            $parts[] = 'Scheduled maintenance window: '.($startAt ?? 'now').' to '.($endAt ?? 'TBD');
+        }
+
+        // Include access control info
+        $allowRoles = $get('allow_roles');
+        if (! empty($allowRoles) && is_array($allowRoles)) {
+            $parts[] = 'Allowed roles: '.implode(', ', $allowRoles);
+        }
+
+        $allowIps = $get('allow_ips');
+        if (! empty($allowIps) && is_array($allowIps)) {
+            $parts[] = 'IP whitelist configured';
+        }
+
+        $denyPaths = $get('deny_paths');
+        if (! empty($denyPaths) && is_array($denyPaths)) {
+            $parts[] = 'Blocked paths: '.implode(', ', $denyPaths);
+        }
+
+        $denyRoutes = $get('deny_routes');
+        if (! empty($denyRoutes) && is_array($denyRoutes)) {
+            $parts[] = 'Blocked routes: '.implode(', ', $denyRoutes);
+        }
+
+        $allowApi = $get('allow_api');
+        if ($allowApi) {
+            $parts[] = 'API access remains enabled';
+        }
+
+        $allowDeveloperBypass = $get('allow_developer_bypass');
+        if ($allowDeveloperBypass) {
+            $parts[] = 'Developer bypass enabled';
+        }
+
+        if (empty($parts)) {
+            return 'Standard maintenance procedure';
+        }
+
+        return implode('. ', $parts);
     }
 }

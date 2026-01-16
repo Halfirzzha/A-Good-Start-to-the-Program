@@ -94,4 +94,36 @@ class MaintenanceSettingPolicy
         return $user->can('toggle_maintenance')
             || $user->can('update_maintenance_setting');
     }
+
+    /**
+     * Determine whether the user can restore the maintenance setting.
+     */
+    public function restore(User $user, MaintenanceSetting $setting): bool
+    {
+        return false; // Settings are singleton
+    }
+
+    /**
+     * Determine whether the user can restore any maintenance settings.
+     */
+    public function restoreAny(User $user): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can force delete the maintenance setting.
+     */
+    public function forceDelete(User $user, MaintenanceSetting $setting): bool
+    {
+        return false; // Settings are singleton
+    }
+
+    /**
+     * Determine whether the user can force delete any maintenance settings.
+     */
+    public function forceDeleteAny(User $user): bool
+    {
+        return false;
+    }
 }

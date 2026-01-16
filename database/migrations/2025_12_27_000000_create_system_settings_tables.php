@@ -68,10 +68,12 @@ return new class extends Migration
             $table->string('google_drive_client_secret', 191)->nullable();
             $table->string('google_drive_refresh_token', 191)->nullable();
 
-            // AI Configuration - OpenAI Integration
+            // =====================================================
+            // AI Configuration - Legacy OpenAI Integration
+            // =====================================================
             $table->boolean('ai_enabled')->default(false);
             $table->string('ai_provider', 50)->default('openai');
-            $table->longText('ai_api_key')->nullable();
+            $table->longText('ai_api_key')->nullable()->comment('Legacy AI API key (encrypted)');
             $table->string('ai_organization', 100)->nullable();
             $table->string('ai_model', 50)->default('gpt-4o');
             $table->unsignedSmallInteger('ai_max_tokens')->default(4096);
@@ -79,14 +81,36 @@ return new class extends Migration
             $table->unsignedSmallInteger('ai_timeout')->default(30);
             $table->unsignedSmallInteger('ai_retry_attempts')->default(3);
 
+            // =====================================================
+            // Multi-Provider AI (Enterprise) - API Keys (encrypted)
+            // =====================================================
+            $table->longText('openai_api_key')->nullable()->comment('OpenAI API key (encrypted)');
+            $table->longText('anthropic_api_key')->nullable()->comment('Anthropic Claude API key (encrypted)');
+            $table->longText('gemini_api_key')->nullable()->comment('Google Gemini API key (encrypted)');
+            $table->longText('groq_api_key')->nullable()->comment('Groq API key (encrypted)');
+            $table->longText('openrouter_api_key')->nullable()->comment('OpenRouter API key (encrypted)');
+
+            // =====================================================
+            // AI Orchestrator Settings
+            // =====================================================
+            $table->boolean('ai_failover_enabled')->default(true)->comment('Enable automatic failover between providers');
+            $table->boolean('ai_smart_selection')->default(true)->comment('Use smart provider selection based on success history');
+            $table->decimal('ai_daily_limit', 10, 2)->default(10.00)->comment('Daily AI cost limit in USD');
+            $table->json('ai_provider_priorities')->nullable()->comment('Custom provider priorities (lower = higher priority)');
+            $table->json('ai_preferred_models')->nullable()->comment('Preferred model for each provider');
+
+            // =====================================================
             // AI Rate Limiting
+            // =====================================================
             $table->unsignedInteger('ai_rate_limit_rpm')->default(60);
             $table->unsignedInteger('ai_rate_limit_tpm')->default(90000);
             $table->unsignedInteger('ai_rate_limit_tpd')->default(1000000);
             $table->unsignedInteger('ai_daily_usage')->default(0);
             $table->date('ai_usage_reset_date')->nullable();
 
+            // =====================================================
             // AI Feature Toggles
+            // =====================================================
             $table->boolean('ai_feature_security_analysis')->default(true);
             $table->boolean('ai_feature_anomaly_detection')->default(true);
             $table->boolean('ai_feature_threat_classification')->default(true);
@@ -95,13 +119,17 @@ return new class extends Migration
             $table->boolean('ai_feature_auto_response')->default(false);
             $table->boolean('ai_feature_chat_assistant')->default(false);
 
+            // =====================================================
             // AI Alert Triggers
+            // =====================================================
             $table->unsignedTinyInteger('ai_alert_high_risk_score')->default(8);
             $table->unsignedTinyInteger('ai_alert_suspicious_patterns')->default(5);
             $table->unsignedTinyInteger('ai_alert_failed_logins')->default(10);
             $table->decimal('ai_alert_anomaly_confidence', 4, 2)->default(0.85);
 
+            // =====================================================
             // AI Response Actions
+            // =====================================================
             $table->boolean('ai_action_auto_block_ip')->default(false);
             $table->boolean('ai_action_auto_lock_user')->default(false);
             $table->boolean('ai_action_notify_admin')->default(true);

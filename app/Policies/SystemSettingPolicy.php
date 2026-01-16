@@ -221,4 +221,36 @@ class SystemSettingPolicy
             || $user->can('manage_system_setting_ai')
             || $user->can('update_system_setting');
     }
+
+    /**
+     * Determine whether the user can restore the system setting.
+     */
+    public function restore(User $user, SystemSetting $setting): bool
+    {
+        return false; // Settings are singleton
+    }
+
+    /**
+     * Determine whether the user can restore any system settings.
+     */
+    public function restoreAny(User $user): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can force delete the system setting.
+     */
+    public function forceDelete(User $user, SystemSetting $setting): bool
+    {
+        return false; // Settings are singleton
+    }
+
+    /**
+     * Determine whether the user can force delete any system settings.
+     */
+    public function forceDeleteAny(User $user): bool
+    {
+        return false;
+    }
 }

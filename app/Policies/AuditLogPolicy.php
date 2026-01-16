@@ -9,11 +9,19 @@ class AuditLogPolicy
 {
     public function viewAny(User $user): bool
     {
+        if ($user->isDeveloper()) {
+            return true;
+        }
+
         return $user->can('view_any_audit_log');
     }
 
     public function view(User $user, AuditLog $auditLog): bool
     {
+        if ($user->isDeveloper()) {
+            return true;
+        }
+
         return $user->can('view_audit_log') || $user->can('view_any_audit_log');
     }
 

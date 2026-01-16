@@ -87,4 +87,36 @@ class NotificationDeliveryPolicy
         return $user->can('retry_notification_delivery')
             || $user->can('update_notification_delivery');
     }
+
+    /**
+     * Determine whether the user can restore the notification delivery.
+     */
+    public function restore(User $user, NotificationDelivery $delivery): bool
+    {
+        return false; // Deliveries are immutable audit records
+    }
+
+    /**
+     * Determine whether the user can restore any notification deliveries.
+     */
+    public function restoreAny(User $user): bool
+    {
+        return false;
+    }
+
+    /**
+     * Determine whether the user can force delete the notification delivery.
+     */
+    public function forceDelete(User $user, NotificationDelivery $delivery): bool
+    {
+        return false; // Deliveries are immutable audit records
+    }
+
+    /**
+     * Determine whether the user can force delete any notification deliveries.
+     */
+    public function forceDeleteAny(User $user): bool
+    {
+        return false;
+    }
 }

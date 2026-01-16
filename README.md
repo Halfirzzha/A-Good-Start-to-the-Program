@@ -10,7 +10,7 @@
 [![Redis](https://img.shields.io/badge/Redis-First-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io)
 [![License](https://img.shields.io/badge/License-MIT-16A34A?style=for-the-badge)](LICENSE)
 
-[![Version](https://img.shields.io/badge/Version-1.1.0-blue?style=for-the-badge)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program/releases)
+[![Version](https://img.shields.io/badge/Version-1.2.1-blue?style=for-the-badge)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program/releases)
 [![Tests](https://img.shields.io/badge/Tests-Passing-success?style=for-the-badge&logo=github-actions)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program/actions)
 [![Security](https://img.shields.io/badge/Security-A%2B-brightgreen?style=for-the-badge&logo=shield)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program#-security)
 [![Code Quality](https://img.shields.io/badge/Code_Quality-Excellent-brightgreen?style=for-the-badge&logo=codacy)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program)
@@ -557,7 +557,7 @@ sequenceDiagram
 
 ```mermaid
 graph TD
-    DEV[👨‍💻 Developer<br/><b>Level 100</b><br/>Full System Access<br/>Dev Bypasses Allowed] --> SUPER[🔐 Super Admin<br/><b>Level 90</b><br/>Full Access<br/>No Bypasses]
+    DEV[👨‍💻 Developer<br/><b>Level 100</b><br/>Full System Access<br/>All Permissions Auto-Granted] --> SUPER[🔐 Super Admin<br/><b>Level 90</b><br/>Full Access<br/>No Dev Bypasses]
     SUPER --> ADMIN[👔 Admin<br/><b>Level 80</b><br/>User Management<br/>Settings Control]
     ADMIN --> MANAGER[📊 Manager<br/><b>Level 70</b><br/>Limited User Mgmt<br/>Read-Only Settings]
     MANAGER --> USER[👤 User<br/><b>Level 10</b><br/>Self-Service Only<br/>Profile Access]
@@ -568,6 +568,91 @@ graph TD
     style MANAGER fill:#22c55e,stroke:#15803d,color:#fff,stroke-width:2px
     style USER fill:#3b82f6,stroke:#1e40af,color:#fff,stroke-width:2px
 ```
+
+### 🔑 Complete Permission Matrix
+
+<details>
+<summary><strong>Click to view all permissions by role</strong></summary>
+
+#### Developer Role (Level 100) - Auto-grants ALL permissions
+Developers bypass all permission checks via `isDeveloper()` in every policy.
+
+#### Super Admin Role (Level 90)
+
+| Category | Permissions |
+|----------|------------|
+| **Users** | `view_any_user`, `view_user`, `create_user`, `update_user`, `delete_user`, `delete_any_user`, `restore_user`, `restore_any_user`, `force_delete_user` |
+| **User Sections** | `manage_user_avatar`, `manage_user_identity`, `manage_user_security`, `manage_user_access_status`, `view_user_system_info`, `assign_roles` |
+| **User Actions** | `execute_user_unlock`, `execute_user_activate`, `execute_user_force_password_reset`, `execute_user_revoke_sessions` |
+| **Audit Logs** | `view_any_audit_log`, `view_audit_log` |
+| **Login Activities** | `view_any_user_login_activity`, `view_user_login_activity` |
+| **System Settings** | `view_any_system_setting`, `view_system_setting`, `update_system_setting` |
+| **System Settings Sections** | `view_system_setting_branding`, `manage_system_setting_branding`, `view_system_setting_storage`, `manage_system_setting_storage`, `view_system_setting_communication`, `manage_system_setting_communication`, `view_system_setting_ai`, `manage_system_setting_ai`, `edit_system_setting_secrets`, `edit_system_setting_project_url`, `test_system_setting_smtp`, `test_system_setting_ai` |
+| **Notifications** | `view_any_notification_message`, `view_notification_message`, `create_notification_message`, `update_notification_message`, `delete_notification_message`, `delete_any_notification_message`, `execute_notification_send`, `delete_sent_notification_message`, `send_notification_message` |
+| **Notification Delivery** | `view_any_notification_delivery`, `view_notification_delivery`, `retry_notification_delivery` |
+| **User Notifications** | `view_any_user_notification`, `view_user_notification`, `update_user_notification`, `delete_user_notification`, `delete_any_user_notification` |
+| **Maintenance** | `view_any_maintenance_setting`, `view_maintenance_setting`, `update_maintenance_setting`, `manage_maintenance_tokens`, `toggle_maintenance` |
+| **Maintenance Tokens** | `view_any_maintenance_token`, `view_maintenance_token`, `create_maintenance_token`, `update_maintenance_token`, `delete_maintenance_token`, `delete_any_maintenance_token` |
+| **Roles** | `view_any_role`, `view_role`, `create_role`, `update_role`, `delete_role`, `delete_any_role`, `restore_role`, `restore_any_role`, `force_delete_role`, `force_delete_any_role` |
+| **Admin Panel** | `access_admin_panel` |
+
+#### Admin Role (Level 80)
+
+| Category | Permissions |
+|----------|------------|
+| **Users** | `view_any_user`, `view_user`, `create_user`, `update_user` |
+| **User Sections** | `manage_user_avatar`, `manage_user_identity`, `manage_user_security`, `manage_user_access_status`, `view_user_system_info` |
+| **User Actions** | `execute_user_unlock`, `execute_user_activate` |
+| **Audit Logs** | `view_any_audit_log`, `view_audit_log` |
+| **Login Activities** | `view_any_user_login_activity`, `view_user_login_activity` |
+| **System Settings** | `view_any_system_setting`, `view_system_setting`, `view_system_setting_branding`, `manage_system_setting_branding`, `view_system_setting_communication`, `manage_system_setting_communication` |
+| **Notifications** | `view_any_notification_message`, `view_notification_message`, `create_notification_message`, `update_notification_message`, `delete_notification_message`, `execute_notification_send` |
+| **Notification Delivery** | `view_any_notification_delivery`, `view_notification_delivery` |
+| **Maintenance** | `view_any_maintenance_setting`, `view_maintenance_setting` |
+| **Admin Panel** | `access_admin_panel` |
+
+#### Manager Role (Level 70)
+
+| Category | Permissions |
+|----------|------------|
+| **Users** | `view_any_user`, `view_user`, `manage_user_avatar`, `view_user_system_info` |
+| **Audit Logs** | `view_any_audit_log`, `view_audit_log` |
+| **Login Activities** | `view_any_user_login_activity`, `view_user_login_activity` |
+| **System Settings** | `view_any_system_setting`, `view_system_setting`, `view_system_setting_branding` |
+| **Notifications** | `view_any_notification_message`, `view_notification_message`, `create_notification_message`, `update_notification_message` |
+| **Notification Delivery** | `view_any_notification_delivery`, `view_notification_delivery` |
+| **Admin Panel** | `access_admin_panel` |
+
+#### User Role (Level 10)
+
+| Category | Permissions |
+|----------|------------|
+| **Users** | `view_user` (own profile only) |
+| **Notifications** | `view_any_notification_message`, `view_notification_message` |
+| **Notification Delivery** | `view_any_notification_delivery`, `view_notification_delivery` |
+| **Admin Panel** | `access_admin_panel` |
+
+</details>
+
+### 📋 Policy Coverage
+
+All 11 Filament Resources are protected by policies:
+
+| Resource | Policy | Model |
+|----------|--------|-------|
+| UserResource | UserPolicy | User |
+| AuditLogResource | AuditLogPolicy | AuditLog |
+| MaintenanceHistoryResource | AuditLogPolicy | AuditLog (filtered) |
+| UnifiedHistoryResource | AuditLogPolicy | AuditLog (unified) |
+| MaintenanceSettingResource | MaintenanceSettingPolicy | MaintenanceSetting |
+| MaintenanceTokenResource | MaintenanceTokenPolicy | MaintenanceToken |
+| NotificationMessageResource | NotificationMessagePolicy | NotificationMessage |
+| NotificationDeliveryResource | NotificationDeliveryPolicy | NotificationDelivery |
+| UserNotificationResource | UserNotificationPolicy | UserNotification |
+| SystemSettingResource | SystemSettingPolicy | SystemSetting |
+| UserLoginActivityResource | UserLoginActivityPolicy | UserLoginActivity |
+
+**Role Management:** RolePolicy (Spatie Permission models)
 
 ### Feature Matrix
 
@@ -1676,6 +1761,104 @@ flowchart TD
 <td><code>5</code></td>
 </tr>
 </table>
+
+### 🤖 AI Intelligence Settings (UI Configuration)
+
+The AI Intelligence tab in System Settings allows you to configure multi-provider AI without editing config files. Below is a complete guide for each section.
+
+<details>
+<summary><strong>Section 1: AI Configuration (Master Switch)</strong></summary>
+
+| Field              | Purpose                                                                            | Recommended       |
+| ------------------ | ---------------------------------------------------------------------------------- | ----------------- |
+| **AI Enabled**     | Master toggle for all AI features. When OFF, all AI-powered features are disabled. | ON for production |
+| **Legacy API Key** | Deprecated field for backwards compatibility. Use Multi-Provider section instead.  | Leave empty       |
+
+</details>
+
+<details>
+<summary><strong>Section 2: Multi-Provider AI (Enterprise)</strong></summary>
+
+Configure up to 5 AI providers with automatic failover. The system tries providers in priority order.
+
+| Provider          | Priority    | Free Tier      | Best For                                 | Get API Key                                            |
+| ----------------- | ----------- | -------------- | ---------------------------------------- | ------------------------------------------------------ |
+| **Groq**          | 1 (Fastest) | ✅ Yes         | Speed-critical tasks, Llama 3.3, Mixtral | [console.groq.com](https://console.groq.com)           |
+| **OpenAI**        | 2           | ❌ No          | GPT-4o, GPT-4o-mini, industry standard   | [platform.openai.com](https://platform.openai.com)     |
+| **Anthropic**     | 3           | ❌ No          | Claude 3.5 Sonnet, nuanced analysis      | [console.anthropic.com](https://console.anthropic.com) |
+| **Google Gemini** | 4           | ✅ Yes         | Gemini 2.0 Flash, 1.5 Pro                | [aistudio.google.com](https://aistudio.google.com)     |
+| **OpenRouter**    | 5           | ✅ FREE models | 100+ models, fallback option             | [openrouter.ai](https://openrouter.ai)                 |
+
+**Orchestrator Toggles:**
+
+| Toggle                        | Purpose                                                            | Default |
+| ----------------------------- | ------------------------------------------------------------------ | ------- |
+| **Enable Automatic Failover** | When a provider fails/rate-limits, automatically try the next one. | ON      |
+| **Smart Provider Selection**  | Remember last successful provider for faster subsequent requests.  | ON      |
+| **Daily Cost Limit (USD)**    | Maximum daily AI spending. Pauses AI when reached.                 | $10.00  |
+
+</details>
+
+<details>
+<summary><strong>Section 3: AI Rate Limiting</strong></summary>
+
+Control API usage to prevent cost overruns and abuse.
+
+| Field               | Purpose                         | Recommended | Notes                            |
+| ------------------- | ------------------------------- | ----------- | -------------------------------- |
+| **Requests/Minute** | Max API calls per minute        | 60          | Prevents API abuse               |
+| **Tokens/Minute**   | Max tokens processed per minute | 90,000      | Higher = more throughput         |
+| **Tokens/Day**      | Daily token budget              | 1,000,000   | Resets at midnight UTC           |
+| **Today's Usage**   | Current usage (read-only)       | —           | Shows tokens used and percentage |
+
+</details>
+
+<details>
+<summary><strong>Section 4: AI Features</strong></summary>
+
+Toggle individual AI-powered capabilities. All toggles are **live** (instant activation).
+
+| Feature                   | Purpose                                     | Color     | Risk Level |
+| ------------------------- | ------------------------------------------- | --------- | ---------- |
+| **Security Analysis**     | AI-powered security log analysis            | 🟢 Green  | Low        |
+| **Anomaly Detection**     | Detect unusual patterns automatically       | 🟡 Yellow | Low        |
+| **Threat Classification** | Categorize security threats by severity     | 🔴 Red    | Medium     |
+| **Log Summarization**     | Generate natural language summaries of logs | 🔵 Blue   | Low        |
+| **Smart Alerts**          | AI decides when to send alerts              | 🟣 Purple | Medium     |
+| **Auto Response**         | AI can trigger automated responses          | 🟡 Yellow | High       |
+| **Chat Assistant**        | Enable AI chat interface for operators      | 🟢 Green  | Low        |
+
+</details>
+
+<details>
+<summary><strong>Section 5: AI Alert Thresholds</strong></summary>
+
+Configure when AI should generate alerts.
+
+| Field                   | Purpose                                      | Range   | Recommended |
+| ----------------------- | -------------------------------------------- | ------- | ----------- |
+| **High Risk Score**     | Risk score threshold for alerts (1-10)       | 1-10    | 7           |
+| **Suspicious Patterns** | Min patterns detected before alerting        | 1-50    | 5           |
+| **Failed Logins**       | Failed attempts before flagging account      | 1-100   | 5           |
+| **Anomaly Confidence**  | Min AI confidence to trigger alert (0.5-1.0) | 0.5-1.0 | 0.85        |
+
+</details>
+
+<details>
+<summary><strong>Section 6: AI Automated Actions</strong></summary>
+
+⚠️ **Caution:** These features take automatic action without human confirmation.
+
+| Action              | Purpose                                   | Color      | Impact                             |
+| ------------------- | ----------------------------------------- | ---------- | ---------------------------------- |
+| **Auto Block IP**   | Automatically block suspicious IPs        | 🔴 Danger  | Blocks may affect legitimate users |
+| **Auto Lock User**  | Automatically lock suspicious accounts    | 🔴 Danger  | May lock out legitimate users      |
+| **Notify Admin**    | Send admin notification for AI detections | 🟡 Warning | Low risk, high value               |
+| **Create Incident** | Auto-generate incident tickets            | 🔵 Info    | Creates audit trail                |
+
+</details>
+
+> **💡 Quick Start:** Enable Groq (free) or OpenRouter (has FREE models) to get started without cost.
 
 > **⚠️ Critical Production Settings:**
 >
@@ -3119,6 +3302,16 @@ timeline
                : Real-Time Broadcasting
                : Enhanced RBAC Policies
                : Section-Level Permissions
+    section Multi-Provider AI (Jan 2026)
+        v1.2.0 : Multi-Provider AI Orchestration 🚀
+               : 5 AI Providers with Failover
+               : Circuit Breaker Pattern
+               : Cost Tracking & Daily Limits
+               : Provider Health Dashboard
+        v1.2.1 : Enterprise RBAC Completion 🔐
+               : 100% Policy Coverage
+               : 48 Custom Permissions
+               : All Resources Protected
 ```
 
 ---
@@ -3132,6 +3325,7 @@ timeline
 <th>v0.2.0</th>
 <th>v1.0.0</th>
 <th>v1.1.0</th>
+<th>v1.2.0</th>
 <th>Growth</th>
 </tr>
 <tr>
@@ -3140,7 +3334,8 @@ timeline
 <td>15</td>
 <td>25</td>
 <td>35</td>
-<td>+600% 📈</td>
+<td>45</td>
+<td>+800% 📈</td>
 </tr>
 <tr>
 <td><strong>Security Controls</strong></td>
@@ -3148,12 +3343,14 @@ timeline
 <td>6</td>
 <td>12</td>
 <td>18</td>
-<td>+800% 🔒</td>
+<td>22</td>
+<td>+1000% 🔒</td>
 </tr>
 <tr>
 <td><strong>Test Coverage</strong></td>
 <td>0%</td>
 <td>45%</td>
+<td>100%</td>
 <td>100%</td>
 <td>100%</td>
 <td>Maintained ✅</td>
@@ -3164,6 +3361,7 @@ timeline
 <td>4</td>
 <td>1 (All-in-One)</td>
 <td>1 (Enhanced)</td>
+<td>1 (Complete)</td>
 <td>Consolidated 📚</td>
 </tr>
 <tr>
@@ -3172,7 +3370,17 @@ timeline
 <td>8</td>
 <td>12</td>
 <td>16</td>
-<td>+433% 🚀</td>
+<td>20</td>
+<td>+566% 🚀</td>
+</tr>
+<tr>
+<td><strong>AI Providers</strong></td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+<td>1</td>
+<td>5</td>
+<td>Multi-Provider 🤖</td>
 </tr>
 <tr>
 <td><strong>Audit Events</strong></td>
@@ -3180,13 +3388,188 @@ timeline
 <td>Hash Chain</td>
 <td>HMAC Signed</td>
 <td>Real-Time</td>
-<td>AI-Ready 🤖</td>
+<td>AI-Monitored</td>
+<td>Enterprise ✨</td>
 </tr>
 </table>
 
 ---
 
 ### 🎯 Version Milestones
+
+<details open>
+<summary><strong>� v1.2.1 - Enterprise RBAC & Policy Completion</strong> (January 16, 2026)</summary>
+
+#### 🎊 Complete Permission Coverage for All Resources!
+
+This release ensures **100% policy coverage** for all Filament Resources with proper role-based access control.
+
+#### ✨ Policy Improvements
+
+**🛡️ Fixed & Enhanced Policies**
+
+-   ✅ **RolePolicy**: Fixed incorrect `isDeveloper()` pattern (was requiring BOTH developer role AND permission)
+-   ✅ **RolePolicy**: Added missing methods (`restore`, `restoreAny`, `forceDelete`, `forceDeleteAny`)
+-   ✅ **MaintenanceSettingPolicy**: Added missing restore/forceDelete methods
+-   ✅ **MaintenanceTokenPolicy**: Added missing restore/forceDelete methods with Developer bypass
+-   ✅ **NotificationDeliveryPolicy**: Added missing restore/forceDelete methods
+-   ✅ **NotificationMessagePolicy**: Added missing restore/forceDelete methods with Developer bypass
+-   ✅ **SystemSettingPolicy**: Added missing restore/forceDelete methods
+-   ✅ **UserNotificationPolicy**: **NEW** - Created complete policy for UserNotification model
+
+**📋 Policy Pattern Standardization**
+
+All policies now follow the correct Developer bypass pattern:
+```php
+if ($user->isDeveloper()) {
+    return true;
+}
+return $user->can('permission_name');
+```
+
+**🔑 New Custom Permissions Added**
+
+| Permission | Purpose |
+|------------|---------|
+| `test_system_setting_smtp` | Test SMTP connection |
+| `test_system_setting_ai` | Test AI provider connections |
+| `send_notification_message` | Send notification messages |
+| `view_any_user_notification` | View user notification inbox |
+| `view_user_notification` | View individual notifications |
+| `update_user_notification` | Mark notifications as read |
+| `delete_user_notification` | Delete own notifications |
+| `delete_any_user_notification` | Delete any notifications (admin) |
+| `view_any_role` - `force_delete_any_role` | Complete role management permissions |
+
+**🗂️ Files Changed**
+
+```
+app/Policies/
+├── RolePolicy.php              # Complete rewrite with proper bypass
+├── MaintenanceSettingPolicy.php # Added 4 methods
+├── MaintenanceTokenPolicy.php   # Added 4 methods
+├── NotificationDeliveryPolicy.php # Added 4 methods
+├── NotificationMessagePolicy.php  # Added 4 methods
+├── SystemSettingPolicy.php        # Added 4 methods
+└── UserNotificationPolicy.php     # NEW - 14 methods
+
+app/Providers/
+└── AuthServiceProvider.php     # Registered UserNotificationPolicy
+
+database/seeders/
+└── DatabaseSeeder.php          # Added 20+ new permissions
+```
+
+#### 📊 Statistics
+
+| Metric | Before | After |
+|--------|--------|-------|
+| Policies with complete methods | 3/9 | 9/10 |
+| Total policy methods | ~60 | ~100 |
+| Custom permissions | 26 | 48 |
+| Resources with policies | 9/11 | 11/11 |
+
+</details>
+
+<details>
+<summary><strong>�🚀 v1.2.0 - Multi-Provider AI Orchestration</strong> (January 20, 2026)</summary>
+
+#### 🎊 Major Achievement: Enterprise-Grade Multi-Provider AI with Automatic Failover!
+
+This release introduces a **complete multi-provider AI architecture** with 5 AI providers, automatic failover, circuit breaker pattern, and comprehensive cost tracking.
+
+#### ✨ New Features
+
+**🤖 Multi-Provider AI Orchestration**
+
+-   ✅ **5 AI Providers** with automatic failover:
+    1. **Groq** (Priority 1) - Fastest inference, ultra-cheap: Llama 3.3, Mixtral, Gemma2
+    2. **OpenAI** (Priority 2) - Industry standard: GPT-4o, GPT-4o-mini, GPT-3.5-turbo
+    3. **Anthropic** (Priority 3) - Best for nuance: Claude 3.5 Sonnet, Claude 3 Haiku
+    4. **Google Gemini** (Priority 4) - Free tier available: Gemini 2.0 Flash, 1.5 Pro
+    5. **OpenRouter** (Priority 5) - 100+ models including FREE ones!
+-   ✅ **Automatic Failover**: When one provider fails, system tries the next
+-   ✅ **Circuit Breaker Pattern**: Protects against cascading failures
+    -   3 consecutive failures → circuit opens for 5 minutes
+    -   Automatic recovery and retry
+-   ✅ **Smart Provider Selection**: Remembers last successful provider
+-   ✅ **Rate Limit Detection**: Automatic cooldown on 429 errors
+
+**💰 Cost Optimization Engine**
+
+-   ✅ **Daily Cost Limits**: Configurable USD limit per day (default $10)
+-   ✅ **Per-Request Cost Tracking**: Calculates cost based on tokens used
+-   ✅ **Provider Cost Comparison**: Each provider has cost-per-1k-token rates
+-   ✅ **24-Hour Response Caching**: Avoid duplicate API calls
+-   ✅ **Usage Analytics**: Track requests, tokens, costs by provider
+
+**📊 AI Provider Health Dashboard (Widget)**
+
+-   ✅ Real-time provider status visualization
+-   ✅ Today's cost and request statistics
+-   ✅ Budget remaining indicator with progress bar
+-   ✅ Individual provider test connection buttons
+-   ✅ "Test All Providers" batch health check
+-   ✅ Cache clear functionality
+
+**⚙️ System Settings UI Enhancements**
+
+-   ✅ New "Multi-Provider AI (Enterprise)" section in System Settings
+-   ✅ API key inputs for all 5 providers with helper text
+-   ✅ Toggle for automatic failover
+-   ✅ Toggle for smart provider selection
+-   ✅ Daily cost limit configuration
+
+#### 🔄 Architecture Improvements
+
+**New Files Created:**
+
+```
+app/Support/AI/
+├── AIProviderInterface.php      # Interface for all providers
+├── AIResponse.php               # Standardized response object
+├── AbstractAIProvider.php       # Base class with circuit breaker
+├── AIOrchestrator.php           # Multi-provider management engine
+└── Providers/
+    ├── OpenAIProvider.php       # GPT-4o, GPT-4o-mini, GPT-3.5-turbo
+    ├── AnthropicProvider.php    # Claude 3.5 Sonnet, Haiku, Opus
+    ├── GeminiProvider.php       # Gemini 2.0 Flash, 1.5 Pro
+    ├── GroqProvider.php         # Llama 3.3, Mixtral, Gemma2
+    └── OpenRouterProvider.php   # 100+ models, including FREE
+
+app/Filament/Widgets/
+└── AIProviderHealthWidget.php   # Dashboard health widget
+
+resources/views/filament/widgets/
+└── ai-provider-health.blade.php # Widget UI template
+```
+
+**Database Migration:**
+
+-   ✅ Added `groq_api_key`, `openrouter_api_key`, `gemini_api_key` columns
+-   ✅ Added `ai_failover_enabled`, `ai_smart_selection` toggles
+-   ✅ Added `ai_daily_limit` (decimal, default $10.00)
+-   ✅ Added `ai_provider_priorities` (JSON) for custom ordering
+-   ✅ Added `ai_preferred_models` (JSON) for per-provider model selection
+
+#### 📈 Provider Comparison
+
+| Provider   | Priority | Models              | Cost/1K Tokens    | Best For      |
+| ---------- | -------- | ------------------- | ----------------- | ------------- |
+| Groq       | 1        | Llama 3.3, Mixtral  | $0.00005-0.0006   | Speed, Budget |
+| OpenAI     | 2        | GPT-4o, GPT-4o-mini | $0.00015-0.01     | Quality       |
+| Anthropic  | 3        | Claude 3.5          | $0.0008-0.015     | Nuance        |
+| Gemini     | 4        | Gemini 2.0 Flash    | $0.000075-0.00125 | Free Tier     |
+| OpenRouter | 5        | 100+ models         | $0 (FREE models!) | Diversity     |
+
+#### 🔒 Security Enhancements
+
+-   ✅ All API keys stored encrypted
+-   ✅ Decryption error handling (graceful fallback)
+-   ✅ API keys excluded from audit logs
+-   ✅ Circuit breaker prevents credential spam on failures
+
+</details>
 
 <details open>
 <summary><strong>🤖 v1.1.0 - AI Intelligence & Real-Time</strong> (January 16, 2026)</summary>

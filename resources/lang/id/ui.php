@@ -147,8 +147,8 @@ return [
                 'description' => 'Atur mode, jadwal, dan akses maintenance secara terpusat.',
             ],
             'actions' => [
-                'auto_fill' => 'Isi Otomatis',
-                'auto_fill_tooltip' => 'Isi otomatis berdasarkan mode akses',
+                'auto_fill' => 'AI Generate',
+                'auto_fill_tooltip' => 'Buat konten profesional dengan AI berdasarkan mode akses',
                 'create_token' => 'Buat Token',
                 'revoke_token' => 'Cabut Token',
                 'delete_token' => 'Hapus Token',
@@ -219,6 +219,13 @@ return [
             'notifications' => [
                 'token_not_found' => 'Token tidak ditemukan',
                 'token_deleted' => 'Token dihapus',
+                'ai_generated' => 'Konten AI Berhasil Dibuat',
+                'ai_generated_body' => 'Konten maintenance profesional telah dibuat oleh AI.',
+                'ai_fallback' => 'AI Tidak Tersedia',
+                'ai_fallback_body' => 'Layanan AI tidak tersedia. Menggunakan konten template.',
+                'template_used' => 'Template Diterapkan',
+                'template_used_body' => 'Menggunakan template bawaan untuk pesan maintenance.',
+                'daily_usage' => 'kuota harian terpakai',
             ],
         ],
         'actions' => [
