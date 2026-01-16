@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Support\AuditLogWriter;
+use App\Support\SecurityService;
 use Closure;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
@@ -37,7 +38,7 @@ class EnsureUserHasRole
             return $next($request);
         }
 
-        $requestId = $request->headers->get('X-Request-Id') ?: (string) Str::uuid();
+        $requestId = SecurityService::requestId($request);
         $sessionId = $request->hasSession() ? $request->session()->getId() : null;
 
         AuditLogWriter::writeLoginActivity([
@@ -73,7 +74,7 @@ class EnsureUserHasRole
 
     private function logBypassed(Request $request, mixed $user, string $requiredPermission): void
     {
-        $requestId = $request->headers->get('X-Request-Id') ?: (string) Str::uuid();
+        $requestId = SecurityService::requestId($request);
         $sessionId = $request->hasSession() ? $request->session()->getId() : null;
 
         AuditLogWriter::writeLoginActivity([

@@ -7,6 +7,7 @@ use App\Models\Concerns\Auditable;
 use App\Notifications\QueuedResetPassword;
 use App\Notifications\QueuedVerifyEmail;
 use App\Support\AuditLogWriter;
+use App\Support\SecurityService;
 use App\Support\SystemSettings;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasAvatar;
@@ -120,11 +121,11 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
     {
         static::creating(function (self $user): void {
             if (empty($user->uuid)) {
-                $user->uuid = (string) Str::uuid();
+                $user->uuid = SecurityService::uuid();
             }
 
             if (empty($user->security_stamp)) {
-                $user->security_stamp = Str::random(64);
+                $user->security_stamp = strtoupper(Str::random(64));
             }
         });
 
@@ -582,7 +583,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
         }
 
         $request = request();
-        $requestId = $request->headers->get('X-Request-Id') ?: (string) Str::uuid();
+        $requestId = SecurityService::requestId($request);
         $sessionId = $request->hasSession() ? $request->session()->getId() : null;
 
         AuditLogWriter::writeLoginActivity([
@@ -611,7 +612,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
         }
 
         $request = request();
-        $requestId = $request->headers->get('X-Request-Id') ?: (string) Str::uuid();
+        $requestId = SecurityService::requestId($request);
         $sessionId = $request->hasSession() ? $request->session()->getId() : null;
 
         AuditLogWriter::writeLoginActivity([

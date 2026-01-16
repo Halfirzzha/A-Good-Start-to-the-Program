@@ -22,6 +22,7 @@ use App\Policies\UserLoginActivityPolicy;
 use App\Policies\UserNotificationPolicy;
 use App\Policies\UserPolicy;
 use App\Support\AuditLogWriter;
+use App\Support\SecurityService;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Model;
@@ -60,7 +61,7 @@ class AuthServiceProvider extends ServiceProvider
             }
 
             $request = request();
-            $requestId = $request?->headers->get('X-Request-Id') ?: (string) Str::uuid();
+            $requestId = SecurityService::requestId($request);
             $sessionId = $request?->hasSession() ? $request->session()->getId() : null;
 
             [$auditableType, $auditableId, $normalizedArgs] = $this->normalizeGateArguments($arguments);

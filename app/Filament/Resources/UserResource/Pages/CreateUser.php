@@ -8,6 +8,7 @@ use App\Notifications\UserInvitationNotification;
 use App\Support\AuditLogWriter;
 use App\Support\AuthHelper;
 use App\Support\SecurityAlert;
+use App\Support\SecurityService;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Support\Str;
 
@@ -164,7 +165,7 @@ class CreateUser extends CreateRecord
         }
 
         $request = request();
-        $requestId = $request?->headers->get('X-Request-Id') ?: (string) Str::uuid();
+        $requestId = SecurityService::requestId($request);
         $sessionId = $request?->hasSession() ? $request->session()->getId() : null;
 
         AuditLogWriter::writeAudit([

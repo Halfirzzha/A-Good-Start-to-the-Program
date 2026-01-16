@@ -4,6 +4,7 @@ namespace App\Listeners;
 
 use App\Support\AuditLogWriter;
 use App\Support\SecurityAlert;
+use App\Support\SecurityService;
 use Illuminate\Auth\Events\Failed;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Lockout;
@@ -69,7 +70,7 @@ class RecordAuthActivity
 
         if ($user instanceof Authenticatable && blank($user->security_stamp) && method_exists($user, 'forceFill')) {
             $user->forceFill([
-                'security_stamp' => Str::random(64),
+                'security_stamp' => strtoupper(Str::random(64)),
             ])->save();
         }
 
@@ -231,7 +232,7 @@ class RecordAuthActivity
      */
     private function writeActivity(?int $userId, string $event, Request $request, array $context): void
     {
-        $requestId = $request->headers->get('X-Request-Id') ?: (string) Str::uuid();
+        $requestId = SecurityService::requestId($request);
         $sessionId = $request->hasSession() ? $request->session()->getId() : null;
 
         AuditLogWriter::writeLoginActivity([

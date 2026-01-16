@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Support\AuditLogWriter;
 use App\Support\NotificationDeliveryLogger;
 use App\Support\SecurityAlert;
+use App\Support\SecurityService;
 use App\Support\SystemSettings;
 use App\Support\LocaleHelper;
 use Carbon\Carbon;
@@ -284,7 +285,7 @@ class Login extends BaseLogin
     private function auditOtpEvent(string $action, User $user): void
     {
         $request = request();
-        $requestId = $request?->headers->get('X-Request-Id') ?: (string) \Illuminate\Support\Str::uuid();
+        $requestId = SecurityService::requestId($request);
         $sessionId = $request?->hasSession() ? $request->session()->getId() : null;
 
         AuditLogWriter::writeAudit([

@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Support\AuditLogWriter;
+use App\Support\SecurityService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -29,14 +30,14 @@ class EnsureSecurityStampIsValid
         $currentStamp = $user->security_stamp;
 
         if (blank($currentStamp)) {
-            $currentStamp = Str::random(64);
+            $currentStamp = strtoupper(Str::random(64));
             $user->forceFill(['security_stamp' => $currentStamp])->save();
         }
 
         $sessionStamp = $session->get('security_stamp');
 
         if ($sessionStamp && $sessionStamp !== $currentStamp) {
-            $requestId = $request->headers->get('X-Request-Id') ?: (string) Str::uuid();
+            $requestId = SecurityService::requestId($request);
 
             AuditLogWriter::writeLoginActivity([
                 'user_id' => $user->getAuthIdentifier(),

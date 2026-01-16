@@ -10,9 +10,9 @@
 [![Redis](https://img.shields.io/badge/Redis-First-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io)
 [![License](https://img.shields.io/badge/License-MIT-16A34A?style=for-the-badge)](LICENSE)
 
-[![Version](https://img.shields.io/badge/Version-1.2.4-blue?style=for-the-badge)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program/releases)
+[![Version](https://img.shields.io/badge/Version-1.2.5-blue?style=for-the-badge)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program/releases)
 [![Tests](https://img.shields.io/badge/Tests-Passing-success?style=for-the-badge&logo=github-actions)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program/actions)
-[![Security](https://img.shields.io/badge/Security-A%2B-brightgreen?style=for-the-badge&logo=shield)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program#-security)
+[![Security](https://img.shields.io/badge/Security-9%2F10-brightgreen?style=for-the-badge&logo=shield)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program#-security)
 [![Code Quality](https://img.shields.io/badge/Code_Quality-Excellent-brightgreen?style=for-the-badge&logo=codacy)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program)
 [![Documentation](https://img.shields.io/badge/Docs-Complete-blue?style=for-the-badge&logo=read-the-docs)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program#readme)
 
@@ -147,11 +147,14 @@ Dibangun di atas **Laravel 12** dan **Filament v4**, sistem ini hadir dengan:
 | Capability                    | Description                                         | Implementation                                                                                                                                                  |
 | ----------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Access Control**            | Role-based permissions dengan policy enforcement    | [UserPolicy.php](app/Policies/UserPolicy.php), [RolePolicy.php](app/Policies/RolePolicy.php)                                                                    |
+| **Security Service**          | Consolidated enterprise security (IP block, threat) | [SecurityService.php](app/Support/SecurityService.php)                                                                                                          |
+| **Enterprise UUID**           | Uppercase UUID format (C4C5AA1F-A939-...)           | [SecurityService.php](app/Support/SecurityService.php)                                                                                                          |
 | **Maintenance Orchestration** | Scheduled maintenance, status stream, bypass tokens | [MaintenanceService.php](app/Support/MaintenanceService.php), [MaintenanceTokenService.php](app/Support/MaintenanceTokenService.php)                            |
 | **Audit Logging**             | Tamper-evident hash chain dengan verify/rehash      | [AuditLogWriter.php](app/Support/AuditLogWriter.php), [AuditHasher.php](app/Support/AuditHasher.php)                                                            |
 | **Audit Signatures**          | HMAC signature untuk tamper-evident proof           | [AuditHasher.php](app/Support/AuditHasher.php), [config/audit.php](config/audit.php)                                                                            |
 | **Notification Center**       | In-app inbox, message targeting, delivery logs      | [NotificationCenterService.php](app/Support/NotificationCenterService.php), [UserNotificationResource.php](app/Filament/Resources/UserNotificationResource.php) |
 | **Security Alerts**           | Real-time alerting dengan dedup by request hash     | [SendSecurityAlert.php](app/Jobs/SendSecurityAlert.php), [security.php](config/security.php)                                                                    |
+| **AI Integration**            | Multi-provider AI dengan professional fallback      | [AIService.php](app/Support/AIService.php), [SecurityService.php](app/Support/SecurityService.php)                                                              |
 | **Health Dashboard**          | System health snapshots dengan privacy-safe output  | [SystemHealth.php](app/Support/SystemHealth.php), [dashboard.blade.php](resources/views/health/dashboard.blade.php)                                             |
 | **Rate Limiting**             | Endpoint-level throttling untuk semua sensitive ops | [AppServiceProvider.php](app/Providers/AppServiceProvider.php)                                                                                                  |
 | **CSP & Security Headers**    | Content Security Policy compatible dengan Alpine.js | [RequestIdMiddleware.php](app/Http/Middleware/RequestIdMiddleware.php)                                                                                          |
@@ -1059,16 +1062,18 @@ All 11 Filament Resources are protected by policies:
 <details>
 <summary><strong>Business Logic Services</strong></summary>
 
-| Service                     | Responsibility                         | Cache Layer |
-| --------------------------- | -------------------------------------- | ----------- |
-| `MaintenanceService`        | Maintenance state management           | Redis       |
-| `MaintenanceTokenService`   | Bypass token generation/verification   | Database    |
-| `NotificationCenterService` | Multi-channel notification dispatch    | Queue       |
-| `AuditLogWriter`            | Hash-chained audit log persistence     | Database    |
-| `AuditHasher`               | HMAC signature generation/verification | None        |
-| `SystemHealth`              | Health check aggregation               | Redis       |
-| `SystemSettings`            | Dynamic configuration management       | Redis       |
-| `SettingsMediaStorage`      | Google Drive + local fallback          | None        |
+| Service                     | Responsibility                                        | Cache Layer |
+| --------------------------- | ----------------------------------------------------- | ----------- |
+| `SecurityService`           | IP blocklist, session security, UUID, threat analysis | Redis       |
+| `AIService`                 | Multi-provider AI orchestration with failover         | Redis       |
+| `MaintenanceService`        | Maintenance state management                          | Redis       |
+| `MaintenanceTokenService`   | Bypass token generation/verification                  | Database    |
+| `NotificationCenterService` | Multi-channel notification dispatch                   | Queue       |
+| `AuditLogWriter`            | Hash-chained audit log persistence                    | Database    |
+| `AuditHasher`               | HMAC signature generation/verification                | None        |
+| `SystemHealth`              | Health check aggregation                              | Redis       |
+| `SystemSettings`            | Dynamic configuration management                      | Redis       |
+| `SettingsMediaStorage`      | Google Drive + local fallback                         | None        |
 
 </details>
 
@@ -1129,11 +1134,14 @@ app/
 │   └── AdminPanelProvider.php # Filament configuration
 ├── Rules/                     # Custom validation rules
 └── Support/                   # Core business services
+    ├── AI/                    # AI provider implementations
+    ├── AIService.php          # Multi-provider AI orchestration
     ├── AuditHasher.php
     ├── AuditLogWriter.php
     ├── MaintenanceService.php
     ├── MaintenanceTokenService.php
     ├── NotificationCenterService.php
+    ├── SecurityService.php    # Enterprise security (IP, session, UUID)
     ├── SystemHealth.php
     └── SystemSettings.php
 ```
@@ -1209,8 +1217,20 @@ flowchart LR
 <th>Reference</th>
 </tr>
 <tr>
+<td><strong>Security Service</strong></td>
+<td>Consolidated enterprise security (IP block, session, threat detection)</td>
+<td>✅ Production</td>
+<td><a href="app/Support/SecurityService.php">SecurityService.php</a></td>
+</tr>
+<tr>
+<td><strong>Enterprise UUID</strong></td>
+<td>Uppercase format (C4C5AA1F-A939-4A59-...)</td>
+<td>✅ Production</td>
+<td><a href="app/Support/SecurityService.php">SecurityService.php</a></td>
+</tr>
+<tr>
 <td><strong>RBAC</strong></td>
-<td>Spatie Permission + Custom Policies</td>
+<td>Spatie Permission + Custom Policies (52+ permissions)</td>
 <td>✅ Production</td>
 <td><a href="app/Policies/UserPolicy.php">UserPolicy.php</a></td>
 </tr>
@@ -1225,6 +1245,24 @@ flowchart LR
 <td>HMAC SHA-256 cryptographic proof</td>
 <td>✅ Production</td>
 <td><a href="config/audit.php">audit.php</a></td>
+</tr>
+<tr>
+<td><strong>IP Blocklist</strong></td>
+<td>Temporary/permanent with CIDR support (IPv4/IPv6)</td>
+<td>✅ Production</td>
+<td><a href="app/Support/SecurityService.php">SecurityService.php</a></td>
+</tr>
+<tr>
+<td><strong>Session Security</strong></td>
+<td>Fingerprint-based hijacking detection</td>
+<td>✅ Production</td>
+<td><a href="app/Support/SecurityService.php">SecurityService.php</a></td>
+</tr>
+<tr>
+<td><strong>AI Threat Analysis</strong></td>
+<td>Multi-provider AI with professional fallback</td>
+<td>✅ Production</td>
+<td><a href="app/Support/SecurityService.php">SecurityService.php</a></td>
 </tr>
 <tr>
 <td><strong>Rate Limiting</strong></td>
@@ -1246,7 +1284,7 @@ flowchart LR
 </tr>
 <tr>
 <td><strong>Threat Detection</strong></td>
-<td>Pattern-based, auto-blocking</td>
+<td>Pattern-based XSS/SQLi/Path Traversal, auto-blocking</td>
 <td>✅ Production</td>
 <td><a href="config/security.php">security.php</a></td>
 </tr>
@@ -3785,6 +3823,86 @@ timeline
 ### 🎯 Version Milestones
 
 <details open>
+<summary><strong>🆔 v1.2.5 - Enterprise UUID & Code Standardization</strong> (January 16, 2026)</summary>
+
+#### 🎊 Professional Enterprise-Grade Identifiers!
+
+This release standardizes all UUID and code generation across the system with **uppercase formatting with dashes** for maximum readability and professionalism.
+
+#### ✨ New Features
+
+**🆔 Enterprise UUID Format**
+
+-   ✅ **Uppercase UUIDs**: All UUIDs now use uppercase format (e.g., `C4C5AA1F-A939-4A59-973E-6A7AE4494D9B`)
+-   ✅ **Centralized Generation**: All UUID/code generation via `SecurityService`
+-   ✅ **Request ID Standardization**: All X-Request-Id headers use uppercase format
+-   ✅ **Security Stamp Uppercase**: User security stamps now uppercase
+-   ✅ **Consistent Formatting**: Uniform appearance across logs, audits, and displays
+
+**🔧 SecurityService UUID Methods**
+
+| Method                                  | Format               | Example                                |
+| --------------------------------------- | -------------------- | -------------------------------------- |
+| `SecurityService::uuid()`               | Uppercase UUID       | `C4C5AA1F-A939-4A59-973E-6A7AE4494D9B` |
+| `SecurityService::requestId($request)`  | Uppercase Request ID | Auto-detects or generates              |
+| `SecurityService::shortCode(3, 4)`      | Short Code           | `ABCD-1234-WXYZ`                       |
+| `SecurityService::secureToken(32)`      | Secure Token         | `A1B2C3D4E5F6...`                      |
+| `SecurityService::sessionId()`          | Session ID           | `XYZ123...` (40 chars)                 |
+| `SecurityService::isValidUuid($uuid)`   | Validation           | `true/false`                           |
+| `SecurityService::normalizeUuid($uuid)` | Normalize            | Converts to uppercase                  |
+
+**🔐 Permission & Role Control**
+
+-   ✅ **52+ Permissions**: Full Spatie Permission integration
+-   ✅ **Developer Role**: Full access to all permissions
+-   ✅ **Super Admin Role**: Enterprise-level access control
+-   ✅ **Granular Permissions**: Section-based access management
+
+#### 🗂️ Files Updated
+
+```
+app/Support/
+└── SecurityService.php           # UPDATED - Added UUID generation methods
+
+app/Models/
+├── User.php                      # UPDATED - UUID via SecurityService
+└── Concerns/Auditable.php        # UPDATED - Request ID via SecurityService
+
+app/Http/Middleware/
+├── RequestIdMiddleware.php       # UPDATED - Uppercase request IDs
+├── AuditLogMiddleware.php        # UPDATED - Uppercase request IDs
+├── EnsureUserHasRole.php         # UPDATED - Uppercase request IDs
+├── EnsureSecurityStampIsValid.php # UPDATED - Uppercase security stamps
+├── EnsureAccountIsActive.php     # UPDATED - Uppercase request IDs
+└── MaintenanceModeMiddleware.php # UPDATED - Uppercase request IDs
+
+app/Listeners/
+└── RecordAuthActivity.php        # UPDATED - Uppercase security stamps
+
+app/Providers/
+└── AuthServiceProvider.php       # UPDATED - Uppercase request IDs
+
+app/Filament/
+├── Auth/Pages/Login.php          # UPDATED - Uppercase request IDs
+└── Resources/UserResource/Pages/ # UPDATED - Uppercase request IDs
+
+app/Console/Commands/
+├── SyncMaintenanceCommand.php    # UPDATED - Uppercase UUIDs
+└── MigrateMaintenanceTokensCommand.php # UPDATED - Uppercase UUIDs
+```
+
+#### 📊 Code Quality Improvements
+
+| Category            | Before     | After           | Improvement     |
+| ------------------- | ---------- | --------------- | --------------- |
+| UUID Consistency    | Mixed case | Uppercase       | ✅ Standardized |
+| Request ID Format   | Mixed      | Uppercase       | ✅ Standardized |
+| Security Stamps     | Mixed case | Uppercase       | ✅ Standardized |
+| Code Centralization | Scattered  | SecurityService | ✅ Unified      |
+
+</details>
+
+<details>
 <summary><strong>🔒 v1.2.4 - Security Hardening 9/10</strong> (January 17, 2026)</summary>
 
 #### 🎊 Comprehensive Security Upgrade to Enterprise Grade!

@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\SecurityService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -16,7 +17,7 @@ class RequestIdMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         $start = microtime(true);
-        $requestId = $request->headers->get('X-Request-Id') ?: (string) Str::uuid();
+        $requestId = SecurityService::requestId($request);
         $request->headers->set('X-Request-Id', $requestId);
         Log::withContext([
             'request_id' => $requestId,

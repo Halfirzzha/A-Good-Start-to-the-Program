@@ -988,4 +988,112 @@ PROMPT;
             return Cache::store('file');
         }
     }
+
+    // =========================================================================
+    // UUID Generation (Enterprise Format)
+    // =========================================================================
+
+    /**
+     * Generate a professional UUID in uppercase format with dashes
+     *
+     * Format: C4C5AA1F-A939-4A59-973E-6A7AE4494D9B
+     *
+     * @return string UUID in uppercase format
+     */
+    public static function uuid(): string
+    {
+        return strtoupper((string) Str::uuid());
+    }
+
+    /**
+     * Generate a request ID in uppercase UUID format
+     *
+     * @param \Illuminate\Http\Request|null $request
+     * @return string Request ID in uppercase format
+     */
+    public static function requestId(?\Illuminate\Http\Request $request = null): string
+    {
+        $existing = $request?->headers->get('X-Request-Id');
+
+        if ($existing && self::isValidUuid($existing)) {
+            return strtoupper($existing);
+        }
+
+        return self::uuid();
+    }
+
+    /**
+     * Generate a short unique code in uppercase
+     *
+     * Format: XXXX-XXXX-XXXX (12 chars)
+     *
+     * @param int $segments Number of segments (default: 3)
+     * @param int $length Length of each segment (default: 4)
+     * @return string Short code in uppercase
+     */
+    public static function shortCode(int $segments = 3, int $length = 4): string
+    {
+        $chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        $parts = [];
+
+        for ($i = 0; $i < $segments; $i++) {
+            $segment = '';
+            for ($j = 0; $j < $length; $j++) {
+                $segment .= $chars[random_int(0, strlen($chars) - 1)];
+            }
+            $parts[] = $segment;
+        }
+
+        return implode('-', $parts);
+    }
+
+    /**
+     * Validate UUID format
+     *
+     * @param string $uuid
+     * @return bool
+     */
+    public static function isValidUuid(string $uuid): bool
+    {
+        return (bool) preg_match(
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i',
+            $uuid
+        );
+    }
+
+    /**
+     * Normalize UUID to uppercase format
+     *
+     * @param string $uuid
+     * @return string
+     */
+    public static function normalizeUuid(string $uuid): string
+    {
+        if (!self::isValidUuid($uuid)) {
+            return $uuid;
+        }
+
+        return strtoupper($uuid);
+    }
+
+    /**
+     * Generate a secure token in uppercase
+     *
+     * @param int $length
+     * @return string
+     */
+    public static function secureToken(int $length = 32): string
+    {
+        return strtoupper(bin2hex(random_bytes($length / 2)));
+    }
+
+    /**
+     * Generate session ID in uppercase
+     *
+     * @return string
+     */
+    public static function sessionId(): string
+    {
+        return strtoupper(Str::random(40));
+    }
 }

@@ -6,6 +6,7 @@ use App\Enums\AccountStatus;
 use App\Support\AuditLogWriter;
 use App\Support\NotificationDeliveryLogger;
 use App\Support\SecurityAlert;
+use App\Support\SecurityService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -190,7 +191,7 @@ class EnsureAccountIsActive
 
     private function auditPasswordReset(Request $request, mixed $user, string $action): void
     {
-        $requestId = $request->headers->get('X-Request-Id') ?: (string) Str::uuid();
+        $requestId = SecurityService::requestId($request);
         $sessionId = $request->hasSession() ? $request->session()->getId() : null;
 
         AuditLogWriter::writeAudit([
@@ -218,7 +219,7 @@ class EnsureAccountIsActive
 
     private function logDenied(Request $request, mixed $user, string $reason, array $reasons = []): void
     {
-        $requestId = $request->headers->get('X-Request-Id') ?: (string) Str::uuid();
+        $requestId = SecurityService::requestId($request);
         $sessionId = $request->hasSession() ? $request->session()->getId() : null;
 
         AuditLogWriter::writeLoginActivity([
@@ -242,7 +243,7 @@ class EnsureAccountIsActive
 
     private function logBypassed(Request $request, mixed $user, array $reasons): void
     {
-        $requestId = $request->headers->get('X-Request-Id') ?: (string) Str::uuid();
+        $requestId = SecurityService::requestId($request);
         $sessionId = $request->hasSession() ? $request->session()->getId() : null;
 
         AuditLogWriter::writeLoginActivity([

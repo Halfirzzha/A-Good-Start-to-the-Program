@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\MaintenanceToken;
 use App\Models\SystemSetting;
 use App\Support\AuditLogWriter;
+use App\Support\SecurityService;
 use App\Support\SystemSettings;
 use Illuminate\Console\Command;
 use Illuminate\Support\Arr;
@@ -59,7 +60,7 @@ class MigrateMaintenanceTokensCommand extends Command
                 'route' => null,
                 'method' => null,
                 'status_code' => null,
-                'request_id' => (string) Str::uuid(),
+                'request_id' => SecurityService::uuid(),
                 'session_id' => null,
                 'duration_ms' => null,
                 'context' => [

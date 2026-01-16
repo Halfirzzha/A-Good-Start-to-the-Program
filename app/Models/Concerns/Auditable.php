@@ -3,6 +3,7 @@
 namespace App\Models\Concerns;
 
 use App\Support\AuditLogWriter;
+use App\Support\SecurityService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Arr;
@@ -53,7 +54,7 @@ trait Auditable
         }
 
         $request = request();
-        $requestId = $request?->headers->get('X-Request-Id') ?: (string) Str::uuid();
+        $requestId = SecurityService::requestId($request);
         $sessionId = $request?->hasSession() ? $request->session()->getId() : null;
 
         AuditLogWriter::writeAudit([

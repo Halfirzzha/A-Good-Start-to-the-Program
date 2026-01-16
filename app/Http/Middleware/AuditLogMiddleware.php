@@ -25,7 +25,7 @@ class AuditLogMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         $start = microtime(true);
-        $requestId = $request->headers->get('X-Request-Id') ?: (string) Str::uuid();
+        $requestId = SecurityService::requestId($request);
         $sessionId = $request->hasSession() ? $request->session()->getId() : null;
         $user = $request->user();
 

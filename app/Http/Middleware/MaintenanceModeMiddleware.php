@@ -6,6 +6,7 @@ use App\Support\AuditLogWriter;
 use App\Support\MaintenanceService;
 use App\Support\MaintenanceTokenService;
 use App\Support\SecurityAlert;
+use App\Support\SecurityService;
 use Carbon\Carbon;
 use Closure;
 use Illuminate\Http\Request;
@@ -218,7 +219,7 @@ class MaintenanceModeMiddleware
      */
     private function logMaintenanceBlocked(Request $request, array $maintenance): void
     {
-        $requestId = $request->headers->get('X-Request-Id') ?: (string) Str::uuid();
+        $requestId = SecurityService::requestId($request);
         $sessionId = $request->hasSession() ? $request->session()->getId() : null;
 
         AuditLogWriter::writeAudit([
@@ -256,7 +257,7 @@ class MaintenanceModeMiddleware
             $request->session()->put($key, true);
         }
 
-        $requestId = $request->headers->get('X-Request-Id') ?: (string) Str::uuid();
+        $requestId = SecurityService::requestId($request);
         $sessionId = $request->hasSession() ? $request->session()->getId() : null;
 
         $action = $granted ? 'maintenance_bypass_granted' : 'maintenance_bypass_denied';

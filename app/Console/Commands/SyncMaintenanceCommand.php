@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Support\AuditLogWriter;
 use App\Support\MaintenanceService;
+use App\Support\SecurityService;
 use App\Models\MaintenanceSetting;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
@@ -66,7 +67,7 @@ class SyncMaintenanceCommand extends Command
             'route' => null,
             'method' => null,
             'status_code' => null,
-            'request_id' => (string) Str::uuid(),
+            'request_id' => SecurityService::uuid(),
             'session_id' => null,
             'duration_ms' => null,
             'context' => [
