@@ -329,6 +329,11 @@ class AuditLogMiddleware
 
     private function shouldIgnoreThreats(Request $request): bool
     {
+        // Always ignore Livewire requests - they generate many AJAX calls
+        if ($request->is('livewire/*') || $request->is('livewire/update')) {
+            return true;
+        }
+
         $ignore = config('audit.ignore_paths', []);
         return ! empty($ignore) && $request->is($ignore);
     }

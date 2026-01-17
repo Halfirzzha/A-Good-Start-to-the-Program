@@ -41,7 +41,7 @@ return [
         'cache_store' => env('SECURITY_THREAT_CACHE_STORE', 'rate_limit'),
         'risk_threshold' => (int) env('SECURITY_RISK_THRESHOLD', 8),
         'risk_decay_minutes' => (int) env('SECURITY_RISK_DECAY_MINUTES', 30),
-        'burst_requests' => (int) env('SECURITY_BURST_REQUESTS', 90),
+        'burst_requests' => (int) env('SECURITY_BURST_REQUESTS', 300),
         'burst_window_seconds' => (int) env('SECURITY_BURST_WINDOW_SECONDS', 60),
         'admin_path_bonus' => (int) env('SECURITY_ADMIN_PATH_BONUS', 3),
         'auth_path_bonus' => (int) env('SECURITY_AUTH_PATH_BONUS', 3),
