@@ -2,7 +2,9 @@
 
 # 🌳 Creative Trees
 
-### Enterprise-Grade Admin Governance & Audit System
+### Sistem Admin Enterprise-Grade dengan Audit Logging & AI Intelligence
+
+_The most complete Laravel admin starter kit for universities, enterprises, and organizations requiring compliance-ready governance._
 
 [![Laravel](https://img.shields.io/badge/Laravel-12.x-FF2D20?style=for-the-badge&logo=laravel&logoColor=white)](https://laravel.com)
 [![Filament](https://img.shields.io/badge/Filament-4.x-FDAE4B?style=for-the-badge&logo=laravel&logoColor=white)](https://filamentphp.com)
@@ -11,22 +13,22 @@
 [![License](https://img.shields.io/badge/License-MIT-16A34A?style=for-the-badge)](LICENSE)
 
 [![Version](https://img.shields.io/badge/Version-1.2.6-blue?style=for-the-badge)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program/releases)
-[![Tests](https://img.shields.io/badge/Tests-Passing-success?style=for-the-badge&logo=github-actions)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program/actions)
+[![Tests](https://img.shields.io/badge/Tests-15_Passing-success?style=for-the-badge&logo=github-actions)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program/actions)
 [![Security](https://img.shields.io/badge/Security-9%2F10-brightgreen?style=for-the-badge&logo=shield)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program#-security)
-[![Code Quality](https://img.shields.io/badge/Code_Quality-Excellent-brightgreen?style=for-the-badge&logo=codacy)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program)
+[![AI Providers](https://img.shields.io/badge/AI_Providers-9-blueviolet?style=for-the-badge&logo=openai)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program#-ai-intelligence-settings-ui-configuration)
 [![Documentation](https://img.shields.io/badge/Docs-Complete-blue?style=for-the-badge&logo=read-the-docs)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program#readme)
 
-**Production-ready admin system with tamper-evident audit logging, maintenance orchestration, and enterprise security controls.**
+**Production-ready admin system with tamper-evident audit logging, 9-provider AI orchestration, maintenance mode with bypass tokens, and enterprise security controls.**
 
 ```
-🎯 Zero to Production in 10 Minutes  |  🔒 Enterprise Security Built-in  |  📊 Full Audit Trail
+🎯 Zero to Production in 10 Minutes  |  🔒 9/10 Security Score  |  🤖 9 AI Providers  |  📊 Tamper-Evident Audit Trail
 ```
 
 ---
 
 ### 📑 Quick Navigation
 
-[🎯 Overview](#-executive-summary) · [⚡ Quick Start](#-quick-start) · [🏗️ Architecture](#-architecture) · [🔒 Security](#-security) · [⚙️ Config](#-configuration-reference) · [📚 Operations](#-operations) · [🗺️ Roadmap](#-roadmap) · [❓ FAQ](#-faq) · [📝 Changelog](#-changelog)
+[🎯 Overview](#-executive-summary) · [⚡ Installation](#-installation-guides) · [🏗️ Architecture](#-architecture) · [🔒 Security](#-security) · [🤖 AI](#-ai-intelligence-settings-ui-configuration) · [⚙️ Config](#-configuration-reference) · [📚 Operations](#-operations) · [🗺️ Roadmap](#-roadmap) · [❓ FAQ](#-faq)
 
 </div>
 
@@ -35,80 +37,96 @@
 ## 📋 Table of Contents
 
 <details open>
-<summary><strong>Click to expand/collapse navigation</strong></summary>
+<summary><strong>📚 Click to expand/collapse full navigation</strong></summary>
 
-### Core Documentation
+### 🚀 Getting Started
 
--   [🎯 Executive Summary](#-executive-summary)
--   [⚡ Quick Start](#-quick-start)
-    -   [Prerequisites](#prerequisites)
-    -   [Installation](#installation-steps)
-    -   [Production Deployment](#production-deployment)
--   [💡 Key Capabilities](#-key-capabilities)
--   [👥 Who Should Use This](#-who-should-use-this)
--   [📊 Comparison](#-comparison-with-alternatives)
+- [🎯 Executive Summary](#-executive-summary)
+- [💡 Key Capabilities](#-key-capabilities)
+- [👥 Who Should Use This](#-who-should-use-this)
+- [📊 Comparison with Alternatives](#-comparison-with-alternatives)
+- [📋 Prerequisites](#-prerequisites)
 
-### Architecture & Design
+### 📦 Installation Guides (DETAILED)
 
--   [🏗️ Architecture](#-architecture)
-    -   [System Overview](#system-overview)
-    -   [Request Lifecycle](#request-lifecycle)
-    -   [Role Hierarchy](#role-hierarchy)
-    -   [Feature Matrix](#feature-matrix)
-    -   [Directory Structure](#directory-structure)
-    -   [Middleware Pipeline](#middleware-pipeline)
-    -   [Core Services](#core-services)
+- [💻 Local Development](#-local-development-installation)
+    - [Option A: Laravel Sail (Docker)](#option-a-laravel-sail-docker---recommended-for-beginners)
+    - [Option B: Laravel Valet (macOS)](#option-b-laravel-valet-macos)
+    - [Option C: Manual Setup (All OS)](#option-c-manual-setup-windows--linux--macos)
+- [🌐 Shared Hosting](#-shared-hosting-installation-cpanel--hostinger--niagahoster)
+    - [Persiapan & Limitasi](#step-1-pahami-limitasi-shared-hosting)
+    - [Upload Files](#step-2-persiapan-di-komputer-lokal)
+    - [Database Setup](#step-4-buat-database-mysql)
+    - [Konfigurasi .env](#step-5-konfigurasi-file-env)
+    - [Running Migrations](#step-6-jalankan-migration--seeder)
+    - [Troubleshooting](#-troubleshooting-shared-hosting)
+- [🖥️ VPS / Production Server](#-vps--production-server-ubuntu--debian--centos)
+    - [Server Preparation](#step-1-server-preparation--security-hardening)
+    - [Nginx / Apache Config](#step-3-web-server-configuration)
+    - [SSL with Let's Encrypt](#step-4-ssl-certificate-lets-encrypt)
+    - [Supervisor for Queues](#step-5-supervisor-configuration)
+    - [Security Hardening](#step-6-production-security-hardening)
+- [✅ Post-Installation Steps](#-post-installation-steps-all-environments)
 
-### Security Documentation
+### 🏗️ Architecture & Design
 
--   [🔒 Security](#-security)
-    -   [Security Controls](#security-controls-overview)
-    -   [Rate Limiting](#rate-limiting)
-    -   [Content Security Policy](#content-security-policy)
-    -   [Security Headers](#security-headers)
-    -   [Threat Detection](#threat-detection)
-    -   [Password Policy](#password-policy)
-    -   [Audit Verification](#audit-verification)
-    -   [Security Alerts](#security-alerts)
+- [System Overview](#system-overview)
+- [Request Lifecycle](#request-lifecycle)
+- [Role Hierarchy](#role-hierarchy)
+- [Feature Matrix](#feature-matrix)
+- [Directory Structure](#directory-structure)
+- [Middleware Pipeline](#middleware-pipeline)
+- [Core Services](#core-services)
 
-### Configuration Reference
+### 🔒 Security Documentation
 
--   [⚙️ Configuration](#-configuration-reference)
-    -   [Application Core](#application-core)
-    -   [Database Settings](#database-settings)
-    -   [Cache & Session](#cache-session--queue)
-    -   [Security Settings](#security-settings)
-    -   [Audit Configuration](#audit-configuration)
-    -   [Password Policy Settings](#password-policy-settings)
-    -   [Threat Detection Settings](#threat-detection-settings)
-    -   [Google Drive Integration](#google-drive-storage)
+- [Security Controls Overview](#security-controls-overview)
+- [Rate Limiting](#rate-limiting)
+- [Content Security Policy](#content-security-policy)
+- [Security Headers](#security-headers)
+- [Threat Detection](#threat-detection)
+- [Password Policy](#password-policy)
+- [Audit Verification](#audit-verification)
+- [Security Alerts](#security-alerts)
+- [Security Checklist](#security-checklist)
 
-### Operations & Maintenance
+### ⚙️ Configuration Reference
 
--   [📚 Operations](#-operations)
-    -   [Queue Workers](#queue-workers)
-    -   [Task Scheduler](#task-scheduler)
-    -   [Health Checks](#health-checks)
-    -   [Maintenance Mode](#maintenance-mode)
-    -   [Backups](#backups)
-    -   [Logging](#logging)
-    -   [Performance Tuning](#performance-tuning)
+- [Application Core](#application-core)
+- [Database Settings](#database-settings)
+- [Redis Configuration](#redis-configuration)
+- [Cache, Session & Queue](#cache-session--queue)
+- [Audit Configuration](#audit-configuration)
+- [Security Settings](#security-settings)
+- [AI Intelligence Settings](#-ai-intelligence-settings-ui-configuration)
+- [Google Drive Storage](#google-drive-storage)
 
-### Development & Community
+### 📚 Operations & Maintenance
 
--   [🧪 Testing](#-testing)
--   [🚨 Troubleshooting](#-troubleshooting)
--   [🤝 Contributing](#-contributing)
--   [❓ FAQ](#-faq)
--   [🗺️ Roadmap](#-roadmap)
--   [📝 Changelog](#-changelog)
--   [📜 License](#-license)
+- [Queue Workers](#queue-workers)
+- [Task Scheduler](#task-scheduler)
+- [Health Checks](#health-checks)
+- [Maintenance Mode](#maintenance-mode)
+- [Backups](#backups)
+- [Logging](#logging)
+- [Performance Tuning](#performance-tuning)
+- [Monitoring & Alerting](#monitoring--alerting)
+
+### 🛠️ Development & Community
+
+- [🧪 Testing](#-testing)
+- [🚨 Troubleshooting](#-troubleshooting)
+- [🤝 Contributing](#-contributing)
+- [❓ FAQ](#-faq)
+- [🗺️ Roadmap](#-roadmap)
+- [📝 Changelog](#-changelog)
+- [📜 License](#-license)
 
 </details>
 
 ---
 
-## 📋 Executive Summary
+## 🎯 Executive Summary
 
 <table>
 <tr>
@@ -118,9 +136,9 @@
 
 Creative Trees adalah sistem admin siap-pakai yang menjaga operasi tetap **aman**, **ter-audit**, dan **mudah dikelola**. Sistem ini membantu tim:
 
--   Mengelola pengguna dan izin akses
--   Mengatur jadwal maintenance tanpa downtime darurat
--   Melacak setiap aksi kritikal tanpa mengekspos data sensitif
+- Mengelola pengguna dan izin akses
+- Mengatur jadwal maintenance tanpa downtime darurat
+- Melacak setiap aksi kritikal tanpa mengekspos data sensitif
 
 </td>
 <td width="50%">
@@ -129,12 +147,12 @@ Creative Trees adalah sistem admin siap-pakai yang menjaga operasi tetap **aman*
 
 Dibangun di atas **Laravel 12** dan **Filament v4**, sistem ini hadir dengan:
 
--   Middleware pipeline yang ter-hardened
--   Audit hash chaining (tamper-evident)
--   Maintenance orchestration dengan bypass tokens
--   Notification center dengan delivery logging
--   Rate limiting pada semua endpoint sensitif
--   Redis-first architecture untuk performa optimal
+- Middleware pipeline yang ter-hardened
+- Audit hash chaining (tamper-evident)
+- Maintenance orchestration dengan bypass tokens
+- Notification center dengan delivery logging
+- Rate limiting pada semua endpoint sensitif
+- Redis-first architecture untuk performa optimal
 
 </td>
 </tr>
@@ -307,92 +325,302 @@ Compliance-ready logging, role hierarchy, permission granularity
 
 ---
 
-## ⚡ Quick Start
+## ⚡ Installation Guides
 
-### Prerequisites
+> **📖 Panduan instalasi ini ditulis dengan sangat detail agar pemula sekalipun bisa mengikuti tanpa kendala. Untuk developer berpengalaman, bisa langsung skip ke command-command utama.**
+
+### 📋 Prerequisites
+
+Sebelum memulai instalasi, pastikan sistem Anda memenuhi requirements berikut:
 
 <table>
 <tr>
-<td width="25%"><strong>PHP</strong></td>
-<td>8.2+ with required extensions</td>
+<th width="20%">Component</th>
+<th width="25%">Minimum Version</th>
+<th width="55%">Notes</th>
+</tr>
+<tr>
+<td><strong>PHP</strong></td>
+<td>8.2 atau lebih tinggi</td>
+<td>Extensions: <code>mbstring, xml, curl, redis, gd, zip, intl, bcmath, pdo_mysql</code></td>
 </tr>
 <tr>
 <td><strong>MySQL</strong></td>
-<td>8.0+ or MariaDB 10.6+</td>
+<td>8.0+ atau MariaDB 10.6+</td>
+<td>PostgreSQL 14+ juga didukung</td>
 </tr>
 <tr>
 <td><strong>Redis</strong></td>
-<td>6.0+ for cache, session, queue</td>
+<td>6.0+</td>
+<td>Untuk cache, session, dan queue. <strong>Sangat direkomendasikan</strong> untuk production</td>
 </tr>
 <tr>
 <td><strong>Composer</strong></td>
-<td>2.x package manager</td>
+<td>2.x</td>
+<td>PHP dependency manager</td>
 </tr>
 <tr>
 <td><strong>Node.js</strong></td>
-<td>18+ for Vite asset compilation</td>
+<td>18+ dengan npm</td>
+<td>Untuk Vite asset compilation</td>
+</tr>
+<tr>
+<td><strong>Git</strong></td>
+<td>Any recent version</td>
+<td>Untuk cloning repository</td>
 </tr>
 </table>
 
-### Installation Steps
-
-<details open>
-<summary><strong>🖥️ VPS/Cloud Server Installation</strong></summary>
-
-For production deployment on VPS (Ubuntu, Debian, CentOS) or cloud providers (AWS, DigitalOcean, Linode).
-
-#### Prerequisites
-
--   PHP 8.2+ with extensions: `mbstring, xml, curl, redis, gd, zip, intl`
--   Composer 2.x
--   Node.js 18+ & NPM
--   MySQL 8.0+ or PostgreSQL 14+
--   Redis 6+
--   Nginx or Apache
--   SSL Certificate (Let's Encrypt recommended)
--   Supervisor for queue workers
-
-#### Installation Commands
+#### Cara Cek Versi (di Terminal/Command Prompt):
 
 ```bash
-# 1. Clone repository
-cd /var/www
-git clone https://github.com/Halfirzzha/A-Good-Start-to-the-Program.git
-cd A-Good-Start-to-the-Program
-
-# 2. Set proper ownership
-sudo chown -R www-data:www-data .
-sudo chmod -R 755 .
-sudo chmod -R 775 storage bootstrap/cache
-
-# 3. Install dependencies
-composer install --no-dev --optimize-autoloader
-npm install && npm run build
-
-# 4. Environment setup
-cp .env.example .env
-php artisan key:generate
-
-# 5. Configure .env for production
-nano .env
+php -v              # Harus 8.2.x atau lebih tinggi
+mysql --version     # Harus 8.0.x atau lebih tinggi
+redis-server -v     # Harus 6.x atau lebih tinggi (opsional untuk local dev)
+composer -V         # Harus 2.x
+node -v             # Harus v18.x atau lebih tinggi
+npm -v              # Biasanya ikut dengan Node.js
+git --version       # Any version
 ```
 
-#### Required .env Configuration
+---
+
+## 💻 Local Development Installation
+
+Pilih salah satu opsi berikut berdasarkan preferensi dan sistem operasi Anda:
+
+### Option A: Laravel Sail (Docker) - Recommended for Beginners
+
+**Cocok untuk:** Semua OS (Windows, macOS, Linux) • Tidak perlu install PHP/MySQL/Redis manual • Isolated environment
+
+<details open>
+<summary><strong>📦 Langkah-langkah Laravel Sail</strong></summary>
+
+#### Prerequisites untuk Sail:
+
+- **Docker Desktop** harus terinstall dan running
+    - Windows: [Download Docker Desktop](https://www.docker.com/products/docker-desktop/)
+    - macOS: [Download Docker Desktop](https://www.docker.com/products/docker-desktop/)
+    - Linux: `sudo apt install docker.io docker-compose`
+
+#### Step 1: Clone Repository
+
+```bash
+# Buka terminal/command prompt, navigate ke folder project Anda
+cd ~/Projects  # atau folder manapun yang Anda inginkan
+
+# Clone repository dari GitHub
+git clone https://github.com/Halfirzzha/A-Good-Start-to-the-Program.git
+
+# Masuk ke folder project
+cd A-Good-Start-to-the-Program
+```
+
+**Apa yang dilakukan:** Mengunduh semua source code dari GitHub ke komputer Anda.
+
+#### Step 2: Copy Environment File
+
+```bash
+# Copy file .env.example menjadi .env
+cp .env.example .env
+```
+
+**Apa yang dilakukan:** Membuat file konfigurasi lokal yang tidak akan di-commit ke Git.
+
+#### Step 3: Install Dependencies via Sail
+
+```bash
+# Install PHP dependencies menggunakan Docker (tanpa PHP lokal)
+docker run --rm \
+    -u "$(id -u):$(id -g)" \
+    -v "$(pwd):/var/www/html" \
+    -w /var/www/html \
+    laravelsail/php82-composer:latest \
+    composer install --ignore-platform-reqs
+```
+
+**Apa yang dilakukan:** Menggunakan Docker image Laravel Sail untuk install Composer dependencies tanpa perlu PHP di komputer Anda.
+
+> **💡 Windows PowerShell:** Ganti `$(id -u):$(id -g)` dengan `1000:1000`
+
+#### Step 4: Start Sail Containers
+
+```bash
+# Jalankan Laravel Sail (MySQL, Redis, Mailpit included)
+./vendor/bin/sail up -d
+```
+
+**Apa yang dilakukan:** Menjalankan Docker containers untuk:
+
+- PHP 8.2 dengan Laravel
+- MySQL 8.0
+- Redis 7
+- Mailpit (email testing)
+
+> **⏱️ Pertama kali:** Proses ini bisa memakan waktu 5-10 menit untuk download Docker images.
+
+#### Step 5: Generate App Key & Setup Database
+
+```bash
+# Generate application encryption key
+./vendor/bin/sail artisan key:generate
+
+# Jalankan database migrations dan seeder
+./vendor/bin/sail artisan migrate:fresh --seed
+```
+
+**Apa yang dilakukan:**
+
+- `key:generate`: Membuat encryption key unik untuk aplikasi Anda (WAJIB untuk keamanan)
+- `migrate:fresh --seed`: Membuat semua tabel database dan mengisi data awal (termasuk user admin)
+
+#### Step 6: Install Frontend Dependencies
+
+```bash
+# Install npm packages
+./vendor/bin/sail npm install
+
+# Build assets untuk development
+./vendor/bin/sail npm run build
+```
+
+**Apa yang dilakukan:** Install dan compile CSS/JavaScript menggunakan Vite.
+
+#### Step 7: Final Setup Commands
+
+```bash
+# Buat symbolic link untuk storage (agar file uploads bisa diakses)
+./vendor/bin/sail artisan storage:link
+
+# Generate permissions untuk admin panel
+./vendor/bin/sail artisan shield:generate --all --panel=admin --option=permissions
+
+# Optimize aplikasi
+./vendor/bin/sail artisan optimize
+```
+
+#### Step 8: Akses Aplikasi! 🎉
+
+Buka browser dan akses:
+
+| URL                      | Deskripsi                               |
+| ------------------------ | --------------------------------------- |
+| `http://localhost`       | Homepage (Maintenance page jika active) |
+| `http://localhost/admin` | Admin Panel Login                       |
+| `http://localhost:8025`  | Mailpit (Email testing UI)              |
+
+**Default Login Credentials:**
+
+```
+Email: admin@admin.com
+Password: password
+```
+
+#### Sail Useful Commands:
+
+```bash
+# Start containers
+./vendor/bin/sail up -d
+
+# Stop containers
+./vendor/bin/sail down
+
+# View logs
+./vendor/bin/sail logs -f
+
+# Run artisan commands
+./vendor/bin/sail artisan [command]
+
+# Access MySQL CLI
+./vendor/bin/sail mysql
+
+# Access Redis CLI
+./vendor/bin/sail redis
+```
+
+</details>
+
+---
+
+### Option B: Laravel Valet (macOS)
+
+**Cocok untuk:** macOS users • Lebih ringan dari Docker • Native performance
+
+<details>
+<summary><strong>🍎 Langkah-langkah Laravel Valet</strong></summary>
+
+#### Prerequisites untuk Valet:
+
+- macOS dengan Homebrew terinstall
+- PHP 8.2+ (`brew install php@8.2`)
+- Composer (`brew install composer`)
+- MySQL (`brew install mysql`)
+- Redis (`brew install redis`)
+
+#### Step 1: Install & Configure Valet
+
+```bash
+# Install Valet via Composer (jika belum)
+composer global require laravel/valet
+
+# Tambahkan Composer bin ke PATH (jika belum)
+export PATH="$HOME/.composer/vendor/bin:$PATH"
+
+# Install Valet
+valet install
+
+# Start MySQL dan Redis services
+brew services start mysql
+brew services start redis
+```
+
+#### Step 2: Clone & Setup Project
+
+```bash
+# Navigate ke folder sites Valet (biasanya ~/Sites)
+cd ~/Sites
+
+# Clone repository
+git clone https://github.com/Halfirzzha/A-Good-Start-to-the-Program.git creative-trees
+cd creative-trees
+
+# Install dependencies
+composer install
+npm install && npm run build
+
+# Copy dan configure .env
+cp .env.example .env
+php artisan key:generate
+```
+
+#### Step 3: Create Database
+
+```bash
+# Login ke MySQL
+mysql -u root
+
+# Buat database (dalam MySQL CLI)
+CREATE DATABASE creative_trees;
+exit;
+```
+
+#### Step 4: Configure .env
+
+Edit file `.env` dan sesuaikan:
 
 ```env
-APP_ENV=production
-APP_DEBUG=false
-APP_URL=https://your-domain.com
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://creative-trees.test
 
 DB_CONNECTION=mysql
 DB_HOST=127.0.0.1
 DB_PORT=3306
-DB_DATABASE=your_database
-DB_USERNAME=your_user
-DB_PASSWORD=your_password
+DB_DATABASE=creative_trees
+DB_USERNAME=root
+DB_PASSWORD=
 
 REDIS_HOST=127.0.0.1
-REDIS_PASSWORD=null
 REDIS_PORT=6379
 
 CACHE_STORE=redis
@@ -400,26 +628,1061 @@ SESSION_DRIVER=redis
 QUEUE_CONNECTION=redis
 ```
 
-#### Finalize Installation
+#### Step 5: Run Setup Commands
 
 ```bash
-# 6. Run migrations and seed
+# Migrate database dengan seeder
 php artisan migrate:fresh --seed
 
-# 7. Optimize for production
-php artisan optimize
-php artisan storage:link
-php artisan filament:optimize
+# Generate permissions
 php artisan shield:generate --all --panel=admin --option=permissions
 
-# 8. Configure Supervisor for queue workers
+# Storage link
+php artisan storage:link
+
+# Link project ke Valet
+valet link creative-trees
+```
+
+#### Step 6: Akses Aplikasi! 🎉
+
+Buka browser: **http://creative-trees.test/admin**
+
+**Default Login:**
+
+- Email: `admin@admin.com`
+- Password: `password`
+
+#### Development Commands:
+
+```bash
+# Terminal 1: Valet sudah handle PHP server
+
+# Terminal 2: Vite dev server (untuk hot reload CSS/JS)
+npm run dev
+
+# Terminal 3: Queue worker (opsional, untuk background jobs)
+php artisan queue:listen
+```
+
+</details>
+
+---
+
+### Option C: Manual Setup (Windows / Linux / macOS)
+
+**Cocok untuk:** Semua OS • Full control • Tidak pakai Docker/Valet
+
+<details>
+<summary><strong>🔧 Langkah-langkah Manual Setup</strong></summary>
+
+#### Prerequisites (Install dulu jika belum ada):
+
+**Windows:**
+
+- [Laragon](https://laragon.org/) (recommended - includes PHP, MySQL, Redis, Node.js)
+- Atau: XAMPP + Redis + Node.js terpisah
+
+**Linux (Ubuntu/Debian):**
+
+```bash
+# PHP 8.2 dan extensions
+sudo apt update
+sudo apt install php8.2 php8.2-cli php8.2-fpm php8.2-mysql php8.2-xml php8.2-curl \
+    php8.2-mbstring php8.2-zip php8.2-gd php8.2-intl php8.2-redis php8.2-bcmath
+
+# MySQL
+sudo apt install mysql-server
+
+# Redis
+sudo apt install redis-server
+
+# Node.js 18
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install nodejs
+
+# Composer
+curl -sS https://getcomposer.org/installer | php
+sudo mv composer.phar /usr/local/bin/composer
+```
+
+**macOS (via Homebrew):**
+
+```bash
+brew install php@8.2 mysql redis node composer
+brew services start mysql
+brew services start redis
+```
+
+#### Step 1: Clone Repository
+
+```bash
+# Navigate ke folder project Anda
+cd /path/to/your/projects
+
+# Clone repository
+git clone https://github.com/Halfirzzha/A-Good-Start-to-the-Program.git
+cd A-Good-Start-to-the-Program
+```
+
+#### Step 2: Install Dependencies
+
+```bash
+# Install PHP dependencies
+composer install
+
+# Install Node.js dependencies dan build assets
+npm install
+npm run build
+```
+
+#### Step 3: Environment Setup
+
+```bash
+# Copy environment file
+cp .env.example .env
+
+# Generate application key
+php artisan key:generate
+```
+
+#### Step 4: Create Database
+
+```bash
+# Login ke MySQL (password mungkin kosong untuk local)
+mysql -u root -p
+
+# Dalam MySQL CLI:
+CREATE DATABASE creative_trees CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+exit;
+```
+
+#### Step 5: Configure .env
+
+Buka file `.env` dengan text editor dan sesuaikan:
+
+```env
+# Application
+APP_NAME="Creative Trees"
+APP_ENV=local
+APP_DEBUG=true
+APP_URL=http://localhost:8000
+
+# Database
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=creative_trees
+DB_USERNAME=root
+DB_PASSWORD=           # Kosongkan jika tidak ada password
+
+# Redis (jika tersedia)
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+REDIS_PASSWORD=null
+
+# Cache & Session
+CACHE_STORE=redis       # Ganti ke 'file' jika tidak ada Redis
+SESSION_DRIVER=redis    # Ganti ke 'file' jika tidak ada Redis
+QUEUE_CONNECTION=redis  # Ganti ke 'database' jika tidak ada Redis
+
+# Development Settings (JANGAN gunakan di production!)
+SECURITY_DEVELOPER_BYPASS_VALIDATIONS=true
+AUDIT_SIGNATURE_ENABLED=false
+```
+
+> **⚠️ Tanpa Redis?** Jika Anda tidak menginstall Redis, gunakan konfigurasi berikut:
+>
+> ```env
+> CACHE_STORE=file
+> SESSION_DRIVER=file
+> QUEUE_CONNECTION=sync
+> ```
+
+#### Step 6: Run Migrations & Seeders
+
+```bash
+# Buat tabel database dan isi data awal
+php artisan migrate:fresh --seed
+```
+
+**Apa yang dilakukan command ini:**
+
+- `migrate:fresh`: Menghapus semua tabel (jika ada) dan membuat ulang dari migrations
+- `--seed`: Menjalankan seeders untuk mengisi data awal (users, roles, permissions, settings)
+
+> **💡 Data yang dibuat oleh seeder:**
+>
+> - User admin dengan email `admin@admin.com`
+> - 5 default roles (Developer, Super Admin, Admin, Manager, User)
+> - 50+ permissions untuk RBAC
+> - Default system settings
+
+#### Step 7: Generate Permissions & Finalize
+
+```bash
+# Generate Shield permissions untuk Filament
+php artisan shield:generate --all --panel=admin --option=permissions
+
+# Buat symbolic link untuk storage
+php artisan storage:link
+
+# Clear dan optimize
+php artisan optimize:clear
+php artisan optimize
+```
+
+#### Step 8: Start Development Servers
+
+Anda perlu menjalankan **3 terminal** secara bersamaan:
+
+**Terminal 1 - PHP Development Server:**
+
+```bash
+php artisan serve
+# Output: Starting Laravel development server: http://127.0.0.1:8000
+```
+
+**Terminal 2 - Vite Dev Server (untuk hot reload CSS/JS):**
+
+```bash
+npm run dev
+# Output: VITE v5.x ready in xxx ms
+```
+
+**Terminal 3 - Queue Worker (untuk background jobs):**
+
+```bash
+php artisan queue:listen
+# Atau jika tidak pakai Redis:
+php artisan queue:work --queue=default,emails,alerts
+```
+
+#### Step 9: Akses Aplikasi! 🎉
+
+Buka browser:
+
+| URL                                      | Deskripsi              |
+| ---------------------------------------- | ---------------------- |
+| `http://localhost:8000`                  | Homepage               |
+| `http://localhost:8000/admin`            | Admin Panel Login      |
+| `http://localhost:8000/health/dashboard` | Health Check Dashboard |
+
+**Default Login Credentials:**
+
+```
+📧 Email: admin@admin.com
+🔑 Password: password
+```
+
+> **⚠️ PENTING:** Segera ganti password setelah login pertama!
+
+</details>
+
+---
+
+## 🌐 Shared Hosting Installation (cPanel / Hostinger / Niagahoster)
+
+> **⚠️ PENTING: Baca limitasi ini sebelum memulai!**
+
+Shared hosting memiliki beberapa keterbatasan dibanding VPS. Pastikan Anda memahami ini sebelum deploy:
+
+### Step 1: Pahami Limitasi Shared Hosting
+
+<table>
+<tr>
+<th>Fitur</th>
+<th>VPS</th>
+<th>Shared Hosting</th>
+<th>Solusi</th>
+</tr>
+<tr>
+<td><strong>Redis</strong></td>
+<td>✅ Available</td>
+<td>❌ Tidak tersedia</td>
+<td>Gunakan <code>file</code> atau <code>database</code> driver</td>
+</tr>
+<tr>
+<td><strong>Supervisor</strong></td>
+<td>✅ Persistent workers</td>
+<td>❌ Tidak bisa</td>
+<td>Queue dijalankan via Cron setiap menit</td>
+</tr>
+<tr>
+<td><strong>SSH Access</strong></td>
+<td>✅ Full access</td>
+<td>⚠️ Terbatas</td>
+<td>Gunakan SSH jika tersedia, atau File Manager</td>
+</tr>
+<tr>
+<td><strong>PHP Version</strong></td>
+<td>✅ Full control</td>
+<td>⚠️ Tergantung provider</td>
+<td>Pastikan PHP 8.2+ tersedia di cPanel</td>
+</tr>
+<tr>
+<td><strong>Execution Time</strong></td>
+<td>✅ No limit</td>
+<td>⚠️ 30-60 detik</td>
+<td>Migrations mungkin perlu dijalankan bertahap</td>
+</tr>
+</table>
+
+> **💡 Rekomendasi:** Jika budget memungkinkan, gunakan VPS (DigitalOcean, Vultr, Linode mulai $5/bulan) untuk experience terbaik.
+
+---
+
+<details open>
+<summary><strong>📦 Langkah-langkah Instalasi Shared Hosting</strong></summary>
+
+### Step 2: Persiapan di Komputer Lokal
+
+Sebelum upload ke hosting, siapkan project di komputer lokal Anda:
+
+```bash
+# 1. Clone repository
+git clone https://github.com/Halfirzzha/A-Good-Start-to-the-Program.git
+cd A-Good-Start-to-the-Program
+
+# 2. Install dependencies TANPA dev packages
+composer install --no-dev --optimize-autoloader
+
+# 3. Build frontend assets
+npm install
+npm run build
+
+# 4. Hapus folder yang tidak perlu di-upload
+rm -rf node_modules
+rm -rf .git
+rm -rf tests
+rm -rf .github
+```
+
+### Step 3: Upload Files ke Hosting
+
+**Metode A: Via File Manager (Lebih mudah)**
+
+1. Compress seluruh folder project menjadi `creative-trees.zip`
+2. Login ke cPanel hosting Anda
+3. Buka **File Manager** → Navigate ke `public_html` (atau folder diluar public_html)
+4. Upload file `creative-trees.zip`
+5. Klik kanan → **Extract**
+
+**Metode B: Via FTP (FileZilla)**
+
+1. Buka FileZilla
+2. Connect ke hosting dengan credentials FTP
+3. Upload seluruh folder (kecuali `node_modules`)
+
+**Struktur Folder yang Direkomendasikan:**
+
+```
+/home/username/
+├── creative-trees/           ← Folder aplikasi (DI LUAR public_html)
+│   ├── app/
+│   ├── bootstrap/
+│   ├── config/
+│   ├── database/
+│   ├── resources/
+│   ├── routes/
+│   ├── storage/
+│   ├── vendor/
+│   └── ...
+│
+└── public_html/              ← Document root (HANYA isi folder public)
+    ├── assets/
+    ├── build/
+    ├── css/
+    ├── js/
+    ├── index.php            ← File ini perlu diedit!
+    ├── .htaccess
+    └── robots.txt
+```
+
+### Step 4: Buat Database MySQL
+
+1. Login ke **cPanel**
+2. Buka **MySQL® Databases**
+3. Buat database baru:
+    - Database name: `username_creativetrees` (prefix biasanya otomatis)
+4. Buat user baru:
+    - Username: `username_ctuser`
+    - Password: **Gunakan password yang kuat!**
+5. **Add User to Database** dengan privilege **ALL PRIVILEGES**
+
+> **📝 Catat credentials ini:**
+>
+> - Database: `username_creativetrees`
+> - Username: `username_ctuser`
+> - Password: `your-strong-password`
+
+### Step 5: Konfigurasi File .env
+
+1. Di File Manager, navigate ke folder `creative-trees/`
+2. Rename `.env.example` menjadi `.env`
+3. Klik kanan `.env` → **Edit**
+4. Sesuaikan konfigurasi:
+
+```env
+# ============================================================
+# PRODUCTION SETTINGS - SHARED HOSTING
+# ⚠️ JANGAN set APP_DEBUG=true di production!
+# ============================================================
+
+APP_NAME="Creative Trees"
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://yourdomain.com
+
+# Generate key baru! (lihat Step 6)
+APP_KEY=
+
+# Database (sesuaikan dengan credentials cPanel Anda)
+DB_CONNECTION=mysql
+DB_HOST=localhost
+DB_PORT=3306
+DB_DATABASE=username_creativetrees
+DB_USERNAME=username_ctuser
+DB_PASSWORD=your-strong-password
+
+# SHARED HOSTING: Gunakan file/database karena tidak ada Redis
+CACHE_STORE=file
+SESSION_DRIVER=file
+QUEUE_CONNECTION=database
+
+# Session Security (WAJIB untuk HTTPS)
+SESSION_SECURE_COOKIE=true
+SESSION_HTTP_ONLY=true
+SESSION_SAME_SITE=lax
+
+# PRODUCTION SECURITY (WAJIB!)
+SECURITY_DEVELOPER_BYPASS_VALIDATIONS=false
+SECURITY_ENFORCE_ACCOUNT_STATUS=true
+SECURITY_ENFORCE_SESSION_STAMP=true
+
+# Audit (opsional tapi direkomendasikan)
+AUDIT_LOG_ENABLED=true
+AUDIT_SIGNATURE_ENABLED=false
+```
+
+### Step 6: Jalankan Migration & Seeder
+
+**Jika hosting Anda MEMILIKI SSH access:**
+
+```bash
+# Login via SSH
+ssh username@yourdomain.com
+
+# Navigate ke folder project
+cd ~/creative-trees
+
+# Generate app key
+php artisan key:generate
+
+# Jalankan migrations
+php artisan migrate --force
+
+# Jalankan seeders
+php artisan db:seed --force
+
+# Generate permissions
+php artisan shield:generate --all --panel=admin --option=permissions
+
+# Optimize
+php artisan storage:link
+php artisan optimize
+```
+
+**Jika hosting TIDAK memiliki SSH access:**
+
+Anda perlu menjalankan migrations via browser. Buat file temporary:
+
+1. Buat file `migrate.php` di `public_html/`:
+
+```php
+<?php
+// ⚠️ HAPUS FILE INI SETELAH SELESAI!
+// File ini hanya untuk menjalankan migrations tanpa SSH
+
+// Tentukan path ke folder Laravel
+$laravelPath = dirname(__DIR__) . '/creative-trees';
+require $laravelPath . '/vendor/autoload.php';
+
+$app = require_once $laravelPath . '/bootstrap/app.php';
+$kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+
+echo "<pre>";
+
+// Generate App Key (jalankan sekali)
+echo "Generating app key...\n";
+$kernel->call('key:generate', ['--force' => true]);
+
+// Run migrations
+echo "\nRunning migrations...\n";
+$kernel->call('migrate', ['--force' => true]);
+
+// Run seeders
+echo "\nRunning seeders...\n";
+$kernel->call('db:seed', ['--force' => true]);
+
+// Generate Shield permissions
+echo "\nGenerating permissions...\n";
+$kernel->call('shield:generate', ['--all' => true, '--panel' => 'admin', '--option' => 'permissions']);
+
+// Storage link
+echo "\nCreating storage link...\n";
+$kernel->call('storage:link');
+
+// Optimize
+echo "\nOptimizing...\n";
+$kernel->call('optimize');
+
+echo "\n✅ Setup complete! DELETE THIS FILE NOW!\n";
+echo "</pre>";
+```
+
+2. Akses `https://yourdomain.com/migrate.php` di browser
+3. **⚠️ HAPUS file `migrate.php` SEGERA setelah selesai!**
+
+### Step 7: Configure public/index.php
+
+Jika Anda menaruh aplikasi di luar `public_html`, edit file `public_html/index.php`:
+
+```php
+<?php
+
+use Illuminate\Http\Request;
+
+// Sesuaikan path ke folder Laravel Anda
+define('LARAVEL_START', microtime(true));
+
+// Path ke folder creative-trees (sesuaikan dengan struktur Anda)
+$laravelPath = dirname(__DIR__) . '/creative-trees';
+
+// Determine if the application is in maintenance mode...
+if (file_exists($maintenance = $laravelPath.'/storage/framework/maintenance.php')) {
+    require $maintenance;
+}
+
+// Register the Composer autoloader...
+require $laravelPath.'/vendor/autoload.php';
+
+// Bootstrap Laravel and handle the request...
+(require_once $laravelPath.'/bootstrap/app.php')
+    ->handleRequest(Request::capture());
+```
+
+### Step 8: Set Permissions
+
+Via File Manager atau SSH, set permissions:
+
+```bash
+# Jika punya SSH:
+chmod -R 755 ~/creative-trees
+chmod -R 775 ~/creative-trees/storage
+chmod -R 775 ~/creative-trees/bootstrap/cache
+
+# Pastikan .env tidak bisa diakses publik
+chmod 600 ~/creative-trees/.env
+```
+
+### Step 9: Setup Cron Job untuk Scheduler
+
+1. Di cPanel, buka **Cron Jobs**
+2. Tambahkan cron job baru:
+
+```
+* * * * * cd /home/username/creative-trees && php artisan schedule:run >> /dev/null 2>&1
+```
+
+**Apa yang dilakukan:** Menjalankan Laravel scheduler setiap menit untuk:
+
+- Cleanup sessions
+- Proses queue jobs (karena tidak ada Supervisor)
+- Health checks
+- Cache cleanup
+
+### Step 10: (Opsional) Queue Worker via Cron
+
+Karena shared hosting tidak support Supervisor, kita bisa menjalankan queue via cron:
+
+Tambahkan cron job kedua:
+
+```
+*/5 * * * * cd /home/username/creative-trees && php artisan queue:work --stop-when-empty >> /dev/null 2>&1
+```
+
+**Apa yang dilakukan:** Setiap 5 menit, proses semua jobs di queue lalu stop.
+
+---
+
+### ⚠️ Troubleshooting Shared Hosting
+
+<details>
+<summary><strong>Error: "500 Internal Server Error"</strong></summary>
+
+1. **Cek error log:** cPanel → Error Log
+2. **Cek permissions:** storage dan bootstrap/cache harus 775
+3. **Cek PHP version:** Pastikan PHP 8.2+
+4. **Cek .htaccess:** Pastikan mod_rewrite enabled
+
+</details>
+
+<details>
+<summary><strong>Error: "SQLSTATE Connection refused"</strong></summary>
+
+1. **Cek credentials database** di .env
+2. **Pastikan user database** sudah di-add ke database dengan ALL PRIVILEGES
+3. **Coba `DB_HOST=localhost`** bukan `127.0.0.1`
+
+</details>
+
+<details>
+<summary><strong>Error: "Class 'Redis' not found"</strong></summary>
+
+Shared hosting biasanya tidak support Redis. Ubah di .env:
+
+```env
+CACHE_STORE=file
+SESSION_DRIVER=file
+QUEUE_CONNECTION=database
+```
+
+</details>
+
+<details>
+<summary><strong>Migration timeout / error</strong></summary>
+
+Jika migration gagal karena timeout:
+
+1. Jalankan migration bertahap via Tinker
+2. Atau import SQL file manual ke phpMyAdmin
+3. File SQL tersedia di `database_sql/db_creativetrees.sql`
+
+</details>
+
+<details>
+<summary><strong>Assets (CSS/JS) tidak loading</strong></summary>
+
+1. Pastikan `npm run build` sudah dijalankan sebelum upload
+2. Cek folder `public/build/` ada dan berisi files
+3. Pastikan `APP_URL` di .env sudah benar
+
+</details>
+
+</details>
+
+---
+
+## 🖥️ VPS / Production Server (Ubuntu / Debian / CentOS)
+
+> **💡 Panduan ini untuk deployment production-grade dengan security hardening lengkap.**
+
+<details open>
+<summary><strong>🔧 Langkah-langkah Instalasi VPS Production</strong></summary>
+
+### Step 1: Server Preparation & Security Hardening
+
+**1.1 Update System & Install Basic Tools**
+
+```bash
+# Login sebagai root atau user dengan sudo
+sudo apt update && sudo apt upgrade -y
+
+# Install basic tools
+sudo apt install -y curl wget git unzip software-properties-common ufw fail2ban
+```
+
+**1.2 Create Non-Root User (Security Best Practice)**
+
+```bash
+# Buat user baru (ganti 'deployer' dengan nama pilihan Anda)
+sudo adduser deployer
+
+# Tambahkan ke sudo group
+sudo usermod -aG sudo deployer
+
+# Switch ke user baru
+su - deployer
+```
+
+**1.3 Configure Firewall (UFW)**
+
+```bash
+# Enable UFW dan allow necessary ports
+sudo ufw default deny incoming
+sudo ufw default allow outgoing
+sudo ufw allow ssh          # Port 22
+sudo ufw allow http         # Port 80
+sudo ufw allow https        # Port 443
+sudo ufw enable
+
+# Verify
+sudo ufw status
+```
+
+**1.4 Configure Fail2Ban**
+
+```bash
+# Fail2ban sudah terinstall, enable dan start
+sudo systemctl enable fail2ban
+sudo systemctl start fail2ban
+```
+
+### Step 2: Install Required Software Stack
+
+**2.1 Install PHP 8.2 dan Extensions**
+
+```bash
+# Add PHP repository (untuk versi terbaru)
+sudo add-apt-repository ppa:ondrej/php -y
+sudo apt update
+
+# Install PHP 8.2 dengan semua extensions yang dibutuhkan
+sudo apt install -y php8.2 php8.2-fpm php8.2-cli php8.2-mysql php8.2-pgsql \
+    php8.2-xml php8.2-curl php8.2-mbstring php8.2-zip php8.2-gd php8.2-intl \
+    php8.2-redis php8.2-bcmath php8.2-soap php8.2-opcache
+
+# Verify installation
+php -v
+php -m | grep -E "redis|mysql|mbstring|xml|curl|gd|zip|intl|bcmath"
+```
+
+**2.2 Install MySQL 8.0**
+
+```bash
+# Install MySQL
+sudo apt install -y mysql-server
+
+# Secure installation (SET ROOT PASSWORD!)
+sudo mysql_secure_installation
+# - Pilih password strength
+# - Set root password (CATAT!)
+# - Remove anonymous users: Y
+# - Disallow root login remotely: Y
+# - Remove test database: Y
+# - Reload privilege tables: Y
+
+# Create database dan user untuk aplikasi
+sudo mysql -u root -p
+
+# Dalam MySQL CLI:
+CREATE DATABASE creative_trees CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'ctuser'@'localhost' IDENTIFIED BY 'StrongPassword123!';
+GRANT ALL PRIVILEGES ON creative_trees.* TO 'ctuser'@'localhost';
+FLUSH PRIVILEGES;
+EXIT;
+```
+
+**2.3 Install Redis**
+
+```bash
+# Install Redis
+sudo apt install -y redis-server
+
+# Configure Redis untuk security
+sudo nano /etc/redis/redis.conf
+
+# Uncomment/edit lines berikut:
+# bind 127.0.0.1 ::1
+# requirepass YourRedisPassword123!
+
+# Restart Redis
+sudo systemctl restart redis
+sudo systemctl enable redis
+
+# Test connection
+redis-cli -a YourRedisPassword123! ping
+# Should return: PONG
+```
+
+**2.4 Install Node.js 18 LTS**
+
+```bash
+# Install Node.js via NodeSource
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt install -y nodejs
+
+# Verify
+node -v   # Should be v18.x.x
+npm -v
+```
+
+**2.5 Install Composer**
+
+```bash
+# Download dan install Composer
+curl -sS https://getcomposer.org/installer | php
+sudo mv composer.phar /usr/local/bin/composer
+
+# Verify
+composer -V
+```
+
+**2.6 Install Nginx**
+
+```bash
+sudo apt install -y nginx
+sudo systemctl enable nginx
+sudo systemctl start nginx
+```
+
+### Step 3: Web Server Configuration
+
+**3.1 Clone dan Setup Application**
+
+```bash
+# Navigate ke web directory
+cd /var/www
+
+# Clone repository
+sudo git clone https://github.com/Halfirzzha/A-Good-Start-to-the-Program.git creative-trees
+cd creative-trees
+
+# Set ownership
+sudo chown -R www-data:www-data /var/www/creative-trees
+sudo chmod -R 755 /var/www/creative-trees
+sudo chmod -R 775 /var/www/creative-trees/storage /var/www/creative-trees/bootstrap/cache
+```
+
+**3.2 Install Dependencies**
+
+```bash
+# Install PHP dependencies (production mode)
+cd /var/www/creative-trees
+sudo -u www-data composer install --no-dev --optimize-autoloader
+
+# Install dan build frontend
+sudo npm install
+sudo npm run build
+
+# Cleanup node_modules (optional, saves space)
+sudo rm -rf node_modules
+```
+
+**3.3 Configure Environment**
+
+```bash
+# Copy dan edit .env
+sudo cp .env.example .env
+sudo nano .env
+```
+
+**Production .env Configuration:**
+
+```env
+# ============================================================
+# PRODUCTION CONFIGURATION - VPS
+# ⚠️ Review setiap setting dengan teliti!
+# ============================================================
+
+APP_NAME="Creative Trees"
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://yourdomain.com
+APP_TIMEZONE=Asia/Jakarta
+
+# Database
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=creative_trees
+DB_USERNAME=ctuser
+DB_PASSWORD=StrongPassword123!
+
+# Redis (with authentication)
+REDIS_HOST=127.0.0.1
+REDIS_PASSWORD=YourRedisPassword123!
+REDIS_PORT=6379
+
+# Use Redis for everything (PRODUCTION)
+CACHE_STORE=redis
+SESSION_DRIVER=redis
+QUEUE_CONNECTION=redis
+
+# Session Security
+SESSION_LIFETIME=120
+SESSION_SECURE_COOKIE=true
+SESSION_HTTP_ONLY=true
+SESSION_SAME_SITE=lax
+
+# Security (CRITICAL - jangan ubah!)
+SECURITY_DEVELOPER_BYPASS_VALIDATIONS=false
+SECURITY_ENFORCE_ACCOUNT_STATUS=true
+SECURITY_ENFORCE_SESSION_STAMP=true
+SECURITY_ENFORCE_EMAIL_VERIFICATION=true
+
+# Audit (PRODUCTION - enable signatures!)
+AUDIT_LOG_ENABLED=true
+AUDIT_SIGNATURE_ENABLED=true
+AUDIT_SIGNATURE_SECRET=your-32-character-random-secret-key
+
+# Security Alerts
+SECURITY_ALERT_ENABLED=true
+SECURITY_ALERT_EMAILS=admin@yourdomain.com
+
+# Observability
+OBSERVABILITY_SLOW_REQUEST_MS=1000
+OBSERVABILITY_SLOW_QUERY_MS=500
+```
+
+**3.4 Generate Key dan Run Setup**
+
+```bash
+cd /var/www/creative-trees
+
+# Generate app key
+sudo -u www-data php artisan key:generate
+
+# Run migrations
+sudo -u www-data php artisan migrate --force
+
+# Run seeders
+sudo -u www-data php artisan db:seed --force
+
+# Generate permissions
+sudo -u www-data php artisan shield:generate --all --panel=admin --option=permissions
+
+# Storage link
+sudo -u www-data php artisan storage:link
+
+# Cache everything for production
+sudo -u www-data php artisan config:cache
+sudo -u www-data php artisan route:cache
+sudo -u www-data php artisan view:cache
+sudo -u www-data php artisan optimize
+```
+
+**3.5 Configure Nginx**
+
+```bash
+sudo nano /etc/nginx/sites-available/creative-trees
+```
+
+**Nginx Configuration (dengan security headers):**
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name yourdomain.com www.yourdomain.com;
+
+    # Redirect HTTP to HTTPS
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+
+    server_name yourdomain.com www.yourdomain.com;
+    root /var/www/creative-trees/public;
+    index index.php;
+
+    # SSL Configuration (akan di-generate oleh Certbot)
+    ssl_certificate /etc/letsencrypt/live/yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/yourdomain.com/privkey.pem;
+    ssl_session_timeout 1d;
+    ssl_session_cache shared:SSL:50m;
+    ssl_session_tickets off;
+
+    # Modern SSL configuration
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+
+    # HSTS (ngecek warning: 1 tahun)
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+    # Security Headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # Logging
+    access_log /var/log/nginx/creative-trees.access.log;
+    error_log /var/log/nginx/creative-trees.error.log;
+
+    # Max upload size
+    client_max_body_size 100M;
+
+    # Gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types text/plain text/css text/xml application/json application/javascript application/rss+xml application/atom+xml image/svg+xml;
+
+    # Main location
+    location / {
+        try_files $uri $uri/ /index.php?$query_string;
+    }
+
+    # PHP-FPM
+    location ~ \.php$ {
+        fastcgi_pass unix:/var/run/php/php8.2-fpm.sock;
+        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
+        include fastcgi_params;
+        fastcgi_hide_header X-Powered-By;
+    }
+
+    # Static assets caching
+    location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|woff|woff2|ttf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
+
+    # Deny access to hidden files
+    location ~ /\.(?!well-known).* {
+        deny all;
+    }
+
+    # Deny access to sensitive files
+    location ~ /\.(env|git|htaccess) {
+        deny all;
+    }
+}
+```
+
+**Enable site:**
+
+```bash
+sudo ln -s /etc/nginx/sites-available/creative-trees /etc/nginx/sites-enabled/
+sudo rm /etc/nginx/sites-enabled/default  # Remove default
+sudo nginx -t  # Test configuration
+sudo systemctl restart nginx
+```
+
+### Step 4: SSL Certificate (Let's Encrypt)
+
+```bash
+# Install Certbot
+sudo apt install -y certbot python3-certbot-nginx
+
+# Obtain certificate
+sudo certbot --nginx -d yourdomain.com -d www.yourdomain.com
+
+# Auto-renewal sudah disetup otomatis, verify:
+sudo systemctl status certbot.timer
+```
+
+### Step 5: Supervisor Configuration
+
+```bash
+# Install Supervisor
+sudo apt install -y supervisor
+
+# Create worker configuration
 sudo nano /etc/supervisor/conf.d/creative-trees-worker.conf
 ```
+
+**Supervisor Configuration:**
 
 ```ini
 [program:creative-trees-worker]
 process_name=%(program_name)s_%(process_num)02d
-command=php /var/www/A-Good-Start-to-the-Program/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+command=php /var/www/creative-trees/artisan queue:work redis --sleep=3 --tries=3 --max-time=3600 --memory=256
 autostart=true
 autorestart=true
 stopasgroup=true
@@ -427,382 +1690,152 @@ killasgroup=true
 user=www-data
 numprocs=2
 redirect_stderr=true
-stdout_logfile=/var/www/A-Good-Start-to-the-Program/storage/logs/worker.log
+stdout_logfile=/var/www/creative-trees/storage/logs/worker.log
 stopwaitsecs=3600
 ```
 
 ```bash
-# 9. Start Supervisor
+# Reload dan start
 sudo supervisorctl reread
 sudo supervisorctl update
 sudo supervisorctl start creative-trees-worker:*
 
-# 10. Configure Nginx
-sudo nano /etc/nginx/sites-available/creative-trees
+# Verify
+sudo supervisorctl status
 ```
 
-```nginx
-server {
-    listen 80;
-    listen [::]:80;
-    server_name your-domain.com;
-    return 301 https://$server_name$request_uri;
-}
+### Step 6: Production Security Hardening
 
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name your-domain.com;
-    root /var/www/A-Good-Start-to-the-Program/public;
-
-    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
-
-    add_header X-Frame-Options "SAMEORIGIN";
-    add_header X-Content-Type-Options "nosniff";
-    add_header X-XSS-Protection "1; mode=block";
-
-    index index.php;
-    charset utf-8;
-
-    location / {
-        try_files $uri $uri/ /index.php?$query_string;
-    }
-
-    location ~ \.php$ {
-        fastcgi_pass unix:/var/run/php/php8.2-fpm.sock;
-        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name;
-        include fastcgi_params;
-    }
-
-    location ~ /\.(?!well-known).* {
-        deny all;
-    }
-}
-```
+**6.1 PHP-FPM Hardening**
 
 ```bash
-# 11. Enable site and restart Nginx
-sudo ln -s /etc/nginx/sites-available/creative-trees /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl restart nginx
+sudo nano /etc/php/8.2/fpm/php.ini
 ```
+
+Update settings:
+
+```ini
+expose_php = Off
+display_errors = Off
+display_startup_errors = Off
+log_errors = On
+error_log = /var/log/php/error.log
+memory_limit = 256M
+max_execution_time = 60
+max_input_time = 60
+post_max_size = 100M
+upload_max_filesize = 100M
+```
+
+**6.2 OPcache Configuration**
+
+```bash
+sudo nano /etc/php/8.2/fpm/conf.d/10-opcache.ini
+```
+
+```ini
+opcache.enable=1
+opcache.memory_consumption=256
+opcache.interned_strings_buffer=16
+opcache.max_accelerated_files=20000
+opcache.validate_timestamps=0
+opcache.save_comments=1
+opcache.enable_file_override=1
+```
+
+**6.3 Restart Services**
+
+```bash
+sudo systemctl restart php8.2-fpm
+sudo systemctl restart nginx
+```
+
+### Step 7: Setup Cron Job
+
+```bash
+# Edit crontab untuk www-data
+sudo crontab -u www-data -e
+
+# Tambahkan line berikut:
+* * * * * cd /var/www/creative-trees && php artisan schedule:run >> /dev/null 2>&1
+```
+
+### Step 8: Final Verification
+
+```bash
+# Check all services
+sudo systemctl status nginx
+sudo systemctl status php8.2-fpm
+sudo systemctl status mysql
+sudo systemctl status redis
+sudo supervisorctl status
+
+# Test application
+curl -I https://yourdomain.com
+
+# Verify audit system
+cd /var/www/creative-trees
+sudo -u www-data php artisan audit:verify
+```
+
+### 🎉 Selesai!
+
+Akses aplikasi Anda di: **https://yourdomain.com/admin**
+
+Default login:
+
+- Email: `admin@admin.com`
+- Password: `password`
+
+> **⚠️ SEGERA ganti password setelah login pertama!**
 
 </details>
 
-<details>
-<summary><strong>🌐 Shared Hosting Installation</strong></summary>
+---
 
-For cPanel, Plesk, DirectAdmin, or similar shared hosting environments.
+## ✅ Post-Installation Steps (All Environments)
 
-#### Prerequisites
+Setelah instalasi selesai di environment manapun, jalankan langkah-langkah berikut:
 
--   PHP 8.2+ with required extensions
--   MySQL 8.0+ (usually provided)
--   SSH access (recommended) or File Manager
--   Composer (via SSH or local machine)
-
-#### Step 1: Prepare on Local Machine
+### 1. Verify Installation
 
 ```bash
-# Clone and install dependencies locally
-git clone https://github.com/Halfirzzha/A-Good-Start-to-the-Program.git
-cd A-Good-Start-to-the-Program
+# Test all systems
+php artisan about
 
-# Install dependencies without dev packages
-composer install --no-dev --optimize-autoloader
-npm install && npm run build
-
-# Create production .env
-cp .env.example .env
-# Edit .env with production values
-```
-
-#### Step 2: Upload Files
-
-1. Compress the entire project (excluding `node_modules`)
-2. Upload to your hosting (usually `public_html` or a subdirectory)
-3. Extract the files
-
-#### Step 3: Configure Public Folder
-
-**Option A: Subdomain/Addon Domain**
-
-Point the domain document root to `/public` folder.
-
-**Option B: Main Domain**
-
-Move `public` contents to `public_html` and update `index.php`:
-
-```php
-// Change these paths in public_html/index.php
-require __DIR__.'/../your-project-folder/vendor/autoload.php';
-$app = require_once __DIR__.'/../your-project-folder/bootstrap/app.php';
-```
-
-#### Step 4: Configure via cPanel
-
-1. **Create MySQL Database** via cPanel > MySQL Databases
-2. **Create Database User** and grant all privileges
-3. **Update .env** with database credentials
-
-```env
-APP_ENV=production
-APP_DEBUG=false
-APP_URL=https://your-domain.com
-
-DB_CONNECTION=mysql
-DB_HOST=localhost
-DB_DATABASE=cpanel_dbname
-DB_USERNAME=cpanel_dbuser
-DB_PASSWORD=your_password
-
-CACHE_STORE=file
-SESSION_DRIVER=file
-QUEUE_CONNECTION=database
-```
-
-#### Step 5: Run Artisan Commands via SSH
-
-```bash
-cd ~/public_html  # or your project directory
-php artisan key:generate
-php artisan migrate:fresh --seed
-php artisan storage:link
-php artisan optimize
-php artisan shield:generate --all --panel=admin --option=permissions
-```
-
-#### Step 6: Set Permissions
-
-```bash
-chmod -R 755 .
-chmod -R 775 storage bootstrap/cache
-```
-
-#### Step 7: Configure Cron for Scheduler
-
-In cPanel > Cron Jobs, add:
-
-```
-* * * * * cd /home/username/public_html && php artisan schedule:run >> /dev/null 2>&1
-```
-
-> **⚠️ Shared Hosting Limitations:**
->
-> -   Queue workers run via scheduler instead of persistent process
-> -   Redis may not be available (use `file` or `database` cache)
-> -   Some features may require VPS for optimal performance
-
-</details>
-
-<details>
-<summary><strong>💻 Developer/Local Environment</strong></summary>
-
-For local development, testing, and contribution.
-
-#### Prerequisites
-
--   PHP 8.2+ with development extensions
--   Composer 2.x
--   Node.js 18+ & NPM
--   MySQL 8.0+ or SQLite
--   Redis (optional for local)
--   Git
-
-#### Quick Start
-
-```bash
-# 1. Clone repository
-git clone https://github.com/Halfirzzha/A-Good-Start-to-the-Program.git
-cd A-Good-Start-to-the-Program
-
-# 2. Install dependencies
-composer install
-npm install
-
-# 3. Environment setup
-cp .env.example .env
-php artisan key:generate
-
-# 4. Configure .env for development
-nano .env
-```
-
-#### Development .env Configuration
-
-```env
-APP_ENV=local
-APP_DEBUG=true
-APP_URL=http://localhost:8000
-
-# SQLite (simple, no setup required)
-DB_CONNECTION=sqlite
-# Or MySQL
-# DB_CONNECTION=mysql
-# DB_DATABASE=creative_trees_dev
-# DB_USERNAME=root
-# DB_PASSWORD=
-
-# File-based for development (no Redis required)
-CACHE_STORE=file
-SESSION_DRIVER=file
-QUEUE_CONNECTION=sync
-
-# Development settings
-SECURITY_DEVELOPER_BYPASS_VALIDATIONS=true
-AUDIT_SIGNATURE_ENABLED=false
-```
-
-#### Run Development Server
-
-```bash
-# 5. Create SQLite database (if using SQLite)
-touch database/database.sqlite
-
-# 6. Run migrations with fresh database
-php artisan migrate:fresh --seed
-
-# 7. Generate permissions
-php artisan shield:generate --all --panel=admin --option=permissions
-
-# 8. Link storage
-php artisan storage:link
-
-# 9. Start all development services at once
-composer dev
-
-# Or start services individually:
-php artisan serve        # HTTP server (Terminal 1)
-npm run dev              # Vite dev server (Terminal 2)
-php artisan queue:listen # Queue listener (Terminal 3)
-```
-
-#### Available Development Commands
-
-```bash
-# Code quality
-composer pint           # Run Laravel Pint code style fixer
-composer analyse        # Run PHPStan static analysis
-php artisan test        # Run PHPUnit tests
-
-# Cache management
-php artisan optimize:clear  # Clear all caches
-php artisan permission:cache-reset  # Reset permission cache
-
-# Audit tools
-php artisan audit:verify   # Verify audit log integrity
-php artisan audit:export   # Export audit logs
-
-# Development utilities
-php artisan tinker         # Interactive REPL
-php artisan db:seed        # Re-run seeders
-```
-
-#### IDE Setup (VS Code Recommended)
-
-Install these extensions:
-
--   **PHP Intelephense** - PHP language support
--   **Laravel Blade Snippets** - Blade template support
--   **Tailwind CSS IntelliSense** - CSS class suggestions
--   **Alpine.js IntelliSense** - Alpine directives
--   **Prettier** - Code formatting
-
-Recommended workspace settings (`.vscode/settings.json`):
-
-```json
-{
-    "editor.formatOnSave": true,
-    "files.associations": {
-        "*.blade.php": "blade"
-    },
-    "tailwindCSS.includeLanguages": {
-        "blade": "html"
-    }
-}
-```
-
-#### Hot Reload & Testing
-
-```bash
-# Watch for file changes
-npm run dev
-
-# Run tests with coverage
-php artisan test --coverage
-
-# Run specific test file
-php artisan test tests/Feature/SecurityServiceTest.php
-```
-
-</details>
-
-### Production Deployment
-
-<details>
-<summary><strong>Production Checklist & Configuration</strong></summary>
-
-#### Pre-Deployment Checklist
-
-```bash
-# Cache optimization
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-
-# Verify audit integrity
+# Verify audit log integrity
 php artisan audit:verify
 
-# Start workers & scheduler (use Supervisor/Systemd)
-php artisan queue:work
-php artisan schedule:work
+# Check health
+curl http://localhost/health/check  # atau domain Anda
 ```
 
-#### Essential Production .env Settings
+### 2. Change Default Password
 
-```env
-# Application
-APP_ENV=production
-APP_DEBUG=false
-APP_URL=https://your-domain.com
+Login ke `/admin` dan **segera ganti password** user admin!
 
-# Security
-SESSION_SECURE_COOKIE=true
-SESSION_HTTP_ONLY=true
-SESSION_SAME_SITE=lax
+### 3. Configure Email (SMTP)
 
-# Redis (required)
-QUEUE_CONNECTION=redis
-CACHE_STORE=redis
-SESSION_DRIVER=redis
+1. Login ke Admin Panel
+2. Navigate ke **System Settings** → **Communication**
+3. Configure SMTP:
+    - Host: smtp.gmail.com (atau provider Anda)
+    - Port: 587
+    - Username: your-email@gmail.com
+    - Password: App Password (bukan password biasa!)
+    - Encryption: TLS
 
-# Security Controls
-SECURITY_DEVELOPER_BYPASS_VALIDATIONS=false
-SECURITY_ALERT_ENABLED=true
-SECURITY_ALERT_IN_APP=true
+### 4. (Optional) Configure AI Integration
 
-# Audit Signatures
-AUDIT_SIGNATURE_ENABLED=true
-AUDIT_SIGNATURE_SECRET=change-this-strong-secret
-AUDIT_SIGNATURE_ALGO=sha256
+1. Navigate ke **System Settings** → **AI Configuration**
+2. Enable AI
+3. Add API keys (Groq gratis, OpenRouter punya FREE models)
 
-# Observability
-OBSERVABILITY_SLOW_REQUEST_MS=800
-OBSERVABILITY_SLOW_QUERY_MS=500
-```
+### 5. (Optional) Configure Google Drive Backup
 
-#### Production Runbook
-
-| Area                | Recommendation                                                     |
-| ------------------- | ------------------------------------------------------------------ |
-| **Process Manager** | Use Supervisor/Systemd for `queue:work` and `schedule:work`        |
-| **Cache & Session** | Redis required, separate DB for cache/session/queue for isolation  |
-| **Mail**            | Use SMTP/SES with validated sender domain                          |
-| **Audit**           | Run `php artisan audit:verify` before major releases               |
-| **Security**        | Ensure `SECURITY_DEVELOPER_BYPASS_VALIDATIONS=false` in production |
-| **Backup**          | Daily DB backups + retain audit logs for minimum 30 days           |
-
-</details>
+1. Navigate ke **System Settings** → **Storage**
+2. Add Google Drive service account JSON
+3. Enable "Sync to Google Drive"
 
 ---
 
@@ -1537,9 +2570,9 @@ graph LR
 
 Each audit log entry includes:
 
--   **Hash**: SHA-256 of current entry + previous hash
--   **Signature**: HMAC-SHA256 of hash using secret key (if enabled)
--   **Previous Hash**: Links to previous entry for chain integrity
+- **Hash**: SHA-256 of current entry + previous hash
+- **Signature**: HMAC-SHA256 of hash using secret key (if enabled)
+- **Previous Hash**: Links to previous entry for chain integrity
 
 ### Security Alerts
 
@@ -1564,9 +2597,9 @@ SECURITY_ALERT_LOG_CHANNEL=security
 
 Alerts are deduplicated by request hash to prevent alert fatigue:
 
--   Same threat pattern from same IP within 5 minutes = 1 alert
--   Different IPs or patterns = separate alerts
--   Deduplication tracked in Redis with 5-minute TTL
+- Same threat pattern from same IP within 5 minutes = 1 alert
+- Different IPs or patterns = separate alerts
+- Deduplication tracked in Redis with 5-minute TTL
 
 ### Developer Bypass
 
@@ -1579,9 +2612,9 @@ SECURITY_DEVELOPER_BYPASS_VALIDATIONS=true
 
 When enabled, users with `developer` role can bypass:
 
--   Email verification requirements
--   Password expiry enforcement
--   Maintenance mode restrictions
+- Email verification requirements
+- Password expiry enforcement
+- Maintenance mode restrictions
 
 **Production Warning:** Set `SECURITY_DEVELOPER_BYPASS_VALIDATIONS=false` in production environments!
 
@@ -1590,21 +2623,21 @@ When enabled, users with `developer` role can bypass:
 <details>
 <summary><strong>Production Security Verification</strong></summary>
 
--   [ ] `APP_DEBUG=false` in production
--   [ ] `SECURITY_DEVELOPER_BYPASS_VALIDATIONS=false`
--   [ ] `SESSION_SECURE_COOKIE=true` (HTTPS)
--   [ ] `SESSION_HTTP_ONLY=true`
--   [ ] `AUDIT_SIGNATURE_ENABLED=true`
--   [ ] `AUDIT_SIGNATURE_SECRET` set to strong random value
--   [ ] Redis requires authentication (`REDIS_PASSWORD` set)
--   [ ] Database uses least-privilege user account
--   [ ] SMTP credentials stored securely (not in version control)
--   [ ] Google Drive service account JSON secured
--   [ ] Rate limits configured appropriately for your traffic
--   [ ] Audit logs retained for compliance period (90+ days)
--   [ ] Security alert emails configured and tested
--   [ ] Backup strategy implemented and tested
--   [ ] SSL/TLS certificate valid and auto-renewing
+- [ ] `APP_DEBUG=false` in production
+- [ ] `SECURITY_DEVELOPER_BYPASS_VALIDATIONS=false`
+- [ ] `SESSION_SECURE_COOKIE=true` (HTTPS)
+- [ ] `SESSION_HTTP_ONLY=true`
+- [ ] `AUDIT_SIGNATURE_ENABLED=true`
+- [ ] `AUDIT_SIGNATURE_SECRET` set to strong random value
+- [ ] Redis requires authentication (`REDIS_PASSWORD` set)
+- [ ] Database uses least-privilege user account
+- [ ] SMTP credentials stored securely (not in version control)
+- [ ] Google Drive service account JSON secured
+- [ ] Rate limits configured appropriately for your traffic
+- [ ] Audit logs retained for compliance period (90+ days)
+- [ ] Security alert emails configured and tested
+- [ ] Backup strategy implemented and tested
+- [ ] SSL/TLS certificate valid and auto-renewing
 
 </details>
 
@@ -2262,10 +3295,10 @@ Configure when AI should generate alerts.
 
 > **⚠️ Critical Production Settings:**
 >
-> -   `APP_DEBUG=false`
-> -   `SECURITY_DEVELOPER_BYPASS_VALIDATIONS=false`
-> -   `SESSION_SECURE_COOKIE=true` (HTTPS only)
-> -   `AUDIT_SIGNATURE_ENABLED=true` (recommended)
+> - `APP_DEBUG=false`
+> - `SECURITY_DEVELOPER_BYPASS_VALIDATIONS=false`
+> - `SESSION_SECURE_COOKIE=true` (HTTPS only)
+> - `AUDIT_SIGNATURE_ENABLED=true` (recommended)
 
 ---
 
@@ -2327,10 +3360,10 @@ php artisan test --testsuite=Feature
 
 ### Code Style
 
--   Follow PSR-12 via Laravel Pint
--   Keep migrations reversible
--   Add tests for new features
--   Update documentation as needed
+- Follow PSR-12 via Laravel Pint
+- Keep migrations reversible
+- Add tests for new features
+- Update documentation as needed
 
 ---
 
@@ -2902,13 +3935,13 @@ php artisan view:cache
 
 **A:**
 
--   PHP 8.2 or higher
--   MySQL 8.0+ or MariaDB 10.3+
--   Redis 6.0+
--   Composer 2.x
--   Node.js 18+ and npm (for asset compilation)
--   2GB RAM minimum (4GB recommended)
--   1GB free disk space
+- PHP 8.2 or higher
+- MySQL 8.0+ or MariaDB 10.3+
+- Redis 6.0+
+- Composer 2.x
+- Node.js 18+ and npm (for asset compilation)
+- 2GB RAM minimum (4GB recommended)
+- 1GB free disk space
 
 ---
 
@@ -2928,10 +3961,10 @@ DB_PORT=5432
 
 **A:** Redis is **strongly recommended** for production. While you can use `CACHE_STORE=file` and `SESSION_DRIVER=file` for development, Redis provides:
 
--   10x faster session access
--   Reliable queue backend
--   Atomic cache operations
--   Better concurrency handling
+- 10x faster session access
+- Reliable queue backend
+- Atomic cache operations
+- Better concurrency handling
 
 ---
 
@@ -2976,10 +4009,10 @@ php artisan view:cache
 
 **A:** Creative Trees uses **hash chain cryptography** for tamper-evident logging:
 
--   Each audit log entry contains the hash of the previous entry
--   Optional HMAC-SHA256 signatures with secret key
--   Any modification breaks the chain, detectable via `audit:verify`
--   Enterprise-grade compliance for SOC 2, ISO 27001
+- Each audit log entry contains the hash of the previous entry
+- Optional HMAC-SHA256 signatures with secret key
+- Any modification breaks the chain, detectable via `audit:verify`
+- Enterprise-grade compliance for SOC 2, ISO 27001
 
 Verify integrity:
 
@@ -3048,11 +4081,11 @@ Better approach: **tune threat detection thresholds** in `config/security.php`.
 
 **A:**
 
--   Minimum 12 characters (configurable)
--   Must contain: uppercase, lowercase, number, special char
--   Cannot reuse last 5 passwords (configurable)
--   No common passwords (10k dictionary check)
--   Expires every 90 days (configurable)
+- Minimum 12 characters (configurable)
+- Must contain: uppercase, lowercase, number, special char
+- Cannot reuse last 5 passwords (configurable)
+- No common passwords (10k dictionary check)
+- Expires every 90 days (configurable)
 
 Configure in `.env`:
 
@@ -3120,10 +4153,10 @@ https://yoursite.com?maintenance_bypass=YOUR_SECRET_KEY
 
 **A:** Yes:
 
--   Default: 24 hours
--   Configurable via `MAINTENANCE_TOKEN_EXPIRES_HOURS`
--   Revocable manually via System Settings
--   Automatically cleaned up by scheduler
+- Default: 24 hours
+- Configurable via `MAINTENANCE_TOKEN_EXPIRES_HOURS`
+- Revocable manually via System Settings
+- Automatically cleaned up by scheduler
 
 </details>
 
@@ -3134,17 +4167,17 @@ https://yoursite.com?maintenance_bypass=YOUR_SECRET_KEY
 
 **A:** With proper infrastructure:
 
--   **Small**: 100-500 concurrent (2 CPU, 4GB RAM)
--   **Medium**: 500-2,000 concurrent (4 CPU, 8GB RAM)
--   **Large**: 2,000-10,000+ concurrent (8+ CPU, 16GB+ RAM, Redis cluster)
+- **Small**: 100-500 concurrent (2 CPU, 4GB RAM)
+- **Medium**: 500-2,000 concurrent (4 CPU, 8GB RAM)
+- **Large**: 2,000-10,000+ concurrent (8+ CPU, 16GB+ RAM, Redis cluster)
 
 Optimize with:
 
--   Redis for session/cache (not file)
--   OPcache enabled
--   Queue workers (3-10 depending on load)
--   CDN for static assets
--   Database connection pooling
+- Redis for session/cache (not file)
+- OPcache enabled
+- Queue workers (3-10 depending on load)
+- CDN for static assets
+- Database connection pooling
 
 ---
 
@@ -3183,10 +4216,10 @@ php artisan telescope:install
 
 **A:** **Absolutely YES**. Queue workers are essential for:
 
--   Sending emails asynchronously
--   Processing audit exports
--   Syncing files to Google Drive
--   Security alert dispatch
+- Sending emails asynchronously
+- Processing audit exports
+- Syncing files to Google Drive
+- Security alert dispatch
 
 Configure Supervisor:
 
@@ -3217,9 +4250,9 @@ php artisan queue:monitor redis:default --max=100
 
 Health dashboard also shows queue status:
 
--   Visit `/admin/health`
--   Check "Queue" panel
--   Red status if queue is down
+- Visit `/admin/health`
+- Check "Queue" panel
+- Red status if queue is down
 
 </details>
 
@@ -3230,10 +4263,10 @@ Health dashboard also shows queue status:
 
 **A:** Yes, via System Settings → Branding:
 
--   Upload logo (SVG/PNG)
--   Set primary color
--   Set app name
--   Files stored on Google Drive (with local fallback)
+- Upload logo (SVG/PNG)
+- Set primary color
+- Set app name
+- Files stored on Google Drive (with local fallback)
 
 Or programmatically in `config/filament.php`:
 
@@ -3498,26 +4531,26 @@ php artisan db:seed --class=DatabaseSeeder
 
 **📊 Advanced Reporting**
 
--   ⏳ Audit log analytics dashboard
--   ⏳ User activity heatmaps
--   ⏳ Security threat trend visualization
--   ⏳ Custom report builder
--   ⏳ Scheduled report delivery (email/PDF)
+- ⏳ Audit log analytics dashboard
+- ⏳ User activity heatmaps
+- ⏳ Security threat trend visualization
+- ⏳ Custom report builder
+- ⏳ Scheduled report delivery (email/PDF)
 
 **🔍 Search & Filtering**
 
--   ⏳ Full-text search across audit logs
--   ⏳ Advanced filter builder with OR/AND logic
--   ⏳ Saved searches and filters
--   ⏳ Search result export (CSV/XLSX/JSON)
+- ⏳ Full-text search across audit logs
+- ⏳ Advanced filter builder with OR/AND logic
+- ⏳ Saved searches and filters
+- ⏳ Search result export (CSV/XLSX/JSON)
 
 **📈 Performance Metrics**
 
--   ⏳ Real-time performance dashboard
--   ⏳ API response time tracking
--   ⏳ Database query profiling
--   ⏳ Redis hit/miss ratio charts
--   ⏳ Resource usage trends
+- ⏳ Real-time performance dashboard
+- ⏳ API response time tracking
+- ⏳ Database query profiling
+- ⏳ Redis hit/miss ratio charts
+- ⏳ Resource usage trends
 
 **Expected Release:** March 2026
 
@@ -3532,28 +4565,28 @@ php artisan db:seed --class=DatabaseSeeder
 
 **🔌 REST API**
 
--   ⏳ RESTful API for all resources
--   ⏳ OAuth 2.0 authentication
--   ⏳ API rate limiting per client
--   ⏳ API key management
--   ⏳ Swagger/OpenAPI documentation
--   ⏳ GraphQL endpoint (optional)
+- ⏳ RESTful API for all resources
+- ⏳ OAuth 2.0 authentication
+- ⏳ API rate limiting per client
+- ⏳ API key management
+- ⏳ Swagger/OpenAPI documentation
+- ⏳ GraphQL endpoint (optional)
 
 **🔗 Webhooks**
 
--   ⏳ Webhook delivery for critical events
--   ⏳ Retry logic with exponential backoff
--   ⏳ Webhook signing for verification
--   ⏳ Delivery log and monitoring
+- ⏳ Webhook delivery for critical events
+- ⏳ Retry logic with exponential backoff
+- ⏳ Webhook signing for verification
+- ⏳ Delivery log and monitoring
 
 **📦 Integrations**
 
--   ⏳ Slack notifications
--   ⏳ Microsoft Teams alerts
--   ⏳ Discord webhooks
--   ⏳ Zapier integration
--   ⏳ LDAP/Active Directory auth
--   ⏳ SAML 2.0 SSO
+- ⏳ Slack notifications
+- ⏳ Microsoft Teams alerts
+- ⏳ Discord webhooks
+- ⏳ Zapier integration
+- ⏳ LDAP/Active Directory auth
+- ⏳ SAML 2.0 SSO
 
 **Expected Release:** June 2026
 
@@ -3568,19 +4601,19 @@ php artisan db:seed --class=DatabaseSeeder
 
 **🏢 Multi-Tenant Architecture**
 
--   ⏳ Database-per-tenant isolation
--   ⏳ Tenant-specific domains
--   ⏳ Tenant onboarding wizard
--   ⏳ Tenant admin panel
--   ⏳ Per-tenant storage quotas
--   ⏳ Billing & subscription management
+- ⏳ Database-per-tenant isolation
+- ⏳ Tenant-specific domains
+- ⏳ Tenant onboarding wizard
+- ⏳ Tenant admin panel
+- ⏳ Per-tenant storage quotas
+- ⏳ Billing & subscription management
 
 **🎨 Tenant Customization**
 
--   ⏳ Per-tenant branding
--   ⏳ Custom color schemes
--   ⏳ Tenant-specific workflows
--   ⏳ Custom fields and forms
+- ⏳ Per-tenant branding
+- ⏳ Custom color schemes
+- ⏳ Tenant-specific workflows
+- ⏳ Custom fields and forms
 
 **Expected Release:** September 2026
 
@@ -3595,25 +4628,25 @@ php artisan db:seed --class=DatabaseSeeder
 
 **🤖 Artificial Intelligence**
 
--   ⏳ AI-powered threat detection
--   ⏳ Anomaly detection in user behavior
--   ⏳ Automated security recommendations
--   ⏳ Natural language audit log search
--   ⏳ Predictive maintenance scheduling
--   ⏳ Smart alert prioritization
+- ⏳ AI-powered threat detection
+- ⏳ Anomaly detection in user behavior
+- ⏳ Automated security recommendations
+- ⏳ Natural language audit log search
+- ⏳ Predictive maintenance scheduling
+- ⏳ Smart alert prioritization
 
 **🧠 Machine Learning**
 
--   ⏳ User access pattern learning
--   ⏳ Fraud detection algorithms
--   ⏳ Performance optimization suggestions
--   ⏳ Automated workflow optimization
+- ⏳ User access pattern learning
+- ⏳ Fraud detection algorithms
+- ⏳ Performance optimization suggestions
+- ⏳ Automated workflow optimization
 
 **🎙️ Voice & Chatbot**
 
--   ⏳ Voice-controlled admin actions
--   ⏳ AI chatbot for support
--   ⏳ Natural language queries
+- ⏳ Voice-controlled admin actions
+- ⏳ AI chatbot for support
+- ⏳ Natural language queries
 
 **Expected Release:** December 2026
 
@@ -3623,14 +4656,14 @@ php artisan db:seed --class=DatabaseSeeder
 
 ### 📅 Long-Term Vision (2027+)
 
--   🔮 Mobile app (iOS/Android)
--   🔮 Desktop app (Electron)
--   🔮 Kubernetes operator for auto-scaling
--   🔮 Built-in CDN integration
--   🔮 Advanced compliance (HIPAA, GDPR, SOC 2 Type II)
--   🔮 Blockchain-based audit trail
--   🔮 Quantum-resistant encryption
--   🔮 Edge computing support
+- 🔮 Mobile app (iOS/Android)
+- 🔮 Desktop app (Electron)
+- 🔮 Kubernetes operator for auto-scaling
+- 🔮 Built-in CDN integration
+- 🔮 Advanced compliance (HIPAA, GDPR, SOC 2 Type II)
+- 🔮 Blockchain-based audit trail
+- 🔮 Quantum-resistant encryption
+- 🔮 Edge computing support
 
 ---
 
@@ -3834,24 +4867,33 @@ This release expands the AI system with **4 new providers** (xAI Grok, DeepSeek,
 
 **🧠 Smart Model Selection (NEW)**
 
--   ✅ **Auto Model Fallback**: If a model fails, automatically tries the next best model
--   ✅ **Complexity Analysis**: Analyzes prompt to select appropriate model tier (basic/standard/advanced/premium)
--   ✅ **Model Memory**: Remembers last successful model per provider for faster responses
--   ✅ **Quality Sorting**: Models sorted by capability (cost as proxy) for intelligent fallback
--   ✅ **Per-Provider Fallback**: Each provider tries multiple models before failing over to next provider
+- ✅ **Auto Model Fallback**: If a model fails, automatically tries the next best model
+- ✅ **Complexity Analysis**: Analyzes prompt to select appropriate model tier (basic/standard/advanced/premium)
+- ✅ **Model Memory**: Remembers last successful model per provider for faster responses
+- ✅ **Quality Sorting**: Models sorted by capability (cost as proxy) for intelligent fallback
+- ✅ **Per-Provider Fallback**: Each provider tries multiple models before failing over to next provider
 
 **🔄 How Smart Selection Works**
 
-```
-User Prompt → Complexity Analysis → Select Model Tier → Try Best Model
-                                                              ↓
-                                                        Success? ✅ Return
-                                                              ↓ No
-                                                    Try Next Model in Provider
-                                                              ↓
-                                                    All Models Failed?
-                                                              ↓ Yes
-                                                    Failover to Next Provider
+```mermaid
+flowchart TD
+    A[📝 User Prompt] --> B[🧠 Complexity Analysis]
+    B --> C[🎯 Select Model Tier]
+    C --> D[🚀 Try Best Model]
+    D --> E{✅ Success?}
+    E -->|Yes| F[📤 Return Response]
+    E -->|No| G[🔄 Try Next Model in Provider]
+    G --> H{All Models Failed?}
+    H -->|No| D
+    H -->|Yes| I[⚡ Failover to Next Provider]
+    I --> D
+
+    style A fill:#3b82f6,stroke:#1e40af,color:#fff
+    style B fill:#8b5cf6,stroke:#6d28d9,color:#fff
+    style C fill:#f59e0b,stroke:#d97706,color:#fff
+    style D fill:#22c55e,stroke:#15803d,color:#fff
+    style F fill:#22c55e,stroke:#15803d,color:#fff
+    style I fill:#ef4444,stroke:#b91c1c,color:#fff
 ```
 
 **🎯 Complexity Tiers**
@@ -3865,10 +4907,10 @@ User Prompt → Complexity Analysis → Select Model Tier → Try Best Model
 
 **🤖 New AI Providers Added**
 
--   ✅ **GrokProvider.php**: xAI's Grok with real-time knowledge & advanced reasoning
--   ✅ **DeepSeekProvider.php**: DeepSeek-V3, R1 reasoning - best value AI
--   ✅ **MistralProvider.php**: European AI, multilingual, Codestral for code
--   ✅ **CohereProvider.php**: Enterprise RAG, embeddings, semantic search
+- ✅ **GrokProvider.php**: xAI's Grok with real-time knowledge & advanced reasoning
+- ✅ **DeepSeekProvider.php**: DeepSeek-V3, R1 reasoning - best value AI
+- ✅ **MistralProvider.php**: European AI, multilingual, Codestral for code
+- ✅ **CohereProvider.php**: Enterprise RAG, embeddings, semantic search
 
 **🎯 AI Provider Priority Order (9 Providers)**
 
@@ -3912,17 +4954,17 @@ User Prompt → Complexity Analysis → Select Model Tier → Try Best Model
 
 **🔧 Bug Fixes (v1.2.6)**
 
--   ✅ **NotificationCenterTest**: Fixed hash algorithm mismatch (SHA1 → SHA256)
--   ✅ **MaintenanceFlowTest**: Fixed CSRF token and cache issues
--   ✅ **AuditHashChainTest**: Added schema cache reset for consistent tests
--   ✅ **ExampleTest**: Fixed IP blocklist and throttle middleware issues
--   ✅ **RecordAuthActivity**: Improved type safety with Model instanceof check
+- ✅ **NotificationCenterTest**: Fixed hash algorithm mismatch (SHA1 → SHA256)
+- ✅ **MaintenanceFlowTest**: Fixed CSRF token and cache issues
+- ✅ **AuditHashChainTest**: Added schema cache reset for consistent tests
+- ✅ **ExampleTest**: Fixed IP blocklist and throttle middleware issues
+- ✅ **RecordAuthActivity**: Improved type safety with Model instanceof check
 
 **📊 AI Security Insights Dashboard**
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ 🧠 AI Security Insights                              [Refresh] │
+│ 🧠 AI Security Insights                              [Refresh]  │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  Score: 85/100          Metrics (1h)        💡 AI Insight       │
@@ -3937,6 +4979,14 @@ User Prompt → Complexity Analysis → Select Model Tier → Try Best Model
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+#### 🔧 Bug Fixes (v1.2.6)
+
+- ✅ **NotificationCenterTest**: Fixed hash algorithm mismatch (SHA1 → SHA256)
+- ✅ **MaintenanceFlowTest**: Fixed CSRF token and cache issues
+- ✅ **AuditHashChainTest**: Added schema cache reset for consistent tests
+- ✅ **ExampleTest**: Fixed IP blocklist and throttle middleware issues
+- ✅ **RecordAuthActivity**: Improved type safety with Model instanceof check
+
 </details>
 
 <details>
@@ -3950,11 +5000,11 @@ This release standardizes all UUID and code generation across the system with **
 
 **🆔 Enterprise UUID Format**
 
--   ✅ **Uppercase UUIDs**: All UUIDs now use uppercase format (e.g., `C4C5AA1F-A939-4A59-973E-6A7AE4494D9B`)
--   ✅ **Centralized Generation**: All UUID/code generation via `SecurityService`
--   ✅ **Request ID Standardization**: All X-Request-Id headers use uppercase format
--   ✅ **Security Stamp Uppercase**: User security stamps now uppercase
--   ✅ **Consistent Formatting**: Uniform appearance across logs, audits, and displays
+- ✅ **Uppercase UUIDs**: All UUIDs now use uppercase format (e.g., `C4C5AA1F-A939-4A59-973E-6A7AE4494D9B`)
+- ✅ **Centralized Generation**: All UUID/code generation via `SecurityService`
+- ✅ **Request ID Standardization**: All X-Request-Id headers use uppercase format
+- ✅ **Security Stamp Uppercase**: User security stamps now uppercase
+- ✅ **Consistent Formatting**: Uniform appearance across logs, audits, and displays
 
 **🔧 SecurityService UUID Methods**
 
@@ -3970,10 +5020,10 @@ This release standardizes all UUID and code generation across the system with **
 
 **🔐 Permission & Role Control**
 
--   ✅ **52+ Permissions**: Full Spatie Permission integration
--   ✅ **Developer Role**: Full access to all permissions
--   ✅ **Super Admin Role**: Enterprise-level access control
--   ✅ **Granular Permissions**: Section-based access management
+- ✅ **52+ Permissions**: Full Spatie Permission integration
+- ✅ **Developer Role**: Full access to all permissions
+- ✅ **Super Admin Role**: Enterprise-level access control
+- ✅ **Granular Permissions**: Section-based access management
 
 #### 🗂️ Files Updated
 
@@ -4030,35 +5080,35 @@ This release elevates security to **9/10** across all categories with a **consol
 
 **🛡️ Consolidated SecurityService (All-in-One)**
 
--   ✅ **IP Blocklist/Whitelist**: Temporary & permanent blocking with CIDR support (IPv4/IPv6)
--   ✅ **Session Security**: Fingerprint-based hijacking detection & session binding
--   ✅ **Threat Detection**: Real-time XSS, SQL injection, path traversal pattern detection
--   ✅ **Auto-Block**: Automatic IP blocking after 5 threat detections/hour
--   ✅ **Input Sanitization**: XSS-safe string, filename, email, URL sanitization
--   ✅ **AI Integration**: AI-enhanced threat analysis with professional fallback
--   ✅ **Permission Controls**: Role-based security management (Spatie integration)
--   ✅ **Privacy-Safe Logging**: Hashed IPs in logs for GDPR compliance
+- ✅ **IP Blocklist/Whitelist**: Temporary & permanent blocking with CIDR support (IPv4/IPv6)
+- ✅ **Session Security**: Fingerprint-based hijacking detection & session binding
+- ✅ **Threat Detection**: Real-time XSS, SQL injection, path traversal pattern detection
+- ✅ **Auto-Block**: Automatic IP blocking after 5 threat detections/hour
+- ✅ **Input Sanitization**: XSS-safe string, filename, email, URL sanitization
+- ✅ **AI Integration**: AI-enhanced threat analysis with professional fallback
+- ✅ **Permission Controls**: Role-based security management (Spatie integration)
+- ✅ **Privacy-Safe Logging**: Hashed IPs in logs for GDPR compliance
 
 **🤖 AI-Enhanced Security Analysis**
 
--   ✅ **AI Threat Analysis**: Real-time AI-powered threat pattern recognition
--   ✅ **Professional Fallback**: Pattern-based analysis when AI unavailable
--   ✅ **Behavioral Analysis**: User behavior profiling for anomaly detection
--   ✅ **Risk Scoring**: Dynamic risk assessment with severity levels
+- ✅ **AI Threat Analysis**: Real-time AI-powered threat pattern recognition
+- ✅ **Professional Fallback**: Pattern-based analysis when AI unavailable
+- ✅ **Behavioral Analysis**: User behavior profiling for anomaly detection
+- ✅ **Risk Scoring**: Dynamic risk assessment with severity levels
 
 **🔐 New Security Permissions**
 
--   ✅ **manage_security**: Full security management access
--   ✅ **view_security_logs**: Access to security audit logs
--   ✅ **manage_ip_blocklist**: IP blocklist/whitelist management
--   ✅ **view_security_dashboard**: Security dashboard access
+- ✅ **manage_security**: Full security management access
+- ✅ **view_security_logs**: Access to security audit logs
+- ✅ **manage_ip_blocklist**: IP blocklist/whitelist management
+- ✅ **view_security_dashboard**: Security dashboard access
 
 #### 🔧 Security Fixes
 
--   ✅ **SHA1 → SHA256 Migration**: All hash functions upgraded to SHA256
--   ✅ **Database Indexes**: Security indexes added to existing migrations
--   ✅ **$title Variable Fix**: Fixed undefined variable in SendSecurityAlert.php
--   ✅ **DOM XSS Fix**: Added HTML escaping in maintenance.js
+- ✅ **SHA1 → SHA256 Migration**: All hash functions upgraded to SHA256
+- ✅ **Database Indexes**: Security indexes added to existing migrations
+- ✅ **$title Variable Fix**: Fixed undefined variable in SendSecurityAlert.php
+- ✅ **DOM XSS Fix**: Added HTML escaping in maintenance.js
 
 #### 📊 Security Score Improvements
 
@@ -4099,10 +5149,10 @@ public/assets/maintenance/
 
 Instead of multiple separate files, all security features are unified into a single `SecurityService.php` for:
 
--   📦 **Simpler Maintenance**: One file to update for security changes
--   🔗 **Better Integration**: Consistent API across all security features
--   🚀 **Performance**: Single class loading, optimized caching
--   🧪 **Easier Testing**: Unified mock/stub for tests
+- 📦 **Simpler Maintenance**: One file to update for security changes
+- 🔗 **Better Integration**: Consistent API across all security features
+- 🚀 **Performance**: Single class loading, optimized caching
+- 🧪 **Easier Testing**: Unified mock/stub for tests
 
 </details>
 
@@ -4117,10 +5167,10 @@ This release introduces **AI-powered auto-fill** functionality for Notification 
 
 **🤖 AI Auto-Fill System**
 
--   ✅ **Notification Center AI Generate**: Click the sparkles ✨ button to auto-fill title and message
--   ✅ **Project Settings AI Generate**: Auto-generate professional project name and description
--   ✅ **Random Template Selection**: Each click gives different content variation
--   ✅ **Multi-Language Support**: Templates available in English and Indonesian
+- ✅ **Notification Center AI Generate**: Click the sparkles ✨ button to auto-fill title and message
+- ✅ **Project Settings AI Generate**: Auto-generate professional project name and description
+- ✅ **Random Template Selection**: Each click gives different content variation
+- ✅ **Multi-Language Support**: Templates available in English and Indonesian
 
 **📝 Template Varieties**
 
@@ -4131,10 +5181,10 @@ This release introduces **AI-powered auto-fill** functionality for Notification 
 
 **🎯 Notification Categories**
 
--   **Maintenance**: Scheduled/Urgent/Emergency maintenance notices
--   **Announcement**: General/Urgent/Critical announcements
--   **Update**: System updates with varying urgency levels
--   **Security**: Security notices/alerts from normal to critical
+- **Maintenance**: Scheduled/Urgent/Emergency maintenance notices
+- **Announcement**: General/Urgent/Critical announcements
+- **Update**: System updates with varying urgency levels
+- **Security**: Security notices/alerts from normal to critical
 
 **🏢 Project Template Styles**
 
@@ -4149,8 +5199,8 @@ This release introduces **AI-powered auto-fill** functionality for Notification 
 
 #### 🔧 Bug Fixes
 
--   ✅ Fixed "Array to string conversion" error in SystemSettingResource
--   ✅ Proper handling of RichEditor content as array/string
+- ✅ Fixed "Array to string conversion" error in SystemSettingResource
+- ✅ Proper handling of RichEditor content as array/string
 
 #### 🗂️ Files Changed
 
@@ -4187,10 +5237,10 @@ This release introduces **real-time live toggles** with instant auto-save and sm
 
 #### ✨ New Features
 
--   ✅ **Live Toggles**: All maintenance toggles update instantly without save button
--   ✅ **Auto-Save**: Changes saved to database immediately on toggle
--   ✅ **Cache Auto-Clear**: `Cache::forget('maintenance_settings')` on every change
--   ✅ **AI-Smart Notifications**: Context-aware success messages
+- ✅ **Live Toggles**: All maintenance toggles update instantly without save button
+- ✅ **Auto-Save**: Changes saved to database immediately on toggle
+- ✅ **Cache Auto-Clear**: `Cache::forget('maintenance_settings')` on every change
+- ✅ **AI-Smart Notifications**: Context-aware success messages
 
 </details>
 
@@ -4205,14 +5255,14 @@ This release ensures **100% policy coverage** for all Filament Resources with pr
 
 **🛡️ Fixed & Enhanced Policies**
 
--   ✅ **RolePolicy**: Fixed incorrect `isDeveloper()` pattern (was requiring BOTH developer role AND permission)
--   ✅ **RolePolicy**: Added missing methods (`restore`, `restoreAny`, `forceDelete`, `forceDeleteAny`)
--   ✅ **MaintenanceSettingPolicy**: Added missing restore/forceDelete methods
--   ✅ **MaintenanceTokenPolicy**: Added missing restore/forceDelete methods with Developer bypass
--   ✅ **NotificationDeliveryPolicy**: Added missing restore/forceDelete methods
--   ✅ **NotificationMessagePolicy**: Added missing restore/forceDelete methods with Developer bypass
--   ✅ **SystemSettingPolicy**: Added missing restore/forceDelete methods
--   ✅ **UserNotificationPolicy**: **NEW** - Created complete policy for UserNotification model
+- ✅ **RolePolicy**: Fixed incorrect `isDeveloper()` pattern (was requiring BOTH developer role AND permission)
+- ✅ **RolePolicy**: Added missing methods (`restore`, `restoreAny`, `forceDelete`, `forceDeleteAny`)
+- ✅ **MaintenanceSettingPolicy**: Added missing restore/forceDelete methods
+- ✅ **MaintenanceTokenPolicy**: Added missing restore/forceDelete methods with Developer bypass
+- ✅ **NotificationDeliveryPolicy**: Added missing restore/forceDelete methods
+- ✅ **NotificationMessagePolicy**: Added missing restore/forceDelete methods with Developer bypass
+- ✅ **SystemSettingPolicy**: Added missing restore/forceDelete methods
+- ✅ **UserNotificationPolicy**: **NEW** - Created complete policy for UserNotification model
 
 **📋 Policy Pattern Standardization**
 
@@ -4280,43 +5330,43 @@ This release introduces a **complete multi-provider AI architecture** with 5 AI 
 
 **🤖 Multi-Provider AI Orchestration**
 
--   ✅ **5 AI Providers** with automatic failover:
+- ✅ **5 AI Providers** with automatic failover:
     1. **Groq** (Priority 1) - Fastest inference, ultra-cheap: Llama 3.3, Mixtral, Gemma2
     2. **OpenAI** (Priority 2) - Industry standard: GPT-4o, GPT-4o-mini, GPT-3.5-turbo
     3. **Anthropic** (Priority 3) - Best for nuance: Claude 3.5 Sonnet, Claude 3 Haiku
     4. **Google Gemini** (Priority 4) - Free tier available: Gemini 2.0 Flash, 1.5 Pro
     5. **OpenRouter** (Priority 5) - 100+ models including FREE ones!
--   ✅ **Automatic Failover**: When one provider fails, system tries the next
--   ✅ **Circuit Breaker Pattern**: Protects against cascading failures
-    -   3 consecutive failures → circuit opens for 5 minutes
-    -   Automatic recovery and retry
--   ✅ **Smart Provider Selection**: Remembers last successful provider
--   ✅ **Rate Limit Detection**: Automatic cooldown on 429 errors
+- ✅ **Automatic Failover**: When one provider fails, system tries the next
+- ✅ **Circuit Breaker Pattern**: Protects against cascading failures
+    - 3 consecutive failures → circuit opens for 5 minutes
+    - Automatic recovery and retry
+- ✅ **Smart Provider Selection**: Remembers last successful provider
+- ✅ **Rate Limit Detection**: Automatic cooldown on 429 errors
 
 **💰 Cost Optimization Engine**
 
--   ✅ **Daily Cost Limits**: Configurable USD limit per day (default $10)
--   ✅ **Per-Request Cost Tracking**: Calculates cost based on tokens used
--   ✅ **Provider Cost Comparison**: Each provider has cost-per-1k-token rates
--   ✅ **24-Hour Response Caching**: Avoid duplicate API calls
--   ✅ **Usage Analytics**: Track requests, tokens, costs by provider
+- ✅ **Daily Cost Limits**: Configurable USD limit per day (default $10)
+- ✅ **Per-Request Cost Tracking**: Calculates cost based on tokens used
+- ✅ **Provider Cost Comparison**: Each provider has cost-per-1k-token rates
+- ✅ **24-Hour Response Caching**: Avoid duplicate API calls
+- ✅ **Usage Analytics**: Track requests, tokens, costs by provider
 
 **📊 AI Provider Health Dashboard (Widget)**
 
--   ✅ Real-time provider status visualization
--   ✅ Today's cost and request statistics
--   ✅ Budget remaining indicator with progress bar
--   ✅ Individual provider test connection buttons
--   ✅ "Test All Providers" batch health check
--   ✅ Cache clear functionality
+- ✅ Real-time provider status visualization
+- ✅ Today's cost and request statistics
+- ✅ Budget remaining indicator with progress bar
+- ✅ Individual provider test connection buttons
+- ✅ "Test All Providers" batch health check
+- ✅ Cache clear functionality
 
 **⚙️ System Settings UI Enhancements**
 
--   ✅ New "Multi-Provider AI (Enterprise)" section in System Settings
--   ✅ API key inputs for all 5 providers with helper text
--   ✅ Toggle for automatic failover
--   ✅ Toggle for smart provider selection
--   ✅ Daily cost limit configuration
+- ✅ New "Multi-Provider AI (Enterprise)" section in System Settings
+- ✅ API key inputs for all 5 providers with helper text
+- ✅ Toggle for automatic failover
+- ✅ Toggle for smart provider selection
+- ✅ Daily cost limit configuration
 
 #### 🔄 Architecture Improvements
 
@@ -4348,12 +5398,12 @@ resources/views/filament/widgets/
 
 **Database Migration:**
 
--   ✅ Added `groq_api_key`, `openrouter_api_key`, `gemini_api_key` columns
--   ✅ Added `xai_grok_api_key`, `deepseek_api_key`, `mistral_api_key`, `cohere_api_key` columns (v1.2.6)
--   ✅ Added `ai_failover_enabled`, `ai_smart_selection` toggles
--   ✅ Added `ai_daily_limit` (decimal, default $10.00)
--   ✅ Added `ai_provider_priorities` (JSON) for custom ordering
--   ✅ Added `ai_preferred_models` (JSON) for per-provider model selection
+- ✅ Added `groq_api_key`, `openrouter_api_key`, `gemini_api_key` columns
+- ✅ Added `xai_grok_api_key`, `deepseek_api_key`, `mistral_api_key`, `cohere_api_key` columns (v1.2.6)
+- ✅ Added `ai_failover_enabled`, `ai_smart_selection` toggles
+- ✅ Added `ai_daily_limit` (decimal, default $10.00)
+- ✅ Added `ai_provider_priorities` (JSON) for custom ordering
+- ✅ Added `ai_preferred_models` (JSON) for per-provider model selection
 
 #### 📈 Provider Comparison
 
@@ -4367,10 +5417,10 @@ resources/views/filament/widgets/
 
 #### 🔒 Security Enhancements
 
--   ✅ All API keys stored encrypted
--   ✅ Decryption error handling (graceful fallback)
--   ✅ API keys excluded from audit logs
--   ✅ Circuit breaker prevents credential spam on failures
+- ✅ All API keys stored encrypted
+- ✅ Decryption error handling (graceful fallback)
+- ✅ API keys excluded from audit logs
+- ✅ Circuit breaker prevents credential spam on failures
 
 </details>
 
@@ -4385,61 +5435,61 @@ This release introduces **AI Intelligence Integration** with OpenAI GPT-4o suppo
 
 **🤖 AI Intelligence Integration**
 
--   ✅ OpenAI API integration with GPT-4o default model
--   ✅ Configurable AI settings in System Settings
-    -   AI Provider selection (OpenAI)
-    -   Model selection (GPT-4o, GPT-4o-mini, GPT-4-turbo, GPT-3.5-turbo)
-    -   Temperature and Max Tokens configuration
-    -   Request timeout settings
--   ✅ AI feature toggles (suggestions, analysis, content generation)
--   ✅ AI usage limits and rate limiting per user/role
--   ✅ Encrypted API key storage with secure handling
--   ✅ Multi-language support (EN/ID) for AI settings UI
+- ✅ OpenAI API integration with GPT-4o default model
+- ✅ Configurable AI settings in System Settings
+    - AI Provider selection (OpenAI)
+    - Model selection (GPT-4o, GPT-4o-mini, GPT-4-turbo, GPT-3.5-turbo)
+    - Temperature and Max Tokens configuration
+    - Request timeout settings
+- ✅ AI feature toggles (suggestions, analysis, content generation)
+- ✅ AI usage limits and rate limiting per user/role
+- ✅ Encrypted API key storage with secure handling
+- ✅ Multi-language support (EN/ID) for AI settings UI
 
 **🔐 Enhanced RBAC (Role-Based Access Control)**
 
--   ✅ Section-specific permissions in SystemSettingPolicy
-    -   `viewBranding` / `manageBranding`
-    -   `viewStorage` / `manageStorage`
-    -   `viewCommunication` / `manageCommunication`
-    -   `viewAI` / `manageAI`
-    -   `editSecrets` / `testSmtp` / `testAI`
--   ✅ New MaintenanceSettingPolicy with token management permissions
--   ✅ New MaintenanceTokenPolicy with ownership-based access control
--   ✅ New NotificationMessagePolicy with draft/sent distinction
--   ✅ New NotificationDeliveryPolicy with retry permissions
--   ✅ All policies registered in AuthServiceProvider
+- ✅ Section-specific permissions in SystemSettingPolicy
+    - `viewBranding` / `manageBranding`
+    - `viewStorage` / `manageStorage`
+    - `viewCommunication` / `manageCommunication`
+    - `viewAI` / `manageAI`
+    - `editSecrets` / `testSmtp` / `testAI`
+- ✅ New MaintenanceSettingPolicy with token management permissions
+- ✅ New MaintenanceTokenPolicy with ownership-based access control
+- ✅ New NotificationMessagePolicy with draft/sent distinction
+- ✅ New NotificationDeliveryPolicy with retry permissions
+- ✅ All policies registered in AuthServiceProvider
 
 **📡 Real-Time Broadcasting Infrastructure**
 
--   ✅ Laravel Echo ready channel authorization (routes/channels.php)
--   ✅ New broadcast events:
-    -   `AuditLogCreated` - Real-time audit log streaming
-    -   `MaintenanceModeChanged` - Instant maintenance notifications
-    -   `SystemSettingsUpdated` - Settings change propagation
-    -   `UserSessionEvent` - Session activity monitoring
--   ✅ Channel-based authorization:
-    -   `user.{id}` - User-specific private channel
-    -   `security.alerts` - Security team broadcasts
-    -   `security.sessions` - Session monitoring channel
-    -   `audit.logs` - Audit log streaming channel
-    -   `admin.notifications` - Admin-only notifications
-    -   `system.settings` - Settings change channel
+- ✅ Laravel Echo ready channel authorization (routes/channels.php)
+- ✅ New broadcast events:
+    - `AuditLogCreated` - Real-time audit log streaming
+    - `MaintenanceModeChanged` - Instant maintenance notifications
+    - `SystemSettingsUpdated` - Settings change propagation
+    - `UserSessionEvent` - Session activity monitoring
+- ✅ Channel-based authorization:
+    - `user.{id}` - User-specific private channel
+    - `security.alerts` - Security team broadcasts
+    - `security.sessions` - Session monitoring channel
+    - `audit.logs` - Audit log streaming channel
+    - `admin.notifications` - Admin-only notifications
+    - `system.settings` - Settings change channel
 
 **🚨 Enhanced Security Alerts**
 
--   ✅ Severity classification (info, warning, high, critical)
--   ✅ Real-time broadcasting integration for security events
--   ✅ High-severity event automatic escalation
--   ✅ Critical event immediate admin notification
+- ✅ Severity classification (info, warning, high, critical)
+- ✅ Real-time broadcasting integration for security events
+- ✅ High-severity event automatic escalation
+- ✅ Critical event immediate admin notification
 
 #### 🔄 Improvements
 
--   📝 30+ new database columns for AI configuration
--   ⚙️ Redis predis client support (pure PHP, no extension required)
--   🏷️ App version updated to `1.1.0`
--   🔒 Section-level permission granularity
--   📊 Real-time event broadcasting ready
+- 📝 30+ new database columns for AI configuration
+- ⚙️ Redis predis client support (pure PHP, no extension required)
+- 🏷️ App version updated to `1.1.0`
+- 🔒 Section-level permission granularity
+- 📊 Real-time event broadcasting ready
 
 #### 📦 Technical Details
 
@@ -4478,61 +5528,61 @@ This release marks **Creative Trees v1.0.0** as fully production-ready with ente
 
 **📚 Documentation Excellence**
 
--   ✅ Comprehensive all-in-one README (2,400+ lines)
--   ✅ Architecture diagrams with Mermaid
--   ✅ Security best practices documentation
--   ✅ Complete operations manual
--   ✅ Environment variable reference guide
--   ✅ Production deployment checklist
+- ✅ Comprehensive all-in-one README (2,400+ lines)
+- ✅ Architecture diagrams with Mermaid
+- ✅ Security best practices documentation
+- ✅ Complete operations manual
+- ✅ Environment variable reference guide
+- ✅ Production deployment checklist
 
 **🔔 Notification Enhancements**
 
--   ✅ Bell dropdown with advanced filters
-    -   Category filter (security/maintenance/announcement/general)
-    -   Priority filter (urgent/high/normal/low)
-    -   Read status filter (read/unread/all)
-    -   Clear filters action
--   ✅ In-app inbox resource with bulk actions
--   ✅ Unread badge auto-count
+- ✅ Bell dropdown with advanced filters
+    - Category filter (security/maintenance/announcement/general)
+    - Priority filter (urgent/high/normal/low)
+    - Read status filter (read/unread/all)
+    - Clear filters action
+- ✅ In-app inbox resource with bulk actions
+- ✅ Unread badge auto-count
 
 **🔏 Audit System Enhancements**
 
--   ✅ HMAC-SHA256 signatures for audit logs
--   ✅ Signature verification in `audit:verify` command
--   ✅ Signature rehash support in `audit:rehash`
--   ✅ SIEM-ready export with ECS format
--   ✅ JSONL export via `audit:export` command
--   ✅ Context and change payload redaction
+- ✅ HMAC-SHA256 signatures for audit logs
+- ✅ Signature verification in `audit:verify` command
+- ✅ Signature rehash support in `audit:rehash`
+- ✅ SIEM-ready export with ECS format
+- ✅ JSONL export via `audit:export` command
+- ✅ Context and change payload redaction
 
 **👁️ Observability**
 
--   ✅ Slow request logging (configurable threshold)
--   ✅ Slow query logging (configurable threshold)
--   ✅ Structured JSON log channel
--   ✅ Performance metrics tracking
+- ✅ Slow request logging (configurable threshold)
+- ✅ Slow query logging (configurable threshold)
+- ✅ Structured JSON log channel
+- ✅ Performance metrics tracking
 
 **🛡️ Security Hardening**
 
--   ✅ Enhanced CSP directives (`base-uri`, `object-src`, `form-action`)
--   ✅ No-cache headers for maintenance responses
--   ✅ Additional cross-origin security headers
--   ✅ Permission consistency across all features
+- ✅ Enhanced CSP directives (`base-uri`, `object-src`, `form-action`)
+- ✅ No-cache headers for maintenance responses
+- ✅ Additional cross-origin security headers
+- ✅ Permission consistency across all features
 
 **🧪 Testing**
 
--   ✅ `AuditHashChainTest` - Hash chain integrity validation
--   ✅ `UserPolicyTest` - Permission enforcement testing
--   ✅ `NotificationCenterTest` - Alert dedup and badge testing
--   ✅ `MaintenanceFlowTest` - End-to-end bypass verification
--   ✅ `FilamentDatabaseNotificationsTest` - Filter functionality
+- ✅ `AuditHashChainTest` - Hash chain integrity validation
+- ✅ `UserPolicyTest` - Permission enforcement testing
+- ✅ `NotificationCenterTest` - Alert dedup and badge testing
+- ✅ `MaintenanceFlowTest` - End-to-end bypass verification
+- ✅ `FilamentDatabaseNotificationsTest` - Filter functionality
 
 #### 🔄 Improvements
 
--   📝 README restructured with professional formatting
--   ⚙️ Configuration guidance aligned to production-safe defaults
--   🏷️ App version updated to `1.0.0`
--   🚨 Security alerts with global enable/disable toggle
--   📊 Alert dispatch logging to dedicated security channel
+- 📝 README restructured with professional formatting
+- ⚙️ Configuration guidance aligned to production-safe defaults
+- 🏷️ App version updated to `1.0.0`
+- 🚨 Security alerts with global enable/disable toggle
+- 📊 Alert dispatch logging to dedicated security channel
 
 #### 📦 Technical Details
 
@@ -4560,17 +5610,17 @@ MySQL: 8.0+
 
 **In-App Inbox Resource**
 
--   ✅ Read/unread filters with toggle states
--   ✅ Category filter (security/maintenance/announcement/general)
--   ✅ Priority filter (urgent/high/normal/low)
--   ✅ Mark-all-read and mark-all-unread bulk actions
--   ✅ Unread badge auto-count in sidebar navigation
+- ✅ Read/unread filters with toggle states
+- ✅ Category filter (security/maintenance/announcement/general)
+- ✅ Priority filter (urgent/high/normal/low)
+- ✅ Mark-all-read and mark-all-unread bulk actions
+- ✅ Unread badge auto-count in sidebar navigation
 
 **Bell Dropdown Improvements**
 
--   ✅ Category and priority filters in header dropdown
--   ✅ Improved header layout and spacing
--   ✅ Filter persistence during session
+- ✅ Category and priority filters in header dropdown
+- ✅ Improved header layout and spacing
+- ✅ Filter persistence during session
 
 </details>
 
@@ -4581,23 +5631,23 @@ MySQL: 8.0+
 
 **Notification Delivery Logs**
 
--   ✅ Channel/status badges (in-app, email, telegram, sms)
--   ✅ Notification title lookup via relation
--   ✅ Recipient display with email/username fallback
--   ✅ Standardized channel labels across UI
+- ✅ Channel/status badges (in-app, email, telegram, sms)
+- ✅ Notification title lookup via relation
+- ✅ Recipient display with email/username fallback
+- ✅ Standardized channel labels across UI
 
 **In-App Security Alerts**
 
--   ✅ Real-time alerts delivered to in-app inbox
--   ✅ Role-based targeting (developer, super_admin, admin)
--   ✅ Request hash deduplication (prevents alert fatigue)
--   ✅ Configurable via `SECURITY_ALERT_IN_APP` and `SECURITY_ALERT_ROLES`
+- ✅ Real-time alerts delivered to in-app inbox
+- ✅ Role-based targeting (developer, super_admin, admin)
+- ✅ Request hash deduplication (prevents alert fatigue)
+- ✅ Configurable via `SECURITY_ALERT_IN_APP` and `SECURITY_ALERT_ROLES`
 
 **Notification Center Enhancements**
 
--   ✅ Multi-channel notification dispatch
--   ✅ Improved recipient display formatting
--   ✅ Delivery status tracking
+- ✅ Multi-channel notification dispatch
+- ✅ Improved recipient display formatting
+- ✅ Delivery status tracking
 
 </details>
 
@@ -4608,39 +5658,39 @@ MySQL: 8.0+
 
 **Comprehensive Rate Limiting**
 
--   ✅ Login endpoint: 10/min per username/IP
--   ✅ OTP verification: 5/min per username/IP
--   ✅ Maintenance status: 30/min per IP
--   ✅ Maintenance stream (SSE): 6/min per IP
--   ✅ Maintenance bypass: 6/min per IP
--   ✅ Invitations: 6/min per IP
--   ✅ SMTP test/check: Resource-level throttling
--   ✅ Maintenance token actions: Throttled per action
+- ✅ Login endpoint: 10/min per username/IP
+- ✅ OTP verification: 5/min per username/IP
+- ✅ Maintenance status: 30/min per IP
+- ✅ Maintenance stream (SSE): 6/min per IP
+- ✅ Maintenance bypass: 6/min per IP
+- ✅ Invitations: 6/min per IP
+- ✅ SMTP test/check: Resource-level throttling
+- ✅ Maintenance token actions: Throttled per action
 
 **Server-Side Authorization Hardening**
 
--   ✅ Guards added for all sensitive actions
--   ✅ Audit log entries for denied update attempts
--   ✅ Policy checks before bulk action execution
+- ✅ Guards added for all sensitive actions
+- ✅ Audit log entries for denied update attempts
+- ✅ Policy checks before bulk action execution
 
 **User Resource Permission Granularity**
 
--   ✅ Tab-level permissions (identity/security/access)
--   ✅ Section-level permissions within tabs
--   ✅ Field-level visibility controls
--   ✅ Bulk action auditing with context
+- ✅ Tab-level permissions (identity/security/access)
+- ✅ Section-level permissions within tabs
+- ✅ Field-level visibility controls
+- ✅ Bulk action auditing with context
 
 **CSP Hardening**
 
--   ✅ Compatible with Filament and Alpine.js runtime
--   ✅ `script-src 'self' 'unsafe-inline' 'unsafe-eval'` for Livewire/Alpine
--   ✅ Strict `frame-ancestors 'self'`
+- ✅ Compatible with Filament and Alpine.js runtime
+- ✅ `script-src 'self' 'unsafe-inline' 'unsafe-eval'` for Livewire/Alpine
+- ✅ Strict `frame-ancestors 'self'`
 
 **Audit Log View**
 
--   ✅ Organized sections: Summary, Actor, Request, Changes
--   ✅ Faster investigations with clear section headers
--   ✅ Copyable request/session IDs
+- ✅ Organized sections: Summary, Actor, Request, Changes
+- ✅ Faster investigations with clear section headers
+- ✅ Copyable request/session IDs
 
 </details>
 
@@ -4651,25 +5701,25 @@ MySQL: 8.0+
 
 **Audit Log UI Columns**
 
--   ✅ Status code with color-coded badges
--   ✅ HTTP method column
--   ✅ IP address column
--   ✅ Request ID (copyable)
--   ✅ Session ID (copyable)
--   ✅ Route name column
+- ✅ Status code with color-coded badges
+- ✅ HTTP method column
+- ✅ IP address column
+- ✅ Request ID (copyable)
+- ✅ Session ID (copyable)
+- ✅ Route name column
 
 **Audit Log Infolist**
 
--   ✅ Copyable request/session IDs with click-to-copy
--   ✅ Richer entity labeling (type + ID + label)
--   ✅ Referer URL when available
--   ✅ User agent hash display
+- ✅ Copyable request/session IDs with click-to-copy
+- ✅ Richer entity labeling (type + ID + label)
+- ✅ Referer URL when available
+- ✅ User agent hash display
 
 **Audit Log Filters**
 
--   ✅ Filter by HTTP method (GET/POST/PUT/PATCH/DELETE)
--   ✅ Filter by status code range
--   ✅ Filter by user role
+- ✅ Filter by HTTP method (GET/POST/PUT/PATCH/DELETE)
+- ✅ Filter by status code range
+- ✅ Filter by user role
 
 </details>
 
@@ -4680,28 +5730,28 @@ MySQL: 8.0+
 
 **Dedicated Maintenance Settings Resource**
 
--   ✅ Standalone resource for maintenance configuration
--   ✅ Token management with create/revoke actions
--   ✅ Schedule management with start/end datetime
--   ✅ SSE real-time status updates
+- ✅ Standalone resource for maintenance configuration
+- ✅ Token management with create/revoke actions
+- ✅ Schedule management with start/end datetime
+- ✅ SSE real-time status updates
 
 **Expanded Audit Log Schema**
 
--   ✅ User role snapshot at action time
--   ✅ User name/email/username snapshot
--   ✅ Hash and previous hash for chain integrity
--   ✅ Tamper-evident audit trail
+- ✅ User role snapshot at action time
+- ✅ User name/email/username snapshot
+- ✅ Hash and previous hash for chain integrity
+- ✅ Tamper-evident audit trail
 
 **Maintenance Settings Storage**
 
--   ✅ Dedicated `maintenance_settings` table
--   ✅ Caching layer for performance (10-second TTL)
--   ✅ Fallback to defaults on cache/DB failure
+- ✅ Dedicated `maintenance_settings` table
+- ✅ Caching layer for performance (10-second TTL)
+- ✅ Fallback to defaults on cache/DB failure
 
 **Maintenance UI Hardening**
 
--   ✅ Permission checks on all actions
--   ✅ Audit logging for setting changes
+- ✅ Permission checks on all actions
+- ✅ Audit logging for setting changes
 
 </details>
 
@@ -4712,32 +5762,32 @@ MySQL: 8.0+
 
 **Health Dashboard UI**
 
--   ✅ System panel: database, cache, queue status
--   ✅ Security panel: baseline security checks
--   ✅ Runtime panel: scheduler, storage checks
--   ✅ Alert banner for degraded status
--   ✅ Sparkline trends (placeholder for metrics)
+- ✅ System panel: database, cache, queue status
+- ✅ Security panel: baseline security checks
+- ✅ Runtime panel: scheduler, storage checks
+- ✅ Alert banner for degraded status
+- ✅ Sparkline trends (placeholder for metrics)
 
 **System Health Checks**
 
--   ✅ Database connectivity check with latency
--   ✅ Cache read/write check
--   ✅ Queue connectivity check
--   ✅ Scheduler last-run check
--   ✅ Storage write check
--   ✅ Privacy-safe fallbacks for shared hosting
+- ✅ Database connectivity check with latency
+- ✅ Cache read/write check
+- ✅ Queue connectivity check
+- ✅ Scheduler last-run check
+- ✅ Storage write check
+- ✅ Privacy-safe fallbacks for shared hosting
 
 **Maintenance Realtime Improvements**
 
--   ✅ SSE stability improvements
--   ✅ Polling tuning for reliability
--   ✅ Status consistency fixes
+- ✅ SSE stability improvements
+- ✅ Polling tuning for reliability
+- ✅ Status consistency fixes
 
 **Tokens & Audit**
 
--   ✅ Structured bypass token model
--   ✅ Detailed audit trail for token usage
--   ✅ Developer safeguards (bypass only in dev mode)
+- ✅ Structured bypass token model
+- ✅ Detailed audit trail for token usage
+- ✅ Developer safeguards (bypass only in dev mode)
 
 </details>
 
@@ -4748,32 +5798,32 @@ MySQL: 8.0+
 
 **Communication Tab (System Settings)**
 
--   ✅ SMTP configuration UI
--   ✅ Auto port/encryption sync (587→TLS, 465→SSL, 25→None)
--   ✅ Connection check action
--   ✅ Delivery test action
+- ✅ SMTP configuration UI
+- ✅ Auto port/encryption sync (587→TLS, 465→SSL, 25→None)
+- ✅ Connection check action
+- ✅ Delivery test action
 
 **Sender Domain Rules**
 
--   ✅ Auto domain sync between sender addresses
--   ✅ Hard validation for sender and OTP addresses
--   ✅ Domain consistency enforcement
+- ✅ Auto domain sync between sender addresses
+- ✅ Hard validation for sender and OTP addresses
+- ✅ Domain consistency enforcement
 
 **Email Delivery Improvements**
 
--   ✅ Runtime mail configuration from System Settings
--   ✅ Shorter SMTP timeout (5 seconds)
--   ✅ OTP rate limiting
+- ✅ Runtime mail configuration from System Settings
+- ✅ Shorter SMTP timeout (5 seconds)
+- ✅ OTP rate limiting
 
 **UI Polish**
 
--   ✅ Icon-only actions for cleaner tables
--   ✅ SMTP connection status indicator
+- ✅ Icon-only actions for cleaner tables
+- ✅ SMTP connection status indicator
 
 **Maintenance Realtime Performance**
 
--   ✅ SSE/polling only runs when browser tab is visible
--   ✅ Reduced server load during background tabs
+- ✅ SSE/polling only runs when browser tab is visible
+- ✅ Reduced server load during background tabs
 
 </details>
 
@@ -4784,10 +5834,10 @@ MySQL: 8.0+
 
 **Empty States for Filament Tables**
 
--   ✅ Professional empty state headings
--   ✅ Descriptive messages with context
--   ✅ Call-to-action buttons where applicable
--   ✅ Consistent iconography across resources
+- ✅ Professional empty state headings
+- ✅ Descriptive messages with context
+- ✅ Call-to-action buttons where applicable
+- ✅ Consistent iconography across resources
 
 </details>
 
@@ -4798,10 +5848,10 @@ MySQL: 8.0+
 
 **Per-Account Login Activity View**
 
--   ✅ Relation manager on User resource
--   ✅ Login history with IP, user agent, timestamp
--   ✅ Sortable and searchable activity log
--   ✅ Failed login attempt tracking
+- ✅ Relation manager on User resource
+- ✅ Login history with IP, user agent, timestamp
+- ✅ Sortable and searchable activity log
+- ✅ Failed login attempt tracking
 
 </details>
 
@@ -4812,10 +5862,10 @@ MySQL: 8.0+
 
 **User Resource UX Improvements**
 
--   ✅ Enhanced empty state messaging
--   ✅ Consistent iconography
--   ✅ Improved table column alignment
--   ✅ Better action button placement
+- ✅ Enhanced empty state messaging
+- ✅ Consistent iconography
+- ✅ Improved table column alignment
+- ✅ Better action button placement
 
 </details>
 
@@ -4826,9 +5876,9 @@ MySQL: 8.0+
 
 **Documentation Diagram Rendering**
 
--   ✅ Fixed Mermaid diagram syntax errors
--   ✅ Ensured all diagrams render without "Loading" state
--   ✅ Validated diagram compatibility
+- ✅ Fixed Mermaid diagram syntax errors
+- ✅ Ensured all diagrams render without "Loading" state
+- ✅ Validated diagram compatibility
 
 </details>
 
@@ -4839,10 +5889,10 @@ MySQL: 8.0+
 
 **README Structure**
 
--   ✅ Improved documentation clarity
--   ✅ Better section organization
--   ✅ Cleaner markdown formatting
--   ✅ Logical content flow
+- ✅ Improved documentation clarity
+- ✅ Better section organization
+- ✅ Cleaner markdown formatting
+- ✅ Logical content flow
 
 </details>
 
@@ -4853,10 +5903,10 @@ MySQL: 8.0+
 
 **Changelog Formatting**
 
--   ✅ Standardized to Keep a Changelog format
--   ✅ Consistent section headers
--   ✅ Added reference links
--   ✅ Semantic versioning compliance
+- ✅ Standardized to Keep a Changelog format
+- ✅ Consistent section headers
+- ✅ Added reference links
+- ✅ Semantic versioning compliance
 
 </details>
 
@@ -4867,27 +5917,27 @@ MySQL: 8.0+
 
 **System Settings Cache Fault Tolerance**
 
--   ✅ Graceful fallback on cache failures
--   ✅ Stale cache usage during DB outages
--   ✅ Automatic recovery mechanisms
+- ✅ Graceful fallback on cache failures
+- ✅ Stale cache usage during DB outages
+- ✅ Automatic recovery mechanisms
 
 **Branding Storage Fallback**
 
--   ✅ Google Drive primary storage
--   ✅ Local fallback when Drive unavailable
--   ✅ Seamless storage switching
+- ✅ Google Drive primary storage
+- ✅ Local fallback when Drive unavailable
+- ✅ Seamless storage switching
 
 **Invitation Expiry Enforcement**
 
--   ✅ Automatic expiration check
--   ✅ Security stamp rotation on accept
--   ✅ Token cleanup job
+- ✅ Automatic expiration check
+- ✅ Security stamp rotation on accept
+- ✅ Token cleanup job
 
 **Password History**
 
--   ✅ Configurable history depth (default: 5)
--   ✅ Change metadata tracking
--   ✅ Reuse prevention mechanism
+- ✅ Configurable history depth (default: 5)
+- ✅ Change metadata tracking
+- ✅ Reuse prevention mechanism
 
 </details>
 
@@ -4898,26 +5948,26 @@ MySQL: 8.0+
 
 **Initial Release**
 
--   ✅ Laravel 12 + Filament v4 foundation
--   ✅ Redis-first architecture
-    -   Session storage
-    -   Cache layer
-    -   Queue backend
--   ✅ Basic user management (CRUD)
--   ✅ Role-based access control (RBAC)
-    -   Developer (Level 100)
-    -   Super Admin (Level 90)
-    -   Admin (Level 80)
-    -   Manager (Level 70)
-    -   User (Level 10)
--   ✅ Audit logging foundation
-    -   Request logging
-    -   User action tracking
--   ✅ Authentication system
-    -   Filament login page
-    -   Session management
--   ✅ Database migrations
--   ✅ Basic security middleware
+- ✅ Laravel 12 + Filament v4 foundation
+- ✅ Redis-first architecture
+    - Session storage
+    - Cache layer
+    - Queue backend
+- ✅ Basic user management (CRUD)
+- ✅ Role-based access control (RBAC)
+    - Developer (Level 100)
+    - Super Admin (Level 90)
+    - Admin (Level 80)
+    - Manager (Level 70)
+    - User (Level 10)
+- ✅ Audit logging foundation
+    - Request logging
+    - User action tracking
+- ✅ Authentication system
+    - Filament login page
+    - Session management
+- ✅ Database migrations
+- ✅ Basic security middleware
 
 **Technical Stack**
 
