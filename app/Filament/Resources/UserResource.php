@@ -20,7 +20,6 @@ use Filament\Actions\ForceDeleteBulkAction;
 use Filament\Actions\RestoreAction;
 use Filament\Actions\RestoreBulkAction;
 use Filament\Actions\ViewAction;
-use Filament\Forms\Components\BaseFileUpload;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\RichEditor;
@@ -510,6 +509,8 @@ class UserResource extends Resource
         return $table
             ->defaultSort('created_at', 'desc')
             ->striped()
+            ->poll('60s')
+            ->deferLoading()
             ->columns([
                 ImageColumn::make('avatar')
                     ->label(__('ui.users.fields.avatar'))

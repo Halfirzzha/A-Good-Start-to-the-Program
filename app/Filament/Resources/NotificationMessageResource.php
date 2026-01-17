@@ -199,6 +199,8 @@ class NotificationMessageResource extends Resource
     {
         return $table
             ->defaultSort('created_at', 'desc')
+            ->poll('30s')
+            ->deferLoading()
             ->columns([
                 TextColumn::make('title')
                     ->label(__('notifications.ui.center.fields.title'))

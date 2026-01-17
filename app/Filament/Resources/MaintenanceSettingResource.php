@@ -492,6 +492,7 @@ class MaintenanceSettingResource extends Resource
         return $table
             ->striped()
             ->paginated(false)
+            ->poll('15s')
             ->columns([
                 IconColumn::make('enabled')
                     ->label(__('ui.maintenance.settings.table.status'))

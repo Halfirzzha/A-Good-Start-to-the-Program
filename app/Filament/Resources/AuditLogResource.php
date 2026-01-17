@@ -116,10 +116,13 @@ class AuditLogResource extends Resource
 
     public static function table(Table $table): Table
     {
+        $pollInterval = config('audit.poll_interval', '30s');
+
         return $table
             ->defaultSort('created_at', 'desc')
             ->striped()
-            ->poll('30s')
+            ->poll($pollInterval)
+            ->deferLoading()
             ->columns([
                 TextColumn::make('created_at')
                     ->label(__('ui.audit.columns.time'))
@@ -135,6 +138,9 @@ class AuditLogResource extends Resource
                         str_contains($state, 'updated') => 'warning',
                         str_contains($state, 'deleted') => 'danger',
                         str_contains($state, 'login') => 'info',
+                        str_contains($state, 'security') => 'danger',
+                        str_contains($state, 'blocked') => 'danger',
+                        str_contains($state, 'failed') => 'warning',
                         default => 'gray',
                     }),
                 TextColumn::make('status_code')
@@ -150,6 +156,12 @@ class AuditLogResource extends Resource
                 TextColumn::make('method')
                     ->label(__('ui.audit.columns.method'))
                     ->badge()
+                    ->color(fn (?string $state): string => match ($state) {
+                        'POST' => 'success',
+                        'PUT', 'PATCH' => 'warning',
+                        'DELETE' => 'danger',
+                        default => 'gray',
+                    })
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('user')
                     ->label(__('ui.audit.columns.user'))

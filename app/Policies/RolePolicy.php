@@ -5,6 +5,16 @@ namespace App\Policies;
 use App\Models\User;
 use Spatie\Permission\Models\Role;
 
+/**
+ * Role Policy - Enterprise RBAC Authorization
+ *
+ * This policy controls access to role management:
+ * - Developer: Full access EXCEPT creating new roles
+ * - SuperAdmin: Full access to all role operations
+ * - Other roles: Based on assigned permissions
+ *
+ * Immutable roles (developer, super_admin) cannot be modified or deleted.
+ */
 class RolePolicy
 {
     /**
@@ -12,7 +22,7 @@ class RolePolicy
      */
     public function viewAny(User $user): bool
     {
-        if ($user->isDeveloper()) {
+        if ($user->isDeveloper() || $user->isSuperAdmin()) {
             return true;
         }
 
@@ -24,7 +34,7 @@ class RolePolicy
      */
     public function view(User $user, Role $role): bool
     {
-        if ($user->isDeveloper()) {
+        if ($user->isDeveloper() || $user->isSuperAdmin()) {
             return true;
         }
 
@@ -33,10 +43,22 @@ class RolePolicy
 
     /**
      * Determine whether the user can create roles.
+     *
+     * IMPORTANT: Developer role CANNOT create new roles.
+     * This is intentional - only SuperAdmin or users with explicit
+     * permission can create roles to maintain security hierarchy.
      */
     public function create(User $user): bool
     {
-        if ($user->isDeveloper()) {
+        // Developer explicitly cannot create roles - this is by design
+        // to prevent privilege escalation. Only SuperAdmin or users
+        // with explicit create_role permission can create new roles.
+        if ($user->isDeveloper() && ! $user->isSuperAdmin()) {
+            return false;
+        }
+
+        // SuperAdmin can always create roles
+        if ($user->isSuperAdmin()) {
             return true;
         }
 
@@ -48,12 +70,18 @@ class RolePolicy
      */
     public function update(User $user, Role $role): bool
     {
-        // Developer role is immutable
+        // Immutable roles cannot be modified by anyone
         if ($this->isImmutableRole($role)) {
             return false;
         }
 
+        // Developer can update non-immutable roles
         if ($user->isDeveloper()) {
+            return true;
+        }
+
+        // SuperAdmin can update non-immutable roles
+        if ($user->isSuperAdmin()) {
             return true;
         }
 
@@ -65,12 +93,21 @@ class RolePolicy
      */
     public function delete(User $user, Role $role): bool
     {
-        // Developer role is immutable
+        // Immutable roles cannot be deleted
         if ($this->isImmutableRole($role)) {
             return false;
         }
 
+        // Check if role has users assigned
+        if ($role->users()->count() > 0) {
+            return false;
+        }
+
         if ($user->isDeveloper()) {
+            return true;
+        }
+
+        if ($user->isSuperAdmin()) {
             return true;
         }
 
@@ -82,7 +119,7 @@ class RolePolicy
      */
     public function deleteAny(User $user): bool
     {
-        if ($user->isDeveloper()) {
+        if ($user->isDeveloper() || $user->isSuperAdmin()) {
             return true;
         }
 
@@ -94,7 +131,7 @@ class RolePolicy
      */
     public function restore(User $user, Role $role): bool
     {
-        if ($user->isDeveloper()) {
+        if ($user->isDeveloper() || $user->isSuperAdmin()) {
             return true;
         }
 
@@ -106,7 +143,7 @@ class RolePolicy
      */
     public function restoreAny(User $user): bool
     {
-        if ($user->isDeveloper()) {
+        if ($user->isDeveloper() || $user->isSuperAdmin()) {
             return true;
         }
 
@@ -118,12 +155,12 @@ class RolePolicy
      */
     public function forceDelete(User $user, Role $role): bool
     {
-        // Developer role is immutable
+        // Immutable roles cannot be force deleted
         if ($this->isImmutableRole($role)) {
             return false;
         }
 
-        if ($user->isDeveloper()) {
+        if ($user->isDeveloper() || $user->isSuperAdmin()) {
             return true;
         }
 
@@ -135,7 +172,7 @@ class RolePolicy
      */
     public function forceDeleteAny(User $user): bool
     {
-        if ($user->isDeveloper()) {
+        if ($user->isDeveloper() || $user->isSuperAdmin()) {
             return true;
         }
 
@@ -144,6 +181,10 @@ class RolePolicy
 
     /**
      * Check if the role is immutable (cannot be modified or deleted).
+     *
+     * Immutable roles:
+     * - developer: System administrator role
+     * - super_admin: Highest privilege role
      */
     private function isImmutableRole(Role $role): bool
     {
