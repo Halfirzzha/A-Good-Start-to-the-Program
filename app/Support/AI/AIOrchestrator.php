@@ -6,8 +6,12 @@ namespace App\Support\AI;
 
 use App\Models\SystemSetting;
 use App\Support\AI\Providers\AnthropicProvider;
+use App\Support\AI\Providers\CohereProvider;
+use App\Support\AI\Providers\DeepSeekProvider;
 use App\Support\AI\Providers\GeminiProvider;
+use App\Support\AI\Providers\GrokProvider;
 use App\Support\AI\Providers\GroqProvider;
+use App\Support\AI\Providers\MistralProvider;
 use App\Support\AI\Providers\OpenAIProvider;
 use App\Support\AI\Providers\OpenRouterProvider;
 use Illuminate\Support\Facades\Cache;
@@ -144,6 +148,30 @@ class AIOrchestrator
             $this->registerProvider($provider);
         }
 
+        // xAI Grok (high priority - advanced reasoning and real-time knowledge)
+        if ($apiKey = $getApiKey('xai_grok_api_key')) {
+            $provider = new GrokProvider($apiKey);
+            $this->registerProvider($provider);
+        }
+
+        // DeepSeek (excellent reasoning, very cost-effective)
+        if ($apiKey = $getApiKey('deepseek_api_key')) {
+            $provider = new DeepSeekProvider($apiKey);
+            $this->registerProvider($provider);
+        }
+
+        // Mistral AI (European, multilingual, code)
+        if ($apiKey = $getApiKey('mistral_api_key')) {
+            $provider = new MistralProvider($apiKey);
+            $this->registerProvider($provider);
+        }
+
+        // Cohere (RAG, embeddings, enterprise)
+        if ($apiKey = $getApiKey('cohere_api_key')) {
+            $provider = new CohereProvider($apiKey);
+            $this->registerProvider($provider);
+        }
+
         // OpenRouter (access to 100+ models including FREE ones)
         if ($apiKey = $getApiKey('openrouter_api_key')) {
             $provider = new OpenRouterProvider($apiKey);
@@ -233,6 +261,116 @@ class AIOrchestrator
         }
 
         return null;
+    }
+
+    /**
+     * Analyze prompt complexity and suggest appropriate model tier.
+     *
+     * @return string 'basic'|'standard'|'advanced'|'premium'
+     */
+    public function analyzePromptComplexity(string $prompt): string
+    {
+        $length = strlen($prompt);
+        $wordCount = str_word_count($prompt);
+
+        // Check for complexity indicators
+        $complexityIndicators = [
+            'analyze', 'explain', 'compare', 'evaluate', 'synthesize',
+            'code', 'programming', 'algorithm', 'function', 'class',
+            'security', 'vulnerability', 'threat', 'audit', 'compliance',
+            'mathematical', 'calculate', 'formula', 'equation',
+            'translate', 'multilingual', 'language',
+            'creative', 'story', 'narrative', 'poem',
+        ];
+
+        $simpleIndicators = [
+            'summarize', 'list', 'define', 'what is', 'simple',
+            'short', 'brief', 'quick', 'basic',
+        ];
+
+        $promptLower = strtolower($prompt);
+        $complexityScore = 0;
+
+        // Length-based scoring
+        if ($length > 2000) {
+            $complexityScore += 3;
+        } elseif ($length > 1000) {
+            $complexityScore += 2;
+        } elseif ($length > 500) {
+            $complexityScore += 1;
+        }
+
+        // Indicator-based scoring
+        foreach ($complexityIndicators as $indicator) {
+            if (str_contains($promptLower, $indicator)) {
+                $complexityScore += 2;
+            }
+        }
+
+        foreach ($simpleIndicators as $indicator) {
+            if (str_contains($promptLower, $indicator)) {
+                $complexityScore -= 1;
+            }
+        }
+
+        // Determine tier
+        return match (true) {
+            $complexityScore >= 8 => 'premium',
+            $complexityScore >= 5 => 'advanced',
+            $complexityScore >= 2 => 'standard',
+            default => 'basic',
+        };
+    }
+
+    /**
+     * Get the recommended model for a provider based on task complexity.
+     */
+    public function getRecommendedModel(AIProviderInterface $provider, string $complexity = 'standard'): string
+    {
+        $models = $provider->getModels();
+        $modelKeys = array_keys($models);
+
+        if (empty($modelKeys)) {
+            return $provider->getDefaultModel();
+        }
+
+        // Sort by cost (proxy for capability)
+        usort($modelKeys, function ($a, $b) use ($models) {
+            $costA = $models[$a]['cost_per_1k'] ?? 0;
+            $costB = $models[$b]['cost_per_1k'] ?? 0;
+
+            return $costB <=> $costA; // Higher cost first
+        });
+
+        // Select model based on complexity tier
+        $modelCount = count($modelKeys);
+
+        return match ($complexity) {
+            'premium' => $modelKeys[0], // Best model
+            'advanced' => $modelKeys[min(1, $modelCount - 1)], // Second best or best
+            'standard' => $modelKeys[(int) floor($modelCount / 2)], // Middle
+            'basic' => $modelKeys[$modelCount - 1], // Cheapest
+            default => $provider->getDefaultModel(),
+        };
+    }
+
+    /**
+     * Complete with smart model selection based on prompt complexity.
+     */
+    public function completeWithSmartSelection(string $prompt, array $options = []): AIResponse
+    {
+        // Analyze prompt complexity if not already specified
+        if (! isset($options['model']) && ! isset($options['complexity'])) {
+            $complexity = $this->analyzePromptComplexity($prompt);
+            $options['_complexity'] = $complexity;
+
+            Log::debug('[AI Orchestrator] Smart model selection', [
+                'complexity' => $complexity,
+                'prompt_length' => strlen($prompt),
+            ]);
+        }
+
+        return $this->complete($prompt, $options);
     }
 
     /**

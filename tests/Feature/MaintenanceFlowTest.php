@@ -4,8 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\MaintenanceToken;
 use App\Models\MaintenanceSetting;
+use App\Support\MaintenanceService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Foundation\Testing\WithoutMiddleware;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -13,9 +16,33 @@ class MaintenanceFlowTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Cache::flush();
+        MaintenanceService::forget();
+    }
+
+    protected function tearDown(): void
+    {
+        Cache::flush();
+        MaintenanceService::forget();
+        parent::tearDown();
+    }
+
     private function seedSettings(array $data = []): MaintenanceSetting
     {
-        return MaintenanceSetting::query()->create($data);
+        // Clear all existing settings first
+        MaintenanceSetting::query()->truncate();
+        Cache::flush();
+        MaintenanceService::forget();
+
+        $setting = MaintenanceSetting::query()->create($data);
+
+        Cache::flush();
+        MaintenanceService::forget();
+
+        return $setting;
     }
 
     public function test_status_returns_disabled_when_maintenance_off(): void
@@ -43,11 +70,19 @@ class MaintenanceFlowTest extends TestCase
     public function test_status_returns_active_when_maintenance_enabled(): void
     {
         $now = Carbon::now();
-        $this->seedSettings([
+        $setting = $this->seedSettings([
             'enabled' => true,
-            'start_at' => $now->copy()->subHour()->toIso8601String(),
-            'end_at' => $now->copy()->addHour()->toIso8601String(),
+            'start_at' => $now->copy()->subHour(),
+            'end_at' => $now->copy()->addHour(),
         ]);
+
+        // Force reload settings from database
+        Cache::flush();
+        MaintenanceService::forget();
+
+        // Verify the setting is saved
+        $this->assertTrue($setting->enabled);
+        $this->assertNotNull(MaintenanceSetting::query()->where('enabled', true)->first());
 
         $response = $this->getJson('/maintenance/status');
 
@@ -67,9 +102,11 @@ class MaintenanceFlowTest extends TestCase
             'token_hash' => Hash::make('goodtoken'),
         ]);
 
-        $response = $this->postJson('/maintenance/bypass', [
-            'token' => 'badtoken',
-        ]);
+        $response = $this->withSession(['_token' => 'test-token'])
+            ->withHeader('X-CSRF-TOKEN', 'test-token')
+            ->postJson('/maintenance/bypass', [
+                'token' => 'badtoken',
+            ]);
 
         $response->assertStatus(403);
     }
@@ -82,9 +119,11 @@ class MaintenanceFlowTest extends TestCase
             'token_hash' => Hash::make('goodtoken'),
         ]);
 
-        $response = $this->postJson('/maintenance/bypass', [
-            'token' => 'goodtoken',
-        ]);
+        $response = $this->withSession(['_token' => 'test-token'])
+            ->withHeader('X-CSRF-TOKEN', 'test-token')
+            ->postJson('/maintenance/bypass', [
+                'token' => 'goodtoken',
+            ]);
 
         $response->assertOk();
         $this->assertTrue(session()->get('maintenance_bypass') === true);

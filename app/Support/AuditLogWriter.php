@@ -13,6 +13,15 @@ class AuditLogWriter
     private static ?bool $auditSignatureColumnReady = null;
 
     /**
+     * Reset internal schema cache. Useful for testing.
+     */
+    public static function resetSchemaCache(): void
+    {
+        self::$auditHashColumnsReady = null;
+        self::$auditSignatureColumnReady = null;
+    }
+
+    /**
      * @param array<string, mixed> $data
      */
     public static function writeAudit(array $data): void
@@ -170,6 +179,7 @@ class AuditLogWriter
     private static function applyActorSnapshot(array $data): array
     {
         try {
+            /** @var \Illuminate\Contracts\Auth\Authenticatable|null $user */
             $user = auth()->user();
         } catch (Throwable) {
             $user = null;

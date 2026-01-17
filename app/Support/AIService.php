@@ -152,8 +152,8 @@ class AIService
         $systemPrompt = $this->getSystemPrompt($language);
 
         try {
-            // Step 4: Call orchestrator with automatic failover
-            $response = $this->orchestrator->complete($prompt, [
+            // Step 4: Call orchestrator with automatic failover and smart model selection
+            $response = $this->orchestrator->completeWithSmartSelection($prompt, [
                 'system' => $systemPrompt,
                 'max_tokens' => 512,
                 'temperature' => 0.7,

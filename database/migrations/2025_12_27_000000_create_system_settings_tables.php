@@ -88,6 +88,10 @@ return new class extends Migration
             $table->longText('anthropic_api_key')->nullable()->comment('Anthropic Claude API key (encrypted)');
             $table->longText('gemini_api_key')->nullable()->comment('Google Gemini API key (encrypted)');
             $table->longText('groq_api_key')->nullable()->comment('Groq API key (encrypted)');
+            $table->longText('xai_grok_api_key')->nullable()->comment('xAI Grok API key (encrypted)');
+            $table->longText('deepseek_api_key')->nullable()->comment('DeepSeek API key (encrypted)');
+            $table->longText('mistral_api_key')->nullable()->comment('Mistral AI API key (encrypted)');
+            $table->longText('cohere_api_key')->nullable()->comment('Cohere API key (encrypted)');
             $table->longText('openrouter_api_key')->nullable()->comment('OpenRouter API key (encrypted)');
 
             // =====================================================

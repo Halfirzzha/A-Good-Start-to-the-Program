@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Log;
  * - Rate limiting and backoff
  * - Usage tracking
  * - Health monitoring
+ * - Smart model fallback (auto-switch to better models)
  */
 abstract class AbstractAIProvider implements AIProviderInterface
 {
@@ -32,6 +33,9 @@ abstract class AbstractAIProvider implements AIProviderInterface
     protected int $circuitBreakerThreshold = 3; // Failures before opening circuit
 
     protected int $circuitBreakerTimeout = 300; // Seconds to wait before retry
+
+    // Smart model fallback
+    protected bool $modelFallbackEnabled = true;
 
     /**
      * Get the API key for this provider.
@@ -111,65 +115,182 @@ abstract class AbstractAIProvider implements AIProviderInterface
             );
         }
 
-        $model = $model ?? $this->getDefaultModel();
-        $attempt = 0;
+        // Get models to try (with smart fallback)
+        $modelsToTry = $this->getModelsToTry($model, $options);
         $lastResponse = null;
 
-        while ($attempt < $this->retryAttempts) {
-            $attempt++;
-            $startTime = microtime(true);
+        foreach ($modelsToTry as $currentModel) {
+            $attempt = 0;
 
-            try {
-                $response = $this->sendRequest($prompt, $model, $options);
-                $latencyMs = (microtime(true) - $startTime) * 1000;
+            while ($attempt < $this->retryAttempts) {
+                $attempt++;
+                $startTime = microtime(true);
 
-                if ($response->success) {
-                    $this->recordSuccess();
-                    $this->trackUsage($response);
-                    return $response;
+                try {
+                    $response = $this->sendRequest($prompt, $currentModel, $options);
+                    $latencyMs = (microtime(true) - $startTime) * 1000;
+
+                    if ($response->success) {
+                        $this->recordSuccess();
+                        $this->recordModelSuccess($currentModel);
+                        $this->trackUsage($response);
+
+                        return $response;
+                    }
+
+                    $lastResponse = $response;
+
+                    // Check if we should try a different model
+                    if ($this->shouldFallbackToNextModel($response)) {
+                        Log::debug("[{$this->getIdentifier()}] Model {$currentModel} failed, trying next model", [
+                            'error_code' => $response->errorCode,
+                        ]);
+                        break; // Exit retry loop, try next model
+                    }
+
+                    // Don't retry on non-recoverable errors
+                    if (! $response->isRecoverable()) {
+                        $this->recordFailure();
+
+                        return $response;
+                    }
+
+                    // Don't retry on rate limits, let orchestrator handle failover
+                    if ($response->isRateLimited()) {
+                        $this->recordRateLimit();
+
+                        return $response;
+                    }
+
+                } catch (\Exception $e) {
+                    $latencyMs = (microtime(true) - $startTime) * 1000;
+                    $lastResponse = AIResponse::failure(
+                        $e->getMessage(),
+                        $this->getIdentifier(),
+                        'exception',
+                        $latencyMs
+                    );
+
+                    Log::warning("AI Provider {$this->getIdentifier()} exception", [
+                        'model' => $currentModel,
+                        'error' => $e->getMessage(),
+                        'attempt' => $attempt,
+                    ]);
                 }
 
-                $lastResponse = $response;
-
-                // Don't retry on non-recoverable errors
-                if (! $response->isRecoverable()) {
-                    $this->recordFailure();
-                    return $response;
+                // Minimal backoff between retries
+                if ($attempt < $this->retryAttempts) {
+                    usleep(250000 * $attempt); // 250ms, 500ms, ...
                 }
-
-                // Don't retry on rate limits, let orchestrator handle failover
-                if ($response->isRateLimited()) {
-                    $this->recordRateLimit();
-                    return $response;
-                }
-
-            } catch (\Exception $e) {
-                $latencyMs = (microtime(true) - $startTime) * 1000;
-                $lastResponse = AIResponse::failure(
-                    $e->getMessage(),
-                    $this->getIdentifier(),
-                    'exception',
-                    $latencyMs
-                );
-
-                Log::warning("AI Provider {$this->getIdentifier()} exception", [
-                    'error' => $e->getMessage(),
-                    'attempt' => $attempt,
-                ]);
-            }
-
-            // Minimal backoff between retries
-            if ($attempt < $this->retryAttempts) {
-                usleep(250000 * $attempt); // 250ms, 500ms, ...
             }
         }
 
         $this->recordFailure();
+
         return $lastResponse ?? AIResponse::failure(
             'Unknown error after retries',
             $this->getIdentifier(),
             'unknown'
         );
+    }
+
+    /**
+     * Get the list of models to try with smart fallback.
+     *
+     * @return array<string>
+     */
+    protected function getModelsToTry(?string $requestedModel, array $options): array
+    {
+        // If model fallback is disabled or specific model requested, use only that
+        if (! $this->modelFallbackEnabled || isset($options['disable_model_fallback'])) {
+            return [$requestedModel ?? $this->getDefaultModel()];
+        }
+
+        $models = array_keys($this->getModels());
+
+        // If specific model requested, start with it then fallback to others
+        if ($requestedModel && in_array($requestedModel, $models)) {
+            $otherModels = array_filter($models, fn ($m) => $m !== $requestedModel);
+
+            return array_merge([$requestedModel], $this->sortModelsByQuality($otherModels));
+        }
+
+        // Try last successful model first, then by quality
+        $lastSuccessful = $this->getLastSuccessfulModel();
+        if ($lastSuccessful && in_array($lastSuccessful, $models)) {
+            $otherModels = array_filter($models, fn ($m) => $m !== $lastSuccessful);
+
+            return array_merge([$lastSuccessful], $this->sortModelsByQuality($otherModels));
+        }
+
+        // Default: sort by quality (higher cost = higher quality typically)
+        return $this->sortModelsByQuality($models);
+    }
+
+    /**
+     * Sort models by quality (based on cost as proxy for capability).
+     *
+     * @param  array<string>  $models
+     * @return array<string>
+     */
+    protected function sortModelsByQuality(array $models): array
+    {
+        $modelInfo = $this->getModels();
+
+        usort($models, function ($a, $b) use ($modelInfo) {
+            $costA = $modelInfo[$a]['cost_per_1k'] ?? 0;
+            $costB = $modelInfo[$b]['cost_per_1k'] ?? 0;
+
+            return $costB <=> $costA; // Higher cost first (better quality)
+        });
+
+        return $models;
+    }
+
+    /**
+     * Check if we should fallback to the next model.
+     */
+    protected function shouldFallbackToNextModel(AIResponse $response): bool
+    {
+        if (! $this->modelFallbackEnabled) {
+            return false;
+        }
+
+        // Fallback on these error codes
+        $fallbackErrors = [
+            'context_length_exceeded',
+            'model_not_found',
+            'model_unavailable',
+            'invalid_model',
+            'server_error',
+            'empty_response',
+        ];
+
+        return in_array($response->errorCode, $fallbackErrors);
+    }
+
+    /**
+     * Get the last successful model for this provider.
+     */
+    protected function getLastSuccessfulModel(): ?string
+    {
+        return Cache::get("ai_model_success:{$this->getIdentifier()}");
+    }
+
+    /**
+     * Record a successful model.
+     */
+    protected function recordModelSuccess(string $model): void
+    {
+        Cache::put("ai_model_success:{$this->getIdentifier()}", $model, 3600); // 1 hour
+    }
+
+    /**
+     * Enable or disable model fallback.
+     */
+    public function setModelFallback(bool $enabled): void
+    {
+        $this->modelFallbackEnabled = $enabled;
     }
 
     /**

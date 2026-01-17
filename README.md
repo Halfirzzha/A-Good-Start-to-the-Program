@@ -10,7 +10,7 @@
 [![Redis](https://img.shields.io/badge/Redis-First-DC382D?style=for-the-badge&logo=redis&logoColor=white)](https://redis.io)
 [![License](https://img.shields.io/badge/License-MIT-16A34A?style=for-the-badge)](LICENSE)
 
-[![Version](https://img.shields.io/badge/Version-1.2.5-blue?style=for-the-badge)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program/releases)
+[![Version](https://img.shields.io/badge/Version-1.2.6-blue?style=for-the-badge)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program/releases)
 [![Tests](https://img.shields.io/badge/Tests-Passing-success?style=for-the-badge&logo=github-actions)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program/actions)
 [![Security](https://img.shields.io/badge/Security-9%2F10-brightgreen?style=for-the-badge&logo=shield)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program#-security)
 [![Code Quality](https://img.shields.io/badge/Code_Quality-Excellent-brightgreen?style=for-the-badge&logo=codacy)](https://github.com/Halfirzzha/A-Good-Start-to-the-Program)
@@ -1062,18 +1062,19 @@ All 11 Filament Resources are protected by policies:
 <details>
 <summary><strong>Business Logic Services</strong></summary>
 
-| Service                     | Responsibility                                        | Cache Layer |
-| --------------------------- | ----------------------------------------------------- | ----------- |
-| `SecurityService`           | IP blocklist, session security, UUID, threat analysis | Redis       |
-| `AIService`                 | Multi-provider AI orchestration with failover         | Redis       |
-| `MaintenanceService`        | Maintenance state management                          | Redis       |
-| `MaintenanceTokenService`   | Bypass token generation/verification                  | Database    |
-| `NotificationCenterService` | Multi-channel notification dispatch                   | Queue       |
-| `AuditLogWriter`            | Hash-chained audit log persistence                    | Database    |
-| `AuditHasher`               | HMAC signature generation/verification                | None        |
-| `SystemHealth`              | Health check aggregation                              | Redis       |
-| `SystemSettings`            | Dynamic configuration management                      | Redis       |
-| `SettingsMediaStorage`      | Google Drive + local fallback                         | None        |
+| Service                     | Responsibility                                                                                       | Cache Layer |
+| --------------------------- | ---------------------------------------------------------------------------------------------------- | ----------- |
+| `SecurityService`           | IP blocklist, session security, UUID, threat analysis                                                | Redis       |
+| `AIService`                 | Multi-provider AI orchestration with failover                                                        | Redis       |
+| `AIOrchestrator`            | 9-provider management (Groq, DeepSeek, Grok, OpenAI, Anthropic, Gemini, Mistral, Cohere, OpenRouter) | Redis       |
+| `MaintenanceService`        | Maintenance state management                                                                         | Redis       |
+| `MaintenanceTokenService`   | Bypass token generation/verification                                                                 | Database    |
+| `NotificationCenterService` | Multi-channel notification dispatch                                                                  | Queue       |
+| `AuditLogWriter`            | Hash-chained audit log persistence                                                                   | Database    |
+| `AuditHasher`               | HMAC signature generation/verification                                                               | None        |
+| `SystemHealth`              | Health check aggregation                                                                             | Redis       |
+| `SystemSettings`            | Dynamic configuration management                                                                     | Redis       |
+| `SettingsMediaStorage`      | Google Drive + local fallback                                                                        | None        |
 
 </details>
 
@@ -3823,6 +3824,122 @@ timeline
 ### 🎯 Version Milestones
 
 <details open>
+<summary><strong>🤖 v1.2.6 - Multi-Provider AI Expansion + Smart Model Selection</strong> (January 17, 2026)</summary>
+
+#### 🎊 9 AI Providers + Smart Model Fallback - Enterprise-Grade AI Orchestration!
+
+This release expands the AI system with **4 new providers** (xAI Grok, DeepSeek, Mistral, Cohere) and adds **Smart Model Selection** that automatically switches between models based on task complexity and availability.
+
+#### ✨ New Features
+
+**🧠 Smart Model Selection (NEW)**
+
+-   ✅ **Auto Model Fallback**: If a model fails, automatically tries the next best model
+-   ✅ **Complexity Analysis**: Analyzes prompt to select appropriate model tier (basic/standard/advanced/premium)
+-   ✅ **Model Memory**: Remembers last successful model per provider for faster responses
+-   ✅ **Quality Sorting**: Models sorted by capability (cost as proxy) for intelligent fallback
+-   ✅ **Per-Provider Fallback**: Each provider tries multiple models before failing over to next provider
+
+**🔄 How Smart Selection Works**
+
+```
+User Prompt → Complexity Analysis → Select Model Tier → Try Best Model
+                                                              ↓
+                                                        Success? ✅ Return
+                                                              ↓ No
+                                                    Try Next Model in Provider
+                                                              ↓
+                                                    All Models Failed?
+                                                              ↓ Yes
+                                                    Failover to Next Provider
+```
+
+**🎯 Complexity Tiers**
+
+| Tier     | Selects Model         | Triggered By                       |
+| -------- | --------------------- | ---------------------------------- |
+| Premium  | Best (most expensive) | Code, security, complex analysis   |
+| Advanced | Second best           | Long prompts, technical content    |
+| Standard | Middle tier           | General tasks, moderate complexity |
+| Basic    | Cheapest              | Simple summaries, short responses  |
+
+**🤖 New AI Providers Added**
+
+-   ✅ **GrokProvider.php**: xAI's Grok with real-time knowledge & advanced reasoning
+-   ✅ **DeepSeekProvider.php**: DeepSeek-V3, R1 reasoning - best value AI
+-   ✅ **MistralProvider.php**: European AI, multilingual, Codestral for code
+-   ✅ **CohereProvider.php**: Enterprise RAG, embeddings, semantic search
+
+**🎯 AI Provider Priority Order (9 Providers)**
+
+| Priority | Provider   | Identifier   | Specialty              |
+| -------- | ---------- | ------------ | ---------------------- |
+| 1        | Groq       | `groq`       | Ultra-fast, free tier  |
+| 2        | DeepSeek   | `deepseek`   | Best value, reasoning  |
+| 3        | xAI Grok   | `grok`       | Real-time knowledge    |
+| 4        | OpenAI     | `openai`     | Industry standard      |
+| 5        | Anthropic  | `anthropic`  | Safety-focused         |
+| 6        | Gemini     | `gemini`     | Multimodal, free tier  |
+| 7        | Mistral    | `mistral`    | European, multilingual |
+| 8        | Cohere     | `cohere`     | RAG specialist         |
+| 9        | OpenRouter | `openrouter` | 100+ models gateway    |
+
+**🔧 New Model Options**
+
+| Provider | Top Models               | Use Case                |
+| -------- | ------------------------ | ----------------------- |
+| DeepSeek | DeepSeek-V3, R1          | Complex reasoning, code |
+| xAI Grok | Grok 3, Grok 3 Fast      | Real-time, vision       |
+| Mistral  | Mistral Large, Codestral | Multilingual, code      |
+| Cohere   | Command R+, Command R    | RAG, embeddings         |
+
+#### 🔄 Updated Files
+
+| File                             | Change                            |
+| -------------------------------- | --------------------------------- |
+| `AbstractAIProvider.php`         | Smart model fallback logic        |
+| `AIOrchestrator.php`             | Complexity analysis, smart select |
+| `AIService.php`                  | Use completeWithSmartSelection    |
+| `Providers/GrokProvider.php`     | NEW - xAI Grok                    |
+| `Providers/DeepSeekProvider.php` | NEW - DeepSeek                    |
+| `Providers/MistralProvider.php`  | NEW - Mistral AI                  |
+| `Providers/CohereProvider.php`   | NEW - Cohere                      |
+| `SystemSetting.php`              | Add 4 new API key fields          |
+| `SystemSettingResource.php`      | 9 provider inputs                 |
+| `AuditLogWriter.php`             | Add resetSchemaCache() method     |
+| `RecordAuthActivity.php`         | Improved type checking            |
+| Migration                        | 4 new API key columns             |
+
+**🔧 Bug Fixes (v1.2.6)**
+
+-   ✅ **NotificationCenterTest**: Fixed hash algorithm mismatch (SHA1 → SHA256)
+-   ✅ **MaintenanceFlowTest**: Fixed CSRF token and cache issues
+-   ✅ **AuditHashChainTest**: Added schema cache reset for consistent tests
+-   ✅ **ExampleTest**: Fixed IP blocklist and throttle middleware issues
+-   ✅ **RecordAuthActivity**: Improved type safety with Model instanceof check
+
+**📊 AI Security Insights Dashboard**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 🧠 AI Security Insights                              [Refresh] │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  Score: 85/100          Metrics (1h)        💡 AI Insight       │
+│  ████████░░ Healthy     Failed: 2           "Login activity     │
+│                         Suspicious: 0        normal, no issues  │
+│                         Unique IPs: 15       detected today"    │
+│                                                                 │
+├─────────────────────────────────────────────────────────────────┤
+│ Security Factors          │ Recommendations                     │
+│ ⚠️ 2 failed logins        │ ✓ Continue monitoring               │
+│                           │ ✓ Review access logs weekly         │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+</details>
+
+<details>
 <summary><strong>🆔 v1.2.5 - Enterprise UUID & Code Standardization</strong> (January 16, 2026)</summary>
 
 #### 🎊 Professional Enterprise-Grade Identifiers!
@@ -4215,7 +4332,11 @@ app/Support/AI/
     ├── OpenAIProvider.php       # GPT-4o, GPT-4o-mini, GPT-3.5-turbo
     ├── AnthropicProvider.php    # Claude 3.5 Sonnet, Haiku, Opus
     ├── GeminiProvider.php       # Gemini 2.0 Flash, 1.5 Pro
+    ├── GrokProvider.php         # xAI Grok 3, Grok 2, Vision
     ├── GroqProvider.php         # Llama 3.3, Mixtral, Gemma2
+    ├── DeepSeekProvider.php     # DeepSeek-V3, R1, Coder
+    ├── MistralProvider.php      # Mistral Large, Codestral
+    ├── CohereProvider.php       # Command R+, R, embeddings
     └── OpenRouterProvider.php   # 100+ models, including FREE
 
 app/Filament/Widgets/
@@ -4228,6 +4349,7 @@ resources/views/filament/widgets/
 **Database Migration:**
 
 -   ✅ Added `groq_api_key`, `openrouter_api_key`, `gemini_api_key` columns
+-   ✅ Added `xai_grok_api_key`, `deepseek_api_key`, `mistral_api_key`, `cohere_api_key` columns (v1.2.6)
 -   ✅ Added `ai_failover_enabled`, `ai_smart_selection` toggles
 -   ✅ Added `ai_daily_limit` (decimal, default $10.00)
 -   ✅ Added `ai_provider_priorities` (JSON) for custom ordering

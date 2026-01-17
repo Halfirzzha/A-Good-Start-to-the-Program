@@ -12,6 +12,13 @@ class AuditHashChainTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        AuditLogWriter::resetSchemaCache();
+        DB::table('audit_logs')->truncate();
+    }
+
     public function test_audit_hash_chain_is_consistent(): void
     {
         AuditLogWriter::writeAudit([
@@ -48,13 +55,16 @@ class AuditHashChainTest extends TestCase
             'audit.signature_secret' => 'unit-test-secret',
         ]);
 
+        // Reset schema cache to pick up new config
+        AuditLogWriter::resetSchemaCache();
+
         AuditLogWriter::writeAudit([
             'action' => 'test_signature',
             'context' => ['source' => 'unit_test'],
             'created_at' => now(),
         ]);
 
-        $row = DB::table('audit_logs')->first();
+        $row = DB::table('audit_logs')->orderByDesc('id')->first();
         $this->assertNotNull($row);
 
         $expectedSignature = AuditHasher::signature((string) $row->hash);

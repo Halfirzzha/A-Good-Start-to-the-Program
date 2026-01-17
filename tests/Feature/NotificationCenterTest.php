@@ -39,7 +39,7 @@ class NotificationCenterTest extends TestCase
         $job->handle();
         $job->handle();
 
-        $hash = sha1('security_alert_test|req-123|'.$user->id);
+        $hash = hash('sha256', 'security_alert_test|req-123|'.$user->id);
 
         $this->assertSame(
             1,

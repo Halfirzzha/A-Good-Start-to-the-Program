@@ -6,11 +6,12 @@ use App\Support\AuditLogWriter;
 use App\Support\SecurityAlert;
 use App\Support\SecurityService;
 use Illuminate\Auth\Events\Failed;
-use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Lockout;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -24,21 +25,25 @@ class RecordAuthActivity
 
         if ($event instanceof Login) {
             $this->onLogin($event);
+
             return;
         }
 
         if ($event instanceof Failed) {
             $this->onFailed($event);
+
             return;
         }
 
         if ($event instanceof Logout) {
             $this->onLogout($event);
+
             return;
         }
 
         if ($event instanceof Lockout) {
             $this->onLockout($event);
+
             return;
         }
 
@@ -50,9 +55,10 @@ class RecordAuthActivity
     private function onLogin(Login $event): void
     {
         $request = request();
+        /** @var Authenticatable&Model|null $user */
         $user = $event->user;
 
-        if ($user instanceof Authenticatable && method_exists($user, 'forceFill')) {
+        if ($user instanceof Model && $user instanceof Authenticatable) {
             $now = now();
             $user->forceFill([
                 'first_login_at' => $user->first_login_at ?? $now,
@@ -68,7 +74,7 @@ class RecordAuthActivity
             ])->save();
         }
 
-        if ($user instanceof Authenticatable && blank($user->security_stamp) && method_exists($user, 'forceFill')) {
+        if ($user instanceof Model && $user instanceof Authenticatable && blank($user->security_stamp)) {
             $user->forceFill([
                 'security_stamp' => strtoupper(Str::random(64)),
             ])->save();
@@ -101,9 +107,10 @@ class RecordAuthActivity
     {
         $request = request();
         $identity = $event->credentials['email'] ?? $event->credentials['username'] ?? null;
+        /** @var Authenticatable&Model|null $user */
         $user = $event->user;
 
-        if ($user instanceof Authenticatable && method_exists($user, 'forceFill')) {
+        if ($user instanceof Model && $user instanceof Authenticatable) {
             $maxAttempts = (int) config('security.lockout_attempts', 5);
             $lockoutMinutes = (int) config('security.lockout_minutes', 15);
             $attempts = ($user->failed_login_attempts ?? 0) + 1;
@@ -133,14 +140,14 @@ class RecordAuthActivity
                     ]
                 );
 
-        SecurityAlert::dispatch('account_locked', [
-            'title' => 'Account locked',
-            'guard' => $event->guard,
-            'identity' => $identity,
-            'blocked_until' => $blockedUntil,
-            'username' => $user?->username,
-            'email' => $user?->email,
-        ], $request);
+                SecurityAlert::dispatch('account_locked', [
+                    'title' => 'Account locked',
+                    'guard' => $event->guard,
+                    'identity' => $identity,
+                    'blocked_until' => $blockedUntil,
+                    'username' => $user?->username,
+                    'email' => $user?->email,
+                ], $request);
             }
         }
 
@@ -200,9 +207,10 @@ class RecordAuthActivity
     private function onPasswordReset(PasswordReset $event): void
     {
         $request = request();
+        /** @var Authenticatable&Model|null $user */
         $user = $event->user;
 
-        if ($user instanceof Authenticatable && method_exists($user, 'forceFill')) {
+        if ($user instanceof Model && $user instanceof Authenticatable) {
             $user->forceFill([
                 'password_changed_at' => now(),
                 'password_changed_by' => $user->getAuthIdentifier(),
