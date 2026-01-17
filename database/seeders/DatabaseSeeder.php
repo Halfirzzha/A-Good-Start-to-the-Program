@@ -309,9 +309,67 @@ class DatabaseSeeder extends Seeder
         // Create default system settings if not exists
         if (Schema::hasTable('system_settings') && ! SystemSetting::query()->exists()) {
             $defaults = SystemSettings::defaults();
+            $data = $defaults['data'] ?? [];
+
             SystemSetting::create([
-                'data' => $defaults['data'] ?? null,
-                'secrets' => $defaults['secrets'] ?? null,
+                // Project settings
+                'project_name' => $data['project']['name'] ?? config('app.name', 'System'),
+                'project_description' => $data['project']['description'] ?? '',
+                'project_url' => $data['project']['url'] ?? config('app.url'),
+
+                // Storage settings
+                'storage_primary_disk' => $data['storage']['primary_disk'] ?? 'google',
+                'storage_fallback_disk' => $data['storage']['fallback_disk'] ?? 'public',
+                'storage_drive_root' => $data['storage']['drive_root'] ?? 'Warex-System',
+                'storage_drive_folder_branding' => $data['storage']['drive_folder_branding'] ?? 'branding',
+                'storage_drive_folder_favicon' => $data['storage']['drive_folder_favicon'] ?? 'branding',
+
+                // Email settings
+                'email_enabled' => $data['notifications']['email']['enabled'] ?? true,
+                'email_provider' => $data['notifications']['email']['provider'] ?? 'SMTP',
+                'email_recipients' => $data['notifications']['email']['recipients'] ?? [],
+                'smtp_mailer' => $data['notifications']['email']['mailer'] ?? 'smtp',
+                'smtp_port' => $data['notifications']['email']['smtp_port'] ?? 587,
+                'smtp_encryption' => $data['notifications']['email']['smtp_encryption'] ?? 'tls',
+
+                // Telegram settings
+                'telegram_enabled' => $data['notifications']['telegram']['enabled'] ?? false,
+
+                // AI settings
+                'ai_enabled' => $data['ai']['enabled'] ?? false,
+                'ai_provider' => $data['ai']['provider'] ?? 'openai',
+                'ai_model' => $data['ai']['model'] ?? 'gpt-4o',
+                'ai_max_tokens' => $data['ai']['max_tokens'] ?? 4096,
+                'ai_temperature' => $data['ai']['temperature'] ?? 0.30,
+                'ai_timeout' => $data['ai']['timeout'] ?? 30,
+                'ai_retry_attempts' => $data['ai']['retry_attempts'] ?? 3,
+                'ai_rate_limit_rpm' => $data['ai']['rate_limit']['rpm'] ?? 60,
+                'ai_rate_limit_tpm' => $data['ai']['rate_limit']['tpm'] ?? 90000,
+                'ai_rate_limit_tpd' => $data['ai']['rate_limit']['tpd'] ?? 1000000,
+                'ai_failover_enabled' => true,
+                'ai_smart_selection' => true,
+                'ai_daily_limit' => 10.00,
+
+                // AI Feature toggles
+                'ai_feature_security_analysis' => $data['ai']['features']['security_analysis'] ?? true,
+                'ai_feature_anomaly_detection' => $data['ai']['features']['anomaly_detection'] ?? true,
+                'ai_feature_threat_classification' => $data['ai']['features']['threat_classification'] ?? true,
+                'ai_feature_log_summarization' => $data['ai']['features']['log_summarization'] ?? true,
+                'ai_feature_smart_alerts' => $data['ai']['features']['smart_alerts'] ?? true,
+                'ai_feature_auto_response' => $data['ai']['features']['auto_response'] ?? false,
+                'ai_feature_chat_assistant' => $data['ai']['features']['chat_assistant'] ?? false,
+
+                // AI Alert triggers
+                'ai_alert_high_risk_score' => 8,
+                'ai_alert_suspicious_patterns' => 5,
+                'ai_alert_failed_logins' => 10,
+                'ai_alert_anomaly_confidence' => 0.85,
+
+                // AI Actions
+                'ai_action_auto_block_ip' => false,
+                'ai_action_auto_lock_user' => false,
+                'ai_action_notify_admin' => true,
+                'ai_action_create_incident' => true,
             ]);
         }
     }
