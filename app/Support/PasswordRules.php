@@ -4,43 +4,181 @@ namespace App\Support;
 
 use App\Models\User;
 use App\Rules\NotInPasswordHistory;
+use Closure;
 use Illuminate\Validation\Rules\Password;
 
 class PasswordRules
 {
     /**
+     * Enterprise password policy constants.
+     * Per requirement: min 3, max 8, must contain letter+number+symbol.
+     */
+    public const MIN_LENGTH = 3;
+    public const MAX_LENGTH = 8;
+
+    /**
+     * Build comprehensive password validation rules.
+     * Enforces: min 3 chars, max 8 chars, must contain letter, number, and symbol.
+     *
      * @return array<int, mixed>
      */
     public static function build(?User $user = null): array
     {
-        $minLength = max(8, (int) config('security.password_min_length', 12));
+        $minLength = (int) config('security.password_min_length', self::MIN_LENGTH);
+        $maxLength = (int) config('security.password_max_length', self::MAX_LENGTH);
 
-        $rule = Password::min($minLength);
+        $rules = [
+            'string',
+            'min:' . $minLength,
+            'max:' . $maxLength,
+            self::containsLetter(),
+            self::containsNumber(),
+            self::containsSymbol(),
+        ];
 
-        if (config('security.password_require_mixed', true)) {
-            $rule = $rule->mixedCase();
-        }
-
-        if (config('security.password_require_numbers', true)) {
-            $rule = $rule->numbers();
-        }
-
-        if (config('security.password_require_symbols', true)) {
-            $rule = $rule->symbols();
-        }
-
-        if (config('security.password_require_uncompromised', true)) {
+        // Optionally check against compromised password databases
+        if (config('security.password_require_uncompromised', false)) {
             $threshold = (int) config('security.password_uncompromised_threshold', 0);
-            $rule = $rule->uncompromised($threshold);
+            $rules[] = Password::min($minLength)->uncompromised($threshold);
         }
 
-        $rules = [$rule];
-
+        // Check password history to prevent reuse
         $history = (int) config('security.password_history', 5);
         if ($user && $history > 0) {
             $rules[] = new NotInPasswordHistory($user, $history);
         }
 
         return $rules;
+    }
+
+    /**
+     * Build rules for profile/self password change (same policy).
+     *
+     * @return array<int, mixed>
+     */
+    public static function buildForProfile(?User $user = null): array
+    {
+        return self::build($user);
+    }
+
+    /**
+     * Build rules for password reset flow.
+     *
+     * @return array<int, mixed>
+     */
+    public static function buildForReset(?User $user = null): array
+    {
+        return self::build($user);
+    }
+
+    /**
+     * Custom validation: password must contain at least one letter.
+     */
+    public static function containsLetter(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail): void {
+            if (! is_string($value) || ! preg_match('/[a-zA-Z]/', $value)) {
+                $fail(__('validation.password.letter', [
+                    'attribute' => $attribute,
+                    'default' => 'Password harus mengandung minimal satu huruf.',
+                ]));
+            }
+        };
+    }
+
+    /**
+     * Custom validation: password must contain at least one number.
+     */
+    public static function containsNumber(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail): void {
+            if (! is_string($value) || ! preg_match('/[0-9]/', $value)) {
+                $fail(__('validation.password.number', [
+                    'attribute' => $attribute,
+                    'default' => 'Password harus mengandung minimal satu angka.',
+                ]));
+            }
+        };
+    }
+
+    /**
+     * Custom validation: password must contain at least one symbol.
+     */
+    public static function containsSymbol(): Closure
+    {
+        return function (string $attribute, mixed $value, Closure $fail): void {
+            if (! is_string($value) || ! preg_match('/[\W_]/', $value)) {
+                $fail(__('validation.password.symbol', [
+                    'attribute' => $attribute,
+                    'default' => 'Password harus mengandung minimal satu simbol (!@#$%^&* dll).',
+                ]));
+            }
+        };
+    }
+
+    /**
+     * Get human-readable password requirements for UI display.
+     */
+    public static function requirements(): string
+    {
+        $min = (int) config('security.password_min_length', self::MIN_LENGTH);
+        $max = (int) config('security.password_max_length', self::MAX_LENGTH);
+
+        return __('validation.password.requirements', [
+            'min' => $min,
+            'max' => $max,
+            'default' => "Password harus {$min}-{$max} karakter, mengandung huruf, angka, dan simbol.",
+        ]);
+    }
+
+    /**
+     * Validate password strength and return detailed feedback.
+     *
+     * @return array{valid: bool, score: int, feedback: list<string>}
+     */
+    public static function analyze(string $password): array
+    {
+        $feedback = [];
+        $score = 0;
+        $min = (int) config('security.password_min_length', self::MIN_LENGTH);
+        $max = (int) config('security.password_max_length', self::MAX_LENGTH);
+
+        $len = strlen($password);
+
+        if ($len < $min) {
+            $feedback[] = "Minimal {$min} karakter (saat ini: {$len})";
+        } else {
+            $score++;
+        }
+
+        if ($len > $max) {
+            $feedback[] = "Maksimal {$max} karakter (saat ini: {$len})";
+        } else {
+            $score++;
+        }
+
+        if (! preg_match('/[a-zA-Z]/', $password)) {
+            $feedback[] = 'Harus mengandung huruf';
+        } else {
+            $score++;
+        }
+
+        if (! preg_match('/[0-9]/', $password)) {
+            $feedback[] = 'Harus mengandung angka';
+        } else {
+            $score++;
+        }
+
+        if (! preg_match('/[\W_]/', $password)) {
+            $feedback[] = 'Harus mengandung simbol';
+        } else {
+            $score++;
+        }
+
+        return [
+            'valid' => empty($feedback),
+            'score' => $score,
+            'feedback' => $feedback,
+        ];
     }
 }

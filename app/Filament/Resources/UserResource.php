@@ -44,6 +44,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema as SchemaFacade;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -53,6 +54,9 @@ use Spatie\Permission\Models\Role;
 class UserResource extends Resource
 {
     private const AVATAR_DELETE_QUEUE = 'user_avatar_delete_queue';
+
+    /** @var array<string, bool> Static permission cache per request */
+    private static array $permissionCache = [];
 
     protected static ?string $model = User::class;
 
@@ -223,6 +227,7 @@ class UserResource extends Resource
                                 ->visible(fn (?User $record): bool => self::canViewSecurity($record))
                                 ->schema([
                                     TextInput::make('password')
+                                        ->label(__('ui.users.fields.password'))
                                         ->password()
                                         ->revealable()
                                         ->visible(fn (string $operation): bool => $operation === 'edit')
@@ -234,6 +239,7 @@ class UserResource extends Resource
 
                                             return PasswordRules::build($record);
                                         })
+                                        ->helperText(PasswordRules::requirements())
                                         ->dehydrated(fn ($state): bool => filled($state))
                                         ->live(onBlur: true)
                                         ->afterStateUpdated(function (Set $set, $state): void {
@@ -245,6 +251,7 @@ class UserResource extends Resource
                                             $set('password_expires_at', now()->addDays($days));
                                         }),
                                     TextInput::make('password_confirmation')
+                                        ->label(__('ui.users.fields.password_confirmation'))
                                         ->password()
                                         ->dehydrated(false)
                                         ->same('password')
@@ -687,6 +694,83 @@ class UserResource extends Resource
                     ->authorize('execute_user_revoke_sessions')
                     ->visible(fn (): bool => AuthHelper::user()?->can('execute_user_revoke_sessions') ?? false)
                     ->action(fn (User $record) => $record->rotateSecurityStamp()),
+                Action::make('reset_2fa')
+                    ->label(__('ui.users.actions.reset_2fa'))
+                    ->icon('heroicon-o-device-phone-mobile')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading(__('ui.users.modals.reset_2fa_heading'))
+                    ->modalDescription(__('ui.users.modals.reset_2fa_description'))
+                    ->authorize('execute_user_reset_2fa')
+                    ->visible(fn (User $record): bool => $record->two_factor_enabled
+                        && (AuthHelper::user()?->can('execute_user_reset_2fa') ?? false))
+                    ->action(function (User $record): void {
+                        $oldValues = [
+                            'two_factor_enabled' => $record->two_factor_enabled,
+                            'two_factor_method' => $record->two_factor_method,
+                        ];
+
+                        $record->forceFill([
+                            'two_factor_enabled' => false,
+                            'two_factor_secret' => null,
+                            'two_factor_method' => null,
+                            'two_factor_recovery_codes' => null,
+                            'two_factor_confirmed_at' => null,
+                            'security_stamp' => Str::random(64),
+                        ])->save();
+
+                        AuditLogWriter::writeAudit([
+                            'user_id' => AuthHelper::id(),
+                            'action' => 'user.2fa_reset',
+                            'auditable_type' => User::class,
+                            'auditable_id' => $record->id,
+                            'old_values' => $oldValues,
+                            'new_values' => ['two_factor_enabled' => false],
+                            'ip_address' => request()->ip(),
+                            'user_agent' => request()->userAgent(),
+                            'context' => [
+                                'target_user_id' => $record->id,
+                                'target_email' => $record->email,
+                                'performed_by' => AuthHelper::user()?->email,
+                            ],
+                        ]);
+                    }),
+                Action::make('force_logout')
+                    ->label(__('ui.users.actions.force_logout'))
+                    ->icon('heroicon-o-arrow-right-on-rectangle')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading(__('ui.users.modals.force_logout_heading'))
+                    ->modalDescription(__('ui.users.modals.force_logout_description'))
+                    ->authorize('execute_user_force_logout')
+                    ->visible(fn (User $record): bool => AuthHelper::user()?->can('execute_user_force_logout') ?? false)
+                    ->action(function (User $record): void {
+                        $record->forceFill([
+                            'security_stamp' => Str::random(64),
+                            'remember_token' => null,
+                        ])->save();
+
+                        // Invalidate all sessions for this user
+                        DB::table('sessions')
+                            ->where('user_id', $record->id)
+                            ->delete();
+
+                        AuditLogWriter::writeAudit([
+                            'user_id' => AuthHelper::id(),
+                            'action' => 'user.force_logout',
+                            'auditable_type' => User::class,
+                            'auditable_id' => $record->id,
+                            'old_values' => null,
+                            'new_values' => ['sessions_invalidated' => true],
+                            'ip_address' => request()->ip(),
+                            'user_agent' => request()->userAgent(),
+                            'context' => [
+                                'target_user_id' => $record->id,
+                                'target_email' => $record->email,
+                                'performed_by' => AuthHelper::user()?->email,
+                            ],
+                        ]);
+                    }),
                 RestoreAction::make()
                     ->visible(fn (User $record): bool => AuthHelper::user()?->can('restore', $record) ?? false),
                 ForceDeleteAction::make()
@@ -921,58 +1005,68 @@ class UserResource extends Resource
 
     private static function canViewUserSection(?User $record, array $permissions): bool
     {
+        $cacheKey = 'view_'.implode('_', $permissions).'_'.($record?->id ?? 'null');
+        if (isset(self::$permissionCache[$cacheKey])) {
+            return self::$permissionCache[$cacheKey];
+        }
+
         $actor = AuthHelper::user();
         if (! $actor instanceof User) {
-            return false;
+            return self::$permissionCache[$cacheKey] = false;
         }
 
         if ($record) {
             if (! $actor->can('view', $record)) {
-                return false;
+                return self::$permissionCache[$cacheKey] = false;
             }
         } elseif (! self::canViewAny() && ! self::canCreate()) {
-            return false;
+            return self::$permissionCache[$cacheKey] = false;
         }
 
         if (method_exists($actor, 'hasElevatedPrivileges') && $actor->hasElevatedPrivileges()) {
-            return true;
+            return self::$permissionCache[$cacheKey] = true;
         }
 
         foreach ($permissions as $permission) {
             if ($actor->can($permission)) {
-                return true;
+                return self::$permissionCache[$cacheKey] = true;
             }
         }
 
-        return $actor->can('view_any_user') || $actor->can('view_user');
+        return self::$permissionCache[$cacheKey] = $actor->can('view_any_user') || $actor->can('view_user');
     }
 
     private static function canManageUserSection(?User $record, array $permissions): bool
     {
+        $cacheKey = 'manage_'.implode('_', $permissions).'_'.($record?->id ?? 'null');
+        if (isset(self::$permissionCache[$cacheKey])) {
+            return self::$permissionCache[$cacheKey];
+        }
+
         $actor = AuthHelper::user();
         if (! $actor instanceof User) {
-            return false;
+            return self::$permissionCache[$cacheKey] = false;
         }
 
         if ($record) {
             if (! $actor->can('update', $record)) {
-                return false;
+                return self::$permissionCache[$cacheKey] = false;
             }
         } elseif (! self::canCreate()) {
-            return false;
+            return self::$permissionCache[$cacheKey] = false;
         }
 
         if (method_exists($actor, 'hasElevatedPrivileges') && $actor->hasElevatedPrivileges()) {
-            return true;
+            return self::$permissionCache[$cacheKey] = true;
         }
 
         foreach ($permissions as $permission) {
             if ($actor->can($permission)) {
-                return true;
+                return self::$permissionCache[$cacheKey] = true;
             }
         }
 
-        return $actor->can('update_user');
+        return self::$permissionCache[$cacheKey] = $actor->can('update_user');
     }
 
     public static function getPages(): array

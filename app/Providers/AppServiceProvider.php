@@ -4,32 +4,32 @@ namespace App\Providers;
 
 use App\Models\AuditLog;
 use App\Models\MaintenanceSetting;
-use App\Support\SecurityAlert;
-use App\Support\MaintenanceService;
-use App\Support\SystemSettings;
+use App\Models\SystemSetting;
 use App\Support\AuditLogWriter;
 use App\Support\AuthHelper;
-use App\Models\SystemSetting;
+use App\Support\MaintenanceService;
+use App\Support\SecurityAlert;
+use App\Support\SystemSettings;
 use BezhanSalleh\FilamentShield\Facades\FilamentShield;
+use Carbon\Carbon;
 use Filament\Facades\Filament;
 use Google\Client as GoogleClient;
 use Google\Service\Drive;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\Request;
-use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 use League\Flysystem\Filesystem;
 use Livewire\Livewire;
 use Masbug\Flysystem\GoogleDriveAdapter;
@@ -40,6 +40,7 @@ use Spatie\Permission\PermissionRegistrar;
 class AppServiceProvider extends ServiceProvider
 {
     private const AVATAR_DELETE_QUEUE = 'user_avatar_delete_queue';
+
     private const AVATAR_DELETE_LOCK = 'user_avatar_delete_lock';
 
     /**
@@ -197,11 +198,13 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('auth-login', function (Request $request): Limit {
             $identity = (string) ($request->input('username') ?? $request->ip());
+
             return Limit::perMinute(10)->by($identity);
         });
 
         RateLimiter::for('auth-otp', function (Request $request): Limit {
             $identity = (string) ($request->input('username') ?? $request->ip());
+
             return Limit::perMinute(6)->by($identity);
         });
 
@@ -573,7 +576,7 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
-     * @param array<int, mixed> $arguments
+     * @param  array<int, mixed>  $arguments
      * @return array<int, string|array<string, mixed>>
      */
     private function summarizeGateArguments(array $arguments): array
@@ -586,11 +589,13 @@ class AppServiceProvider extends ServiceProvider
                     'type' => $argument->getMorphClass(),
                     'id' => $argument->getKey(),
                 ];
+
                 continue;
             }
 
             if (is_scalar($argument) || $argument === null) {
                 $summary[] = $argument;
+
                 continue;
             }
 
@@ -599,6 +604,7 @@ class AppServiceProvider extends ServiceProvider
                     'type' => 'array',
                     'keys' => array_keys($argument),
                 ];
+
                 continue;
             }
 
@@ -928,6 +934,7 @@ class AppServiceProvider extends ServiceProvider
         Storage::extend('google', function ($app, $config): FilesystemAdapter {
             if (! class_exists(GoogleClient::class) || ! class_exists(Drive::class)) {
                 Log::warning('storage.google_drive.missing_dependency');
+
                 return $this->fallbackGoogleFilesystem();
             }
 
@@ -937,6 +944,7 @@ class AppServiceProvider extends ServiceProvider
                 Log::warning('storage.google_drive.unavailable', [
                     'error' => $error->getMessage(),
                 ]);
+
                 return $this->fallbackGoogleFilesystem();
             }
         });
@@ -977,6 +985,7 @@ class AppServiceProvider extends ServiceProvider
                 $due = Carbon::parse($deleteAt);
             } catch (\Throwable) {
                 $remaining[] = $item;
+
                 continue;
             }
 
@@ -986,6 +995,7 @@ class AppServiceProvider extends ServiceProvider
                 } catch (\Throwable) {
                     $remaining[] = $item;
                 }
+
                 continue;
             }
 
@@ -1056,7 +1066,7 @@ class AppServiceProvider extends ServiceProvider
      */
     private function makeGoogleClient(array $config): GoogleClient
     {
-        $client = new GoogleClient();
+        $client = new GoogleClient;
         $client->setScopes([Drive::DRIVE]);
         $client->setAccessType('offline');
 
@@ -1064,12 +1074,14 @@ class AppServiceProvider extends ServiceProvider
         if (is_string($serviceAccountJson) && $serviceAccountJson !== '') {
             if (is_file($serviceAccountJson)) {
                 $client->setAuthConfig($serviceAccountJson);
+
                 return $client;
             }
 
             $decoded = json_decode($serviceAccountJson, true);
             if (is_array($decoded)) {
                 $client->setAuthConfig($decoded);
+
                 return $client;
             }
         }
@@ -1134,5 +1146,4 @@ class AppServiceProvider extends ServiceProvider
             return false;
         }
     }
-
 }
