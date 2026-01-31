@@ -54,9 +54,12 @@ class AuthServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Gate::after(function (?Authenticatable $user, string $ability, mixed $result, array $arguments = []): void {
-            $allowed = $result instanceof Response ? $result->allowed() : (bool) $result;
+            if (! config('audit.enabled', true)) {
+                return;
+            }
 
-            if ($allowed || ! $user) {
+            $allowed = $result instanceof Response ? $result->allowed() : (bool) $result;
+            if (! $user) {
                 return;
             }
 
@@ -65,6 +68,46 @@ class AuthServiceProvider extends ServiceProvider
             $sessionId = $request?->hasSession() ? $request->session()->getId() : null;
 
             [$auditableType, $auditableId, $normalizedArgs] = $this->normalizeGateArguments($arguments);
+            $isUserPolicy = $this->isUserPolicyCheck($ability, $arguments, $auditableType);
+
+            if ($allowed && $isUserPolicy) {
+                if (! $this->shouldLogPolicyDecision($request, $ability, $auditableType, $auditableId, 'allow')) {
+                    return;
+                }
+
+                AuditLogWriter::writeAudit([
+                    'user_id' => $user->getAuthIdentifier(),
+                    'action' => 'authorization_granted',
+                    'auditable_type' => $auditableType,
+                    'auditable_id' => $auditableId,
+                    'old_values' => null,
+                    'new_values' => null,
+                    'ip_address' => $request?->ip(),
+                    'user_agent' => (string) ($request?->userAgent() ?? ''),
+                    'url' => $request?->fullUrl(),
+                    'route' => (string) optional($request?->route())->getName(),
+                    'method' => $request?->getMethod(),
+                    'status_code' => null,
+                    'request_id' => $requestId,
+                    'session_id' => $sessionId,
+                    'duration_ms' => null,
+                    'context' => [
+                        'ability' => $ability,
+                        'arguments' => $normalizedArgs,
+                        'path' => $request?->path(),
+                        'decision' => 'allow',
+                    ],
+                    'created_at' => now(),
+                ]);
+            }
+
+            if ($allowed) {
+                return;
+            }
+
+            if (! $this->shouldLogPolicyDecision($request, $ability, $auditableType, $auditableId, 'deny')) {
+                return;
+            }
 
             AuditLogWriter::writeAudit([
                 'user_id' => $user->getAuthIdentifier(),
@@ -86,6 +129,7 @@ class AuthServiceProvider extends ServiceProvider
                     'ability' => $ability,
                     'arguments' => $normalizedArgs,
                     'path' => $request?->path(),
+                    'decision' => 'deny',
                 ],
                 'created_at' => now(),
             ]);
@@ -125,5 +169,87 @@ class AuthServiceProvider extends ServiceProvider
         }
 
         return [$auditableType, $auditableId, $normalized];
+    }
+
+    /**
+     * @param  array<int, mixed>  $arguments
+     */
+    private function isUserPolicyCheck(string $ability, array $arguments, ?string $auditableType): bool
+    {
+        if ($auditableType === User::class) {
+            return true;
+        }
+
+        foreach ($arguments as $argument) {
+            if ($argument instanceof User) {
+                return true;
+            }
+
+            if (is_string($argument) && $argument === User::class) {
+                return true;
+            }
+        }
+
+        $userAbilities = [
+            'view',
+            'viewAny',
+            'create',
+            'update',
+            'delete',
+            'restore',
+            'forceDelete',
+            'deleteAny',
+            'restoreAny',
+            'forceDeleteAny',
+            'viewSensitive',
+            'editSensitive',
+            'viewSecurity',
+            'editSecurity',
+            'viewRoles',
+            'editRoles',
+            'viewStatus',
+            'editStatus',
+            'impersonate',
+            'forceLogout',
+            'reset2fa',
+            'unlock',
+            'forcePasswordReset',
+            'isSelf',
+        ];
+
+        return in_array($ability, $userAbilities, true);
+    }
+
+    private function shouldLogPolicyDecision(
+        mixed $request,
+        string $ability,
+        ?string $auditableType,
+        int|string|null $auditableId,
+        string $decision
+    ): bool {
+        if (! $request) {
+            return true;
+        }
+
+        $key = implode('|', [
+            $decision,
+            $ability,
+            $auditableType ?? 'none',
+            $auditableId ?? 'none',
+        ]);
+
+        $bag = $request->attributes->get('audit_policy_logged', []);
+        if (is_array($bag) && array_key_exists($key, $bag)) {
+            return false;
+        }
+
+        if (! is_array($bag)) {
+            $bag = [];
+        }
+
+        $bag[$key] = true;
+        $request->attributes->set('audit_policy_logged', $bag);
+
+        return true;
     }
 }

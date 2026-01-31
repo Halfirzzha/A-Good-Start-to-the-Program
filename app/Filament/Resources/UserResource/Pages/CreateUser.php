@@ -150,6 +150,7 @@ class CreateUser extends CreateRecord
         ])->save();
 
         $this->recordRoleAssignment($this->selectedRole);
+        $this->recordResourceCreate();
 
         $invite = UserInvitation::createFor($this->record, AuthHelper::user());
         $this->record->notify(new UserInvitationNotification(
@@ -203,5 +204,48 @@ class CreateUser extends CreateRecord
             'actor_id' => AuthHelper::id(),
             'actor_email' => AuthHelper::user()?->email,
         ], $request);
+    }
+
+    private function recordResourceCreate(): void
+    {
+        if (! $this->record || ! config('audit.enabled', true)) {
+            return;
+        }
+
+        $request = request();
+        $requestId = SecurityService::requestId($request);
+        $sessionId = $request?->hasSession() ? $request->session()->getId() : null;
+
+        $newValues = UserResource::sanitizeAuditValues([
+            'id' => $this->record->getKey(),
+            'name' => $this->record->name,
+            'email' => $this->record->email,
+            'username' => $this->record->username,
+            'role' => $this->record->role,
+            'account_status' => $this->record->account_status,
+        ]);
+
+        AuditLogWriter::writeAudit([
+            'user_id' => AuthHelper::id(),
+            'action' => 'user_resource_created',
+            'auditable_type' => $this->record->getMorphClass(),
+            'auditable_id' => $this->record->getKey(),
+            'old_values' => null,
+            'new_values' => $newValues,
+            'ip_address' => $request?->ip(),
+            'user_agent' => $request ? Str::limit((string) $request->userAgent(), 255) : null,
+            'url' => $request?->fullUrl(),
+            'route' => (string) optional($request?->route())->getName(),
+            'method' => $request?->getMethod(),
+            'status_code' => null,
+            'request_id' => $requestId,
+            'session_id' => $sessionId,
+            'duration_ms' => null,
+            'context' => [
+                'resource' => 'user',
+                'operation' => 'create',
+            ],
+            'created_at' => now(),
+        ]);
     }
 }

@@ -17,6 +17,10 @@ class EditUser extends EditRecord
 
     private ?string $selectedRole = null;
     private ?string $previousRole = null;
+    /** @var array<string, mixed> */
+    private array $auditOldValues = [];
+    /** @var array<string, mixed> */
+    private array $auditNewValues = [];
 
     protected function getFormActions(): array
     {
@@ -97,6 +101,13 @@ class EditUser extends EditRecord
         if (empty($data['timezone'])) {
             $data['timezone'] = $this->record?->timezone
                 ?: (string) (UserResource::detectTimezone() ?: config('app.timezone', 'UTC'));
+        }
+
+        if ($this->record && $data !== []) {
+            $this->auditOldValues = UserResource::sanitizeAuditValues(
+                $this->record->only(array_keys($data))
+            );
+            $this->auditNewValues = UserResource::sanitizeAuditValues($data);
         }
 
         return $data;
@@ -185,6 +196,9 @@ class EditUser extends EditRecord
     protected function afterSave(): void
     {
         if (! $this->record || ! $this->selectedRole) {
+            if ($this->record) {
+                $this->recordResourceUpdate();
+            }
             return;
         }
 
@@ -194,6 +208,7 @@ class EditUser extends EditRecord
         ])->save();
 
         $this->recordRoleChange($this->previousRole, $this->selectedRole);
+        $this->recordResourceUpdate();
     }
 
     private function recordRoleChange(?string $previousRole, string $newRole): void
@@ -243,5 +258,43 @@ class EditUser extends EditRecord
             'actor_id' => AuthHelper::id(),
             'actor_email' => AuthHelper::user()?->email,
         ], $request);
+    }
+
+    private function recordResourceUpdate(): void
+    {
+        if (! $this->record || ! config('audit.enabled', true)) {
+            return;
+        }
+
+        if ($this->auditOldValues === [] && $this->auditNewValues === []) {
+            return;
+        }
+
+        $request = request();
+        $requestId = SecurityService::requestId($request);
+        $sessionId = $request?->hasSession() ? $request->session()->getId() : null;
+
+        AuditLogWriter::writeAudit([
+            'user_id' => AuthHelper::id(),
+            'action' => 'user_resource_updated',
+            'auditable_type' => $this->record->getMorphClass(),
+            'auditable_id' => $this->record->getKey(),
+            'old_values' => $this->auditOldValues ?: null,
+            'new_values' => $this->auditNewValues ?: null,
+            'ip_address' => $request?->ip(),
+            'user_agent' => $request ? Str::limit((string) $request->userAgent(), 255) : null,
+            'url' => $request?->fullUrl(),
+            'route' => (string) optional($request?->route())->getName(),
+            'method' => $request?->getMethod(),
+            'status_code' => null,
+            'request_id' => $requestId,
+            'session_id' => $sessionId,
+            'duration_ms' => null,
+            'context' => [
+                'resource' => 'user',
+                'operation' => 'update',
+            ],
+            'created_at' => now(),
+        ]);
     }
 }

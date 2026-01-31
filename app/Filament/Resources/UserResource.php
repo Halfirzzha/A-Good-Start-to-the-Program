@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Support\AuditLogWriter;
 use App\Support\AuthHelper;
 use App\Support\PasswordRules;
+use App\Support\SecurityService;
 use App\Support\SystemSettings;
 use Filament\Actions\Action;
 use Filament\Actions\BulkAction;
@@ -648,11 +649,25 @@ class UserResource extends Resource
                     ->visible(fn (User $record): bool => $record->isLocked()
                         && (AuthHelper::user()?->can('execute_user_unlock') ?? false))
                     ->action(function (User $record): void {
+                        $oldValues = [
+                            'failed_login_attempts' => $record->failed_login_attempts,
+                            'locked_at' => $record->locked_at,
+                            'blocked_until' => $record->blocked_until,
+                        ];
+
                         $record->forceFill([
                             'failed_login_attempts' => 0,
                             'locked_at' => null,
                             'blocked_until' => null,
                         ])->save();
+
+                        self::logResourceAction('user_unlocked', $record, $oldValues, [
+                            'failed_login_attempts' => 0,
+                            'locked_at' => null,
+                            'blocked_until' => null,
+                        ], [
+                            'operation' => 'unlock',
+                        ]);
                     }),
                 Action::make('activate')
                     ->label(__('ui.users.actions.activate'))
@@ -663,6 +678,14 @@ class UserResource extends Resource
                     ->visible(fn (User $record): bool => ! $record->isActive()
                         && (AuthHelper::user()?->can('execute_user_activate') ?? false))
                     ->action(function (User $record): void {
+                        $oldValues = [
+                            'account_status' => $record->account_status,
+                            'blocked_until' => $record->blocked_until,
+                            'blocked_reason' => $record->blocked_reason,
+                            'blocked_by' => $record->blocked_by,
+                            'locked_at' => $record->locked_at,
+                        ];
+
                         $record->forceFill([
                             'account_status' => AccountStatus::Active,
                             'blocked_until' => null,
@@ -671,6 +694,17 @@ class UserResource extends Resource
                             'locked_at' => null,
                             'failed_login_attempts' => 0,
                         ])->save();
+
+                        self::logResourceAction('user_activated', $record, $oldValues, [
+                            'account_status' => AccountStatus::Active->value,
+                            'blocked_until' => null,
+                            'blocked_reason' => null,
+                            'blocked_by' => null,
+                            'locked_at' => null,
+                            'failed_login_attempts' => 0,
+                        ], [
+                            'operation' => 'activate',
+                        ]);
                     }),
                 Action::make('force_password_reset')
                     ->label(__('ui.users.actions.force_password_reset'))
@@ -685,6 +719,13 @@ class UserResource extends Resource
                             'password_expires_at' => now(),
                             'security_stamp' => Str::random(64),
                         ])->save();
+
+                        self::logResourceAction('user_force_password_reset', $record, null, [
+                            'must_change_password' => true,
+                            'password_expires_at' => $record->password_expires_at,
+                        ], [
+                            'operation' => 'force_password_reset',
+                        ]);
                     }),
                 Action::make('revoke_sessions')
                     ->label(__('ui.users.actions.revoke_sessions'))
@@ -693,7 +734,24 @@ class UserResource extends Resource
                     ->requiresConfirmation()
                     ->authorize('execute_user_revoke_sessions')
                     ->visible(fn (): bool => AuthHelper::user()?->can('execute_user_revoke_sessions') ?? false)
-                    ->action(fn (User $record) => $record->rotateSecurityStamp()),
+                    ->action(function (User $record): void {
+                        $revokedCount = null;
+                        if (SchemaFacade::hasTable('sessions')) {
+                            $revokedCount = (int) DB::table('sessions')
+                                ->where('user_id', $record->id)
+                                ->count();
+                        }
+
+                        $record->rotateSecurityStamp('admin_revoke_sessions', $revokedCount);
+
+                        self::logResourceAction('user_resource_revoke_sessions', $record, null, [
+                            'security_stamp_rotated' => true,
+                            'revoked_count' => $revokedCount,
+                        ], [
+                            'operation' => 'revoke_sessions',
+                            'reason' => 'admin_revoke_sessions',
+                        ]);
+                    }),
                 Action::make('reset_2fa')
                     ->label(__('ui.users.actions.reset_2fa'))
                     ->icon('heroicon-o-device-phone-mobile')
@@ -745,15 +803,24 @@ class UserResource extends Resource
                     ->authorize('execute_user_force_logout')
                     ->visible(fn (User $record): bool => AuthHelper::user()?->can('execute_user_force_logout') ?? false)
                     ->action(function (User $record): void {
+                        $revokedCount = null;
+                        if (SchemaFacade::hasTable('sessions')) {
+                            $revokedCount = (int) DB::table('sessions')
+                                ->where('user_id', $record->id)
+                                ->count();
+                        }
+
+                        $record->rotateSecurityStamp('admin_force_logout', $revokedCount);
                         $record->forceFill([
-                            'security_stamp' => Str::random(64),
                             'remember_token' => null,
                         ])->save();
 
                         // Invalidate all sessions for this user
-                        DB::table('sessions')
-                            ->where('user_id', $record->id)
-                            ->delete();
+                        if (SchemaFacade::hasTable('sessions')) {
+                            DB::table('sessions')
+                                ->where('user_id', $record->id)
+                                ->delete();
+                        }
 
                         AuditLogWriter::writeAudit([
                             'user_id' => AuthHelper::id(),
@@ -761,20 +828,41 @@ class UserResource extends Resource
                             'auditable_type' => User::class,
                             'auditable_id' => $record->id,
                             'old_values' => null,
-                            'new_values' => ['sessions_invalidated' => true],
+                            'new_values' => [
+                                'sessions_invalidated' => true,
+                                'revoked_count' => $revokedCount,
+                            ],
                             'ip_address' => request()->ip(),
                             'user_agent' => request()->userAgent(),
                             'context' => [
                                 'target_user_id' => $record->id,
                                 'target_email' => $record->email,
                                 'performed_by' => AuthHelper::user()?->email,
+                                'revoked_count' => $revokedCount,
+                                'reason' => 'admin_force_logout',
                             ],
                         ]);
                     }),
                 RestoreAction::make()
-                    ->visible(fn (User $record): bool => AuthHelper::user()?->can('restore', $record) ?? false),
+                    ->visible(fn (User $record): bool => AuthHelper::user()?->can('restore', $record) ?? false)
+                    ->after(function (User $record): void {
+                        self::logResourceAction('user_resource_restored', $record, null, [
+                            'account_status' => $record->account_status,
+                            'deleted_at' => $record->deleted_at,
+                        ], [
+                            'operation' => 'restore',
+                        ]);
+                    }),
                 ForceDeleteAction::make()
-                    ->visible(fn (User $record): bool => AuthHelper::user()?->can('forceDelete', $record) ?? false),
+                    ->visible(fn (User $record): bool => AuthHelper::user()?->can('forceDelete', $record) ?? false)
+                    ->after(function (User $record): void {
+                        self::logResourceAction('user_resource_force_deleted', $record, [
+                            'id' => $record->id,
+                            'email' => $record->email,
+                        ], null, [
+                            'operation' => 'force_delete',
+                        ]);
+                    }),
                 DeleteAction::make()
                     ->visible(fn (User $record): bool => AuthHelper::user()?->can('delete', $record) ?? false)
                     ->before(function (User $record): void {
@@ -782,6 +870,14 @@ class UserResource extends Resource
                             'deleted_by' => AuthHelper::id(),
                             'deleted_ip' => request()->ip(),
                         ])->save();
+                    })
+                    ->after(function (User $record): void {
+                        self::logResourceAction('user_resource_deleted', $record, [
+                            'account_status' => $record->account_status,
+                            'deleted_at' => $record->deleted_at,
+                        ], null, [
+                            'operation' => 'delete',
+                        ]);
                     }),
             ])
             ->groupedBulkActions([
@@ -795,13 +891,22 @@ class UserResource extends Resource
                                 'deleted_ip' => request()->ip(),
                             ])->save();
                         });
+                    })
+                    ->after(function (Collection $records): void {
+                        self::logBulkAction('bulk_user_deleted', $records);
                     }),
                 RestoreBulkAction::make()
                     ->authorize('restore_any_user')
-                    ->visible(fn (): bool => AuthHelper::user()?->can('restore_any_user') ?? false),
+                    ->visible(fn (): bool => AuthHelper::user()?->can('restore_any_user') ?? false)
+                    ->after(function (Collection $records): void {
+                        self::logBulkAction('bulk_user_restored', $records);
+                    }),
                 ForceDeleteBulkAction::make()
                     ->authorize('force_delete_any_user')
-                    ->visible(fn (): bool => AuthHelper::user()?->can('force_delete_any_user') ?? false),
+                    ->visible(fn (): bool => AuthHelper::user()?->can('force_delete_any_user') ?? false)
+                    ->after(function (Collection $records): void {
+                        self::logBulkAction('bulk_user_force_deleted', $records);
+                    }),
                 BulkAction::make('bulk_activate')
                     ->label(__('ui.users.actions.activate_selected'))
                     ->icon('heroicon-o-check-circle')
@@ -1326,9 +1431,92 @@ class UserResource extends Resource
             'context' => [
                 'count' => $records->count(),
                 'ids' => $ids,
+                'resource' => 'user',
             ],
             'created_at' => now(),
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $oldValues
+     * @param  array<string, mixed>|null  $newValues
+     * @param  array<string, mixed>  $context
+     */
+    private static function logResourceAction(string $action, User $record, ?array $oldValues, ?array $newValues, array $context = []): void
+    {
+        if (! config('audit.enabled', true)) {
+            return;
+        }
+
+        $request = request();
+        $requestId = SecurityService::requestId($request);
+        $sessionId = $request?->hasSession() ? $request->session()->getId() : null;
+
+        $oldValues = $oldValues ? self::sanitizeAuditValues($oldValues) : null;
+        $newValues = $newValues ? self::sanitizeAuditValues($newValues) : null;
+
+        AuditLogWriter::writeAudit([
+            'user_id' => AuthHelper::id(),
+            'action' => $action,
+            'auditable_type' => $record->getMorphClass(),
+            'auditable_id' => $record->getKey(),
+            'old_values' => $oldValues,
+            'new_values' => $newValues,
+            'ip_address' => $request?->ip(),
+            'user_agent' => $request ? Str::limit((string) $request->userAgent(), 255, '') : null,
+            'url' => $request?->fullUrl(),
+            'route' => (string) optional($request?->route())->getName(),
+            'method' => $request?->getMethod(),
+            'status_code' => null,
+            'request_id' => $requestId,
+            'session_id' => $sessionId,
+            'duration_ms' => null,
+            'context' => [
+                'resource' => 'user',
+                ...$context,
+            ],
+            'created_at' => now(),
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $values
+     * @return array<string, mixed>
+     */
+    public static function sanitizeAuditValues(array $values): array
+    {
+        $sensitive = array_map('strtolower', (array) config('audit.sensitive_keys', []));
+        $sensitive = array_merge($sensitive, [
+            'password',
+            'password_confirmation',
+            'current_password',
+            'two_factor_secret',
+            'two_factor_recovery_codes',
+            'security_stamp',
+            'remember_token',
+        ]);
+
+        $filtered = [];
+        foreach ($values as $key => $value) {
+            $keyString = strtolower((string) $key);
+            $redact = false;
+
+            foreach ($sensitive as $needle) {
+                if ($needle !== '' && str_contains($keyString, $needle)) {
+                    $redact = true;
+                    break;
+                }
+            }
+
+            if ($redact) {
+                $filtered[$key] = '[redacted]';
+                continue;
+            }
+
+            $filtered[$key] = $value;
+        }
+
+        return $filtered;
     }
 
     /**

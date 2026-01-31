@@ -10,11 +10,10 @@ use Illuminate\Validation\Rules\Password;
 class PasswordRules
 {
     /**
-     * Enterprise password policy constants.
-     * Per requirement: min 3, max 8, must contain letter+number+symbol.
+     * Password policy defaults (overridden by config/security.php).
      */
-    public const MIN_LENGTH = 3;
-    public const MAX_LENGTH = 8;
+    public const MIN_LENGTH = 8;
+    public const MAX_LENGTH = 128;
 
     /**
      * Build comprehensive password validation rules.
@@ -30,11 +29,23 @@ class PasswordRules
         $rules = [
             'string',
             'min:' . $minLength,
-            'max:' . $maxLength,
-            self::containsLetter(),
-            self::containsNumber(),
-            self::containsSymbol(),
         ];
+
+        if ($maxLength > 0) {
+            $rules[] = 'max:' . $maxLength;
+        }
+
+        if (config('security.password_require_letter', false)) {
+            $rules[] = self::containsLetter();
+        }
+
+        if (config('security.password_require_numbers', false)) {
+            $rules[] = self::containsNumber();
+        }
+
+        if (config('security.password_require_symbols', false)) {
+            $rules[] = self::containsSymbol();
+        }
 
         // Optionally check against compromised password databases
         if (config('security.password_require_uncompromised', false)) {
@@ -123,11 +134,27 @@ class PasswordRules
     {
         $min = (int) config('security.password_min_length', self::MIN_LENGTH);
         $max = (int) config('security.password_max_length', self::MAX_LENGTH);
+        $needsLetter = (bool) config('security.password_require_letter', false);
+        $needsNumber = (bool) config('security.password_require_numbers', false);
+        $needsSymbol = (bool) config('security.password_require_symbols', false);
+
+        $parts = [];
+        if ($needsLetter) {
+            $parts[] = 'huruf';
+        }
+        if ($needsNumber) {
+            $parts[] = 'angka';
+        }
+        if ($needsSymbol) {
+            $parts[] = 'simbol';
+        }
 
         return __('validation.password.requirements', [
             'min' => $min,
             'max' => $max,
-            'default' => "Password harus {$min}-{$max} karakter, mengandung huruf, angka, dan simbol.",
+            'default' => $parts === []
+                ? "Password minimal {$min} karakter."
+                : "Password minimal {$min}" . ($max > 0 ? "-{$max}" : '') . " karakter, mengandung " . implode(', ', $parts) . ".",
         ]);
     }
 
@@ -142,6 +169,9 @@ class PasswordRules
         $score = 0;
         $min = (int) config('security.password_min_length', self::MIN_LENGTH);
         $max = (int) config('security.password_max_length', self::MAX_LENGTH);
+        $needsLetter = (bool) config('security.password_require_letter', false);
+        $needsNumber = (bool) config('security.password_require_numbers', false);
+        $needsSymbol = (bool) config('security.password_require_symbols', false);
 
         $len = strlen($password);
 
@@ -151,28 +181,34 @@ class PasswordRules
             $score++;
         }
 
-        if ($len > $max) {
+        if ($max > 0 && $len > $max) {
             $feedback[] = "Maksimal {$max} karakter (saat ini: {$len})";
         } else {
             $score++;
         }
 
-        if (! preg_match('/[a-zA-Z]/', $password)) {
-            $feedback[] = 'Harus mengandung huruf';
-        } else {
-            $score++;
+        if ($needsLetter) {
+            if (! preg_match('/[a-zA-Z]/', $password)) {
+                $feedback[] = 'Harus mengandung huruf';
+            } else {
+                $score++;
+            }
         }
 
-        if (! preg_match('/[0-9]/', $password)) {
-            $feedback[] = 'Harus mengandung angka';
-        } else {
-            $score++;
+        if ($needsNumber) {
+            if (! preg_match('/[0-9]/', $password)) {
+                $feedback[] = 'Harus mengandung angka';
+            } else {
+                $score++;
+            }
         }
 
-        if (! preg_match('/[\W_]/', $password)) {
-            $feedback[] = 'Harus mengandung simbol';
-        } else {
-            $score++;
+        if ($needsSymbol) {
+            if (! preg_match('/[\W_]/', $password)) {
+                $feedback[] = 'Harus mengandung simbol';
+            } else {
+                $score++;
+            }
         }
 
         return [

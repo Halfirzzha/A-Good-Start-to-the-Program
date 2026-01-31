@@ -30,6 +30,7 @@ class EnsureUserHasRole
 
         $requiredPermission = 'access_admin_panel';
         if ($this->userCanAccess($user, $requiredPermission)) {
+            $this->logGrantedOnce($request, $user, $requiredPermission);
             return $next($request);
         }
 
@@ -88,6 +89,46 @@ class EnsureUserHasRole
             'context' => [
                 'required_permission' => $requiredPermission,
                 'roles' => $this->safeRoleNames($user),
+                'permissions' => $this->safePermissionNames($user),
+                'developer_bypass' => true,
+            ],
+            'created_at' => now(),
+        ]);
+    }
+
+    private function logGrantedOnce(Request $request, mixed $user, string $requiredPermission): void
+    {
+        $sessionId = $request->hasSession() ? $request->session()->getId() : null;
+        $sessionKey = $sessionId ? 'audit.admin_access_granted' : null;
+
+        if ($sessionKey && $request->session()->get($sessionKey)) {
+            return;
+        }
+
+        $this->logGranted($request, $user, $requiredPermission);
+
+        if ($sessionKey) {
+            $request->session()->put($sessionKey, true);
+        }
+    }
+
+    private function logGranted(Request $request, mixed $user, string $requiredPermission): void
+    {
+        $requestId = SecurityService::requestId($request);
+        $sessionId = $request->hasSession() ? $request->session()->getId() : null;
+
+        AuditLogWriter::writeLoginActivity([
+            'user_id' => $user?->getAuthIdentifier(),
+            'identity' => $user?->email ?? $user?->username,
+            'event' => 'admin_access_granted',
+            'ip_address' => $request->ip(),
+            'user_agent' => (string) $request->userAgent(),
+            'session_id' => $sessionId,
+            'request_id' => $requestId,
+            'context' => [
+                'required_permission' => $requiredPermission,
+                'roles' => $this->safeRoleNames($user),
+                'permissions' => $this->safePermissionNames($user),
             ],
             'created_at' => now(),
         ]);
@@ -120,6 +161,33 @@ class EnsureUserHasRole
         } catch (\Throwable) {
             return [];
         }
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function safePermissionNames(mixed $user): array
+    {
+        try {
+            if ($user && method_exists($user, 'getAllPermissions')) {
+                $permissions = $user->getAllPermissions()
+                    ->pluck('name')
+                    ->filter()
+                    ->values()
+                    ->all();
+
+                $limit = 150;
+                if (count($permissions) > $limit) {
+                    $permissions = array_slice($permissions, 0, $limit);
+                }
+
+                return $permissions;
+            }
+        } catch (\Throwable) {
+            return [];
+        }
+
+        return [];
     }
 
     private function cleanupMissingRoles(mixed $user): void

@@ -84,6 +84,9 @@ class RecordAuthActivity
             $request->session()->put('security_stamp', $user?->security_stamp);
         }
 
+        $roles = $this->safeRoleNames($user);
+        [$permissions, $permissionsTruncated] = $this->safePermissionNames($user);
+
         $this->writeActivity(
             $user?->getAuthIdentifier(),
             'login_success',
@@ -91,6 +94,9 @@ class RecordAuthActivity
             [
                 'guard' => $event->guard,
                 'remember' => $event->remember,
+                'roles' => $roles,
+                'permissions' => $permissions,
+                'permissions_truncated' => $permissionsTruncated,
             ]
         );
 
@@ -109,6 +115,10 @@ class RecordAuthActivity
         $identity = $event->credentials['email'] ?? $event->credentials['username'] ?? null;
         /** @var Authenticatable&Model|null $user */
         $user = $event->user;
+        $attempts = null;
+        $lockedAt = null;
+        $blockedUntil = null;
+        $lockoutTriggered = false;
 
         if ($user instanceof Model && $user instanceof Authenticatable) {
             $maxAttempts = (int) config('security.lockout_attempts', 5);
@@ -118,6 +128,7 @@ class RecordAuthActivity
             $blockedUntil = $shouldLock
                 ? now()->addMinutes(max(1, $lockoutMinutes))
                 : $user->blocked_until;
+            $lockoutTriggered = $shouldLock;
 
             $user->forceFill([
                 'failed_login_attempts' => $attempts,
@@ -149,6 +160,8 @@ class RecordAuthActivity
                     'email' => $user?->email,
                 ], $request);
             }
+
+            $lockedAt = $user->locked_at;
         }
 
         $this->writeActivity(
@@ -158,6 +171,11 @@ class RecordAuthActivity
             [
                 'guard' => $event->guard,
                 'identity' => $identity,
+                'failed_login_attempts' => $attempts,
+                'locked_at' => $lockedAt,
+                'blocked_until' => $blockedUntil,
+                'lockout_triggered' => $lockoutTriggered,
+                'rate_limited' => false,
             ]
         );
 
@@ -174,6 +192,9 @@ class RecordAuthActivity
     {
         $request = request();
         $user = $event->user;
+        $reason = $request->input('reason')
+            ?? $request->query('reason')
+            ?? $request->get('reason');
 
         if ($request->hasSession()) {
             $request->session()->forget('security_stamp');
@@ -185,6 +206,10 @@ class RecordAuthActivity
             $request,
             [
                 'guard' => $event->guard,
+                'reason' => $reason,
+                'session_id' => $request->hasSession() ? $request->session()->getId() : null,
+                'ip_address' => $request->ip(),
+                'user_agent' => (string) $request->userAgent(),
             ]
         );
     }
@@ -200,6 +225,7 @@ class RecordAuthActivity
             $request,
             [
                 'identity' => $identity,
+                'rate_limited' => true,
             ]
         );
     }
@@ -225,7 +251,9 @@ class RecordAuthActivity
             $user?->getAuthIdentifier(),
             'password_reset',
             $request,
-            []
+            [
+                'initiated_by' => $user?->getAuthIdentifier(),
+            ]
         );
 
         SecurityAlert::dispatch('password_reset', [
@@ -258,6 +286,54 @@ class RecordAuthActivity
             ],
             'created_at' => now(),
         ]);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function safeRoleNames(?Authenticatable $user): array
+    {
+        if (! $user) {
+            return [];
+        }
+
+        try {
+            if (method_exists($user, 'getRoleNames')) {
+                return $user->getRoleNames()->values()->all();
+            }
+        } catch (\Throwable) {
+            return [];
+        }
+
+        return [];
+    }
+
+    /**
+     * @return array{0: array<int, string>, 1: bool}
+     */
+    private function safePermissionNames(?Authenticatable $user): array
+    {
+        if (! $user || ! method_exists($user, 'getAllPermissions')) {
+            return [[], false];
+        }
+
+        try {
+            $permissions = $user->getAllPermissions()
+                ->pluck('name')
+                ->filter()
+                ->values()
+                ->all();
+        } catch (\Throwable) {
+            return [[], false];
+        }
+
+        $limit = 150;
+        $truncated = count($permissions) > $limit;
+        if ($truncated) {
+            $permissions = array_slice($permissions, 0, $limit);
+        }
+
+        return [$permissions, $truncated];
     }
 
     private function truncate(string $value, int $max): string

@@ -131,9 +131,22 @@ return [
     | for non-repudiation and additional integrity verification.
     |
     */
-    'signature_enabled' => env('AUDIT_SIGNATURE_ENABLED', false),
+    'signature_enabled' => (bool) env('AUDIT_SIGNATURE_ENABLED', (function (): bool {
+        try {
+            $app = app();
+            if (method_exists($app, 'bound') && $app->bound('env')) {
+                return $app->environment('production');
+            }
+        } catch (\Throwable) {
+            // ignore
+        }
+
+        return (string) env('APP_ENV') === 'production';
+    })()),
     'signature_secret' => env('AUDIT_SIGNATURE_SECRET', ''),
     'signature_algo' => env('AUDIT_SIGNATURE_ALGO', 'sha256'),
+    'signature_strict' => (bool) env('AUDIT_SIGNATURE_STRICT', false),
+    'signature_alert' => (bool) env('AUDIT_SIGNATURE_ALERT', true),
 
     /*
     |--------------------------------------------------------------------------

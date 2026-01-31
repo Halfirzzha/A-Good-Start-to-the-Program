@@ -43,10 +43,61 @@ class AuditHasher
                 $value = $value->format('Y-m-d H:i:s');
             }
 
+            if (in_array($key, ['old_values', 'new_values', 'context'], true)) {
+                $value = self::normalizeJsonString($value);
+            }
+
             $normalized[$key] = $value;
         }
 
         return $normalized;
+    }
+
+    private static function normalizeJsonString(mixed $value): mixed
+    {
+        if (! is_string($value) || $value === '') {
+            return $value;
+        }
+
+        $decoded = json_decode($value, true);
+        if (! is_array($decoded)) {
+            return $value;
+        }
+
+        $normalized = self::normalizeJsonValue($decoded);
+
+        return json_encode($normalized, self::JSON_FLAGS);
+    }
+
+    /**
+     * @param  array<string|int, mixed>  $value
+     * @return array<string|int, mixed>
+     */
+    private static function normalizeJsonValue(array $value): array
+    {
+        if (self::isAssociativeArray($value)) {
+            ksort($value);
+        }
+
+        foreach ($value as $key => $item) {
+            if (is_array($item)) {
+                $value[$key] = self::normalizeJsonValue($item);
+            }
+        }
+
+        return $value;
+    }
+
+    /**
+     * @param  array<string|int, mixed>  $value
+     */
+    private static function isAssociativeArray(array $value): bool
+    {
+        if ($value === []) {
+            return false;
+        }
+
+        return array_keys($value) !== range(0, count($value) - 1);
     }
 
     /**
@@ -61,17 +112,24 @@ class AuditHasher
 
     public static function signature(string $hash): ?string
     {
-        if (! config('audit.signature_enabled', false)) {
+        $enabled = (bool) config('audit.signature_enabled', false);
+        if (! $enabled) {
             return null;
         }
 
         $secret = (string) config('audit.signature_secret', '');
         if ($secret === '') {
+            if (app()->environment('production')) {
+                throw new \RuntimeException('Audit signature enabled but AUDIT_SIGNATURE_SECRET is empty.');
+            }
+
             return null;
         }
 
         $algo = (string) config('audit.signature_algo', 'sha256');
 
-        return hash_hmac($algo, $hash, $secret);
+        $signature = hash_hmac($algo, $hash, $secret);
+
+        return is_string($signature) ? $signature : null;
     }
 }

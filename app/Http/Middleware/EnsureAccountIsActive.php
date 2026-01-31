@@ -259,6 +259,7 @@ class EnsureAccountIsActive
                 'locked_at' => $user?->locked_at,
                 'blocked_until' => $user?->blocked_until,
                 'reasons' => $reasons,
+                'developer_bypass' => true,
             ],
             'created_at' => now(),
         ]);

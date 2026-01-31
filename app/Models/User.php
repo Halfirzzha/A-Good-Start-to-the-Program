@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
@@ -189,6 +190,11 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
         static::saved(function (self $user): void {
             if ($user->wasChanged('password')) {
                 $user->recordPasswordHistory();
+                $user->recordPasswordAudit();
+            }
+
+            if ($user->wasChanged('account_status')) {
+                $user->recordStatusAudit();
             }
         });
     }
@@ -404,11 +410,13 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
         return false;
     }
 
-    public function rotateSecurityStamp(): void
+    public function rotateSecurityStamp(?string $reason = null, ?int $revokedCount = null): void
     {
         $this->forceFill([
             'security_stamp' => Str::random(64),
         ])->save();
+
+        $this->recordSessionRevokeAudit($reason, $revokedCount);
     }
 
     public function sendEmailVerificationNotification(): void
@@ -573,6 +581,144 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
         return $candidate;
     }
 
+    private function recordPasswordAudit(): void
+    {
+        if (! config('audit.enabled', true)) {
+            return;
+        }
+
+        $request = request();
+        $requestId = SecurityService::requestId($request);
+        $sessionId = $request?->hasSession() ? $request->session()->getId() : null;
+        $actorId = Auth::id() ?: $this->password_changed_by;
+
+        AuditLogWriter::writeAudit([
+            'user_id' => $actorId,
+            'action' => 'user_password_changed',
+            'auditable_type' => $this->getMorphClass(),
+            'auditable_id' => $this->getKey(),
+            'old_values' => ['password' => '[redacted]'],
+            'new_values' => [
+                'password' => '[redacted]',
+                'password_changed_at' => $this->password_changed_at,
+            ],
+            'ip_address' => $request?->ip(),
+            'user_agent' => $request ? Str::limit((string) $request->userAgent(), 255, '') : null,
+            'url' => $request?->fullUrl(),
+            'route' => (string) optional($request?->route())->getName(),
+            'method' => $request?->getMethod(),
+            'status_code' => null,
+            'request_id' => $requestId,
+            'session_id' => $sessionId,
+            'duration_ms' => null,
+            'context' => [
+                'subject_user_id' => $this->getKey(),
+                'changed_by' => $actorId,
+                'source' => app()->runningInConsole() ? 'console' : 'http',
+            ],
+            'created_at' => now(),
+        ]);
+
+        $this->recordSessionRevokeAudit('password_change');
+    }
+
+    private function recordStatusAudit(): void
+    {
+        if (! config('audit.enabled', true)) {
+            return;
+        }
+
+        $request = request();
+        $requestId = SecurityService::requestId($request);
+        $sessionId = $request?->hasSession() ? $request->session()->getId() : null;
+        $actorId = Auth::id();
+
+        $original = $this->getOriginal('account_status');
+        $oldStatus = $original instanceof AccountStatus
+            ? $original->value
+            : ($original !== null ? (string) $original : null);
+        $newStatus = $this->account_status instanceof AccountStatus
+            ? $this->account_status->value
+            : ($this->account_status !== null ? (string) $this->account_status : null);
+
+        AuditLogWriter::writeAudit([
+            'user_id' => $actorId,
+            'action' => 'user_status_changed',
+            'auditable_type' => $this->getMorphClass(),
+            'auditable_id' => $this->getKey(),
+            'old_values' => ['account_status' => $oldStatus],
+            'new_values' => ['account_status' => $newStatus],
+            'ip_address' => $request?->ip(),
+            'user_agent' => $request ? Str::limit((string) $request->userAgent(), 255, '') : null,
+            'url' => $request?->fullUrl(),
+            'route' => (string) optional($request?->route())->getName(),
+            'method' => $request?->getMethod(),
+            'status_code' => null,
+            'request_id' => $requestId,
+            'session_id' => $sessionId,
+            'duration_ms' => null,
+            'context' => [
+                'subject_user_id' => $this->getKey(),
+                'changed_by' => $actorId,
+                'blocked_until' => $this->blocked_until,
+                'blocked_reason' => $this->blocked_reason,
+                'blocked_by' => $this->blocked_by,
+                'locked_at' => $this->locked_at,
+                'source' => app()->runningInConsole() ? 'console' : 'http',
+            ],
+            'created_at' => now(),
+        ]);
+    }
+
+    private function recordSessionRevokeAudit(?string $reason = null, ?int $revokedCount = null): void
+    {
+        if (! config('audit.enabled', true)) {
+            return;
+        }
+
+        $request = request();
+        $requestId = SecurityService::requestId($request);
+        $sessionId = $request?->hasSession() ? $request->session()->getId() : null;
+        $actorId = Auth::id();
+        $reason ??= app()->runningInConsole() ? 'system' : 'unknown';
+
+        if ($revokedCount === null && Schema::hasTable('sessions')) {
+            $revokedCount = (int) DB::table('sessions')
+                ->where('user_id', $this->getKey())
+                ->count();
+        }
+
+        AuditLogWriter::writeAudit([
+            'user_id' => $actorId,
+            'action' => 'session_all_revoked',
+            'auditable_type' => $this->getMorphClass(),
+            'auditable_id' => $this->getKey(),
+            'old_values' => null,
+            'new_values' => [
+                'security_stamp_rotated' => true,
+                'revoked_count' => $revokedCount,
+            ],
+            'ip_address' => $request?->ip(),
+            'user_agent' => $request ? Str::limit((string) $request->userAgent(), 255, '') : null,
+            'url' => $request?->fullUrl(),
+            'route' => (string) optional($request?->route())->getName(),
+            'method' => $request?->getMethod(),
+            'status_code' => null,
+            'request_id' => $requestId,
+            'session_id' => $sessionId,
+            'duration_ms' => null,
+            'context' => [
+                'subject_user_id' => $this->getKey(),
+                'actor_id' => $actorId,
+                'target_user_id' => $this->getKey(),
+                'revoked_count' => $revokedCount,
+                'reason' => $reason,
+                'source' => app()->runningInConsole() ? 'console' : 'http',
+            ],
+            'created_at' => now(),
+        ]);
+    }
+
     /**
      * @param  list<string>  $reasons
      */
@@ -626,6 +772,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
             'context' => [
                 'panel' => $panel->getId(),
                 'reasons' => $reasons,
+                'developer_bypass' => true,
             ],
             'created_at' => now(),
         ]);
