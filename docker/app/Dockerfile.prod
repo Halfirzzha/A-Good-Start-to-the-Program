@@ -1,11 +1,16 @@
 FROM composer:2 AS vendor
 WORKDIR /app
 
+RUN apk add --no-cache icu-dev \
+    && docker-php-ext-install -j"$(nproc)" intl
+
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+RUN composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader --no-scripts
 
 COPY . .
-RUN composer dump-autoload --classmap-authoritative
+RUN mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache
+RUN composer dump-autoload --classmap-authoritative --no-scripts
+RUN php artisan package:discover --ansi
 
 FROM node:20-alpine AS frontend
 WORKDIR /app
@@ -48,6 +53,8 @@ WORKDIR /var/www/html
 
 COPY docker/php/php.ini /usr/local/etc/php/php.ini
 COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
+COPY docker/app/entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 COPY . .
 COPY --from=vendor /app/vendor /var/www/html/vendor
@@ -55,7 +62,7 @@ COPY --from=frontend /app/public/build /var/www/html/public/build
 
 RUN mkdir -p storage bootstrap/cache \
     && chown -R www-data:www-data storage bootstrap/cache
+RUN ln -sfn /var/www/html/storage/app/public /var/www/html/public/storage
 
-USER www-data
-
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["php-fpm"]

@@ -1,14 +1,7 @@
 #!/bin/sh
 set -e
 
-if [ ! -d "storage" ]; then
-  mkdir -p storage
-fi
-
-if [ ! -d "bootstrap/cache" ]; then
-  mkdir -p bootstrap/cache
-fi
-
-chmod -R ug+rw storage bootstrap/cache
+mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views bootstrap/cache
+chmod -R ug+rw storage/framework bootstrap/cache
 
 exec "$@"
