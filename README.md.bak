@@ -282,536 +282,6 @@ zip          # ZIP archive handling
 
 Creative Trees supports multiple deployment methods to fit your infrastructure. Choose the method that best matches your environment.
 
-**🌟 PEMULA? Mulai dari** [**Step 0: Complete Beginner Installation**](#-step-0-complete-beginner-installation-start-from-zero) **(Install Git, Docker, Node.js dari 0)**
-
----
-
-## 🌟 Step 0: Complete Beginner Installation (Start from Zero)
-
-**Untuk yang BELUM menginstall apapun di komputer.** Ikuti panduan ini step-by-step dari awal.
-
-<details>
-<summary><strong>📚 KLIK DI SINI - Panduan Lengkap untuk Pemula (Instalasi dari 0)</strong></summary>
-
-### 🎯 Apa yang Akan Kita Install?
-
-Sebelum menginstall Creative Trees, kita perlu install tools dasar terlebih dahulu:
-
-| Tool               | Fungsi                 | Kenapa Diperlukan                             |
-| ------------------ | ---------------------- | --------------------------------------------- |
-| **Git**            | Version control system | Untuk download source code dari GitHub        |
-| **Docker Desktop** | Container platform     | Menjalankan semua aplikasi dalam container    |
-| **Node.js & npm**  | JavaScript runtime     | Mengelola asset (CSS, JS) frontend            |
-| **Text Editor**    | Code editor            | Visual Studio Code untuk edit kode (optional) |
-
----
-
-### 🪟 Instalasi Lengkap untuk Windows 10/11
-
-#### 1️⃣ Install Git for Windows
-
-**Download & Install:**
-
-```powershell
-# Cara 1: Download manual
-# Buka browser → https://git-scm.com/download/win
-# Download "64-bit Git for Windows Setup"
-# Jalankan installer → Klik Next, Next, Install
-
-# Cara 2: Menggunakan winget (Windows 11)
-winget install --id Git.Git -e --source winget
-```
-
-**Verifikasi Git Terinstall:**
-
-```powershell
-# Buka Command Prompt atau PowerShell
-git --version
-# Output: git version 2.43.0 atau lebih baru
-```
-
-**Konfigurasi Git (PENTING):**
-
-```powershell
-# Set nama Anda
-git config --global user.name "Nama Anda"
-
-# Set email Anda
-git config --global user.email "email@anda.com"
-
-# Verifikasi konfigurasi
-git config --list
-```
-
-#### 2️⃣ Install Docker Desktop for Windows
-
-**System Requirements Check:**
-
-```powershell
-# Cek Windows version (harus Windows 10 Build 19041+ atau Windows 11)
-winver
-# Harus muncul dialog dengan Version 2004 atau lebih baru
-
-# Cek virtualization enabled
-systeminfo | findstr /C:"Hyper-V"
-# Harus ada "Hyper-V Requirements: A hypervisor has been detected"
-```
-
-**Enable WSL 2 (Windows Subsystem for Linux):**
-
-```powershell
-# Buka PowerShell as Administrator (Klik kanan → Run as Administrator)
-
-# 1. Enable WSL
-dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
-
-# 2. Enable Virtual Machine Platform
-dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
-
-# 3. RESTART KOMPUTER ANDA
-shutdown /r /t 0
-
-# 4. Setelah restart, buka PowerShell as Admin lagi
-# Download & Install WSL 2 Linux kernel update
-# https://aka.ms/wsl2kernel
-
-# 5. Set WSL 2 sebagai default
-wsl --set-default-version 2
-
-# 6. Install Ubuntu (optional tapi recommended)
-wsl --install -d Ubuntu-22.04
-# Ikuti instruksi untuk set username & password Ubuntu
-```
-
-**Install Docker Desktop:**
-
-```powershell
-# Cara 1: Download manual
-# 1. Buka https://www.docker.com/products/docker-desktop/
-# 2. Download "Docker Desktop for Windows"
-# 3. Jalankan installer "Docker Desktop Installer.exe"
-# 4. Pastikan centang "Use WSL 2 instead of Hyper-V"
-# 5. Klik OK dan tunggu instalasi selesai
-# 6. RESTART KOMPUTER
-
-# Cara 2: Menggunakan winget
-winget install Docker.DockerDesktop
-```
-
-**Konfigurasi Docker Desktop:**
-
-1. Jalankan Docker Desktop dari Start Menu
-2. Klik icon Docker di system tray (pojok kanan bawah)
-3. Klik **Settings** → **Resources** → **WSL Integration**
-4. Enable integration dengan Ubuntu-22.04
-5. **Resources** → **Advanced**:
-    - CPUs: 4 (atau 50% dari total CPU Anda)
-    - Memory: 8 GB (atau 50% dari total RAM)
-    - Swap: 2 GB
-    - Disk image size: 64 GB
-6. Klik **Apply & Restart**
-
-**Verifikasi Docker:**
-
-```powershell
-# Buka Command Prompt atau PowerShell
-docker --version
-# Output: Docker version 24.0.x
-
-docker compose version
-# Output: Docker Compose version v2.24.x
-
-# Test Docker
-docker run hello-world
-# Harus download image dan menampilkan pesan sukses
-```
-
-#### 3️⃣ Install Node.js & npm
-
-```powershell
-# Cara 1: Download manual
-# 1. Buka https://nodejs.org/
-# 2. Download "LTS (Long Term Support)" version (v20.x)
-# 3. Jalankan installer .msi
-# 4. Klik Next, Next, Install
-
-# Cara 2: Menggunakan winget
-winget install OpenJS.NodeJS.LTS
-
-# Verifikasi
-node --version
-# Output: v20.11.0 atau lebih baru
-
-npm --version
-# Output: 10.2.4 atau lebih baru
-```
-
-#### 4️⃣ Install Visual Studio Code (Recommended)
-
-```powershell
-# Cara 1: Download manual
-# https://code.visualstudio.com/Download
-# Download "Windows x64 User Installer"
-# Jalankan installer
-
-# Cara 2: Menggunakan winget
-winget install Microsoft.VisualStudioCode
-
-# Extensions yang disarankan (buka VSCode → Extensions):
-# - Laravel Extension Pack
-# - Docker
-# - GitLens
-# - PHP Intelephense
-# - Tailwind CSS IntelliSense
-```
-
-#### ✅ Windows Installation Checklist
-
-Cek semua item ini sebelum lanjut:
-
-- [ ] Git terinstall dan terkonfigurasi
-- [ ] Docker Desktop berjalan (icon hijau di system tray)
-- [ ] WSL 2 enabled dan Ubuntu terinstall
-- [ ] Node.js & npm terinstall
-- [ ] Visual Studio Code terinstall (optional)
-- [ ] Koneksi internet stabil
-- [ ] Minimal 10GB ruang disk kosong
-
----
-
-### 🍎 Instalasi Lengkap untuk macOS
-
-#### 1️⃣ Install Homebrew (Package Manager)
-
-```bash
-# Buka Terminal (⌘ + Space, ketik "Terminal")
-
-# Install Homebrew
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# Ikuti instruksi di layar (masukkan password Mac Anda)
-
-# Untuk Apple Silicon (M1/M2/M3), tambahkan ke PATH:
-echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
-eval "$(/opt/homebrew/bin/brew shellenv)"
-
-# Verifikasi Homebrew
-brew --version
-# Output: Homebrew 4.2.x
-```
-
-#### 2️⃣ Install Git
-
-```bash
-# Install Git via Homebrew
-brew install git
-
-# Verifikasi
-git --version
-# Output: git version 2.43.0 atau lebih baru
-
-# Konfigurasi Git
-git config --global user.name "Nama Anda"
-git config --global user.email "email@anda.com"
-
-# Verifikasi konfigurasi
-git config --list
-```
-
-#### 3️⃣ Install Docker Desktop
-
-```bash
-# Install Docker Desktop
-brew install --cask docker
-
-# Buka Docker Desktop
-open -a Docker
-
-# Tunggu sampai Docker Desktop fully loaded (icon muncul di menu bar)
-```
-
-**Konfigurasi Docker Desktop untuk macOS:**
-
-1. **Resources** → **Advanced**:
-    - CPUs: 4 cores (atau 50% dari total)
-    - Memory: 8 GB (untuk M1/M2/M3) atau 6 GB (untuk Intel)
-    - Swap: 2 GB
-    - Disk image size: 64 GB
-
-2. **General**:
-    - ✅ Start Docker Desktop when you log in
-    - ✅ Use Virtualization framework
-    - ✅ Use Rosetta for x86/amd64 emulation (untuk Apple Silicon)
-
-3. Klik **Apply & Restart**
-
-**Verifikasi Docker:**
-
-```bash
-# Verifikasi Docker version
-docker --version
-# Output: Docker version 24.0.x
-
-docker compose version
-# Output: Docker Compose version v2.24.x
-
-# Test Docker
-docker run hello-world
-# Harus download image dan tampilkan success message
-```
-
-#### 4️⃣ Install Node.js & npm
-
-```bash
-# Install Node.js LTS via Homebrew
-brew install node@20
-
-# Link Node 20
-brew link node@20
-
-# Verifikasi
-node --version
-# Output: v20.11.0 atau lebih baru
-
-npm --version
-# Output: 10.2.4 atau lebih baru
-```
-
-#### 5️⃣ Install Visual Studio Code (Recommended)
-
-```bash
-# Install VSCode
-brew install --cask visual-studio-code
-
-# Buka VSCode
-open -a "Visual Studio Code"
-
-# Install extensions via terminal
-code --install-extension bmewburn.vscode-intelephense-client
-code --install-extension amiralizadeh9480.laravel-extra-intellisense
-code --install-extension ms-azuretools.vscode-docker
-code --install-extension eamodio.gitlens
-```
-
-#### ✅ macOS Installation Checklist
-
-- [ ] Homebrew terinstall
-- [ ] Git terinstall dan terkonfigurasi
-- [ ] Docker Desktop berjalan (icon di menu bar)
-- [ ] Node.js & npm terinstall
-- [ ] Visual Studio Code terinstall (optional)
-- [ ] Minimal 10GB ruang disk kosong
-
-**Common macOS Issues:**
-
-| Issue                            | Solution                                                                            |
-| -------------------------------- | ----------------------------------------------------------------------------------- |
-| Port 5000 already in use         | Disable AirPlay Receiver: System Preferences → Sharing → uncheck "AirPlay Receiver" |
-| Docker Desktop slow on Intel Mac | Allocate more memory in Docker preferences                                          |
-| Permission denied on /usr/local  | `sudo chown -R $(whoami) /usr/local`                                                |
-
----
-
-### 🐧 Instalasi Lengkap untuk Ubuntu/Linux
-
-#### 1️⃣ Update System
-
-```bash
-# Update package list
-sudo apt update
-
-# Upgrade existing packages
-sudo apt upgrade -y
-
-# Install basic utilities
-sudo apt install -y curl wget git vim software-properties-common apt-transport-https ca-certificates gnupg lsb-release
-```
-
-#### 2️⃣ Install Git
-
-```bash
-# Install Git
-sudo apt install -y git
-
-# Verifikasi
-git --version
-# Output: git version 2.34.0 atau lebih baru
-
-# Konfigurasi Git
-git config --global user.name "Nama Anda"
-git config --global user.email "email@anda.com"
-git config --global init.defaultBranch main
-
-# Verifikasi
-git config --list
-```
-
-#### 3️⃣ Install Docker & Docker Compose
-
-**Uninstall old Docker versions:**
-
-```bash
-# Remove old Docker
-for pkg in docker.io docker-doc docker-compose podman-docker containerd runc; do
-  sudo apt-get remove -y $pkg 2>/dev/null
-done
-```
-
-**Install Docker from official repository:**
-
-```bash
-# 1. Setup Docker repository
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-
-# 2. Add Docker repository
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# 3. Update package list
-sudo apt update
-
-# 4. Install Docker Engine & Docker Compose
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-# 5. Start Docker service
-sudo systemctl start docker
-sudo systemctl enable docker
-
-# 6. Add your user to docker group (agar tidak perlu sudo)
-sudo usermod -aG docker $USER
-
-# 7. LOGOUT dan LOGIN kembali agar perubahan grup berlaku
-# Atau jalankan:
-newgrp docker
-```
-
-**Verifikasi Docker:**
-
-```bash
-# Cek Docker version
-docker --version
-# Output: Docker version 24.0.x
-
-docker compose version
-# Output: Docker Compose version v2.24.x
-
-# Test Docker (tanpa sudo)
-docker run hello-world
-# Harus menampilkan success message
-
-# Cek Docker service status
-sudo systemctl status docker
-# Harus "active (running)"
-```
-
-#### 4️⃣ Install Node.js & npm
-
-```bash
-# Install Node.js 20 LTS via NodeSource repository
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt install -y nodejs
-
-# Verifikasi
-node --version
-# Output: v20.11.0 atau lebih baru
-
-npm --version
-# Output: 10.2.4 atau lebih baru
-
-# Update npm to latest
-sudo npm install -g npm@latest
-```
-
-#### 5️⃣ Install Visual Studio Code
-
-```bash
-# Import Microsoft GPG key
-wget -qO- https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > packages.microsoft.gpg
-sudo install -D -o root -g root -m 644 packages.microsoft.gpg /etc/apt/keyrings/packages.microsoft.gpg
-
-# Add VSCode repository
-sudo sh -c 'echo "deb [arch=amd64,arm64,armhf signed-by=/etc/apt/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main" > /etc/apt/sources.list.d/vscode.list'
-
-# Install VSCode
-sudo apt update
-sudo apt install -y code
-
-# Install extensions
-code --install-extension bmewburn.vscode-intelephense-client
-code --install-extension amiralizadeh9480.laravel-extra-intellisense
-code --install-extension ms-azuretools.vscode-docker
-```
-
-#### ✅ Ubuntu/Linux Installation Checklist
-
-- [ ] System sudah di-update (`apt update && apt upgrade`)
-- [ ] Git terinstall dan terkonfigurasi
-- [ ] Docker & Docker Compose terinstall
-- [ ] User sudah ditambahkan ke docker group
-- [ ] Node.js & npm terinstall
-- [ ] Visual Studio Code terinstall (optional)
-- [ ] Minimal 10GB ruang disk kosong
-
-**Troubleshooting Linux:**
-
-```bash
-# Jika Docker masih butuh sudo:
-sudo usermod -aG docker $USER
-newgrp docker
-
-# Jika Docker service tidak start:
-sudo systemctl start docker
-sudo systemctl enable docker
-
-# Jika port 80/443 sudah dipakai:
-sudo lsof -i :80
-sudo lsof -i :443
-# Matikan service yang menggunakan port tersebut
-```
-
----
-
-### 🎓 Verification: Apakah Semua Sudah Siap?
-
-Jalankan command berikut untuk verifikasi semua tools sudah terinstall:
-
-```bash
-# Git check
-git --version
-# Expected: git version 2.34+ ✅
-
-# Docker check
-docker --version
-# Expected: Docker version 24.0+ ✅
-
-docker compose version
-# Expected: Docker Compose version v2.24+ ✅
-
-# Node.js check
-node --version
-# Expected: v20.11+ ✅
-
-npm --version
-# Expected: 10.2+ ✅
-
-# Docker test
-docker run hello-world
-# Expected: Success message ✅
-
-# Docker permissions test (Linux/macOS)
-docker ps
-# Expected: No permission denied error ✅
-```
-
-**✅ Jika SEMUA command di atas berhasil, Anda siap melanjutkan ke instalasi Creative Trees!** 🎉
-
-</details>
-
----
-
 ### Installation Decision Tree
 
 ```mermaid
@@ -2555,52 +2025,35 @@ graph TB
     end
 
     subgraph Edge["Edge Layer (Port 8080)"]
-        Nginx["Nginx Reverse Proxy
-        + Security Headers"]
+        Nginx[Nginx Reverse Proxy<br/>+ Security Headers]
     end
 
     subgraph Application["Application Layer"]
-        App["Laravel App Container
-        PHP 8.4-FPM"]
-        Queue["Queue Worker
-        Background Jobs"]
-        Scheduler["Task Scheduler
-        Cron Jobs"]
-        Node["Vite Dev Server
-        Asset Building"]
+        App[Laravel App Container<br/>PHP 8.4-FPM]
+        Queue[Queue Worker<br/>Background Jobs]
+        Scheduler[Task Scheduler<br/>Cron Jobs]
+        Node[Vite Dev Server<br/>Asset Building]
     end
 
     subgraph Data["Data Layer"]
-        MySQL[("MySQL 8.0
-        Primary Database")]
-        Redis[("Redis 7.0
-        Cache/Session/Queue")]
+        MySQL[(MySQL 8.0<br/>Primary Database)]
+        Redis[(Redis 7.0<br/>Cache/Session/Queue)]
     end
 
     subgraph Management["Management Tools"]
-        phpMyAdmin["phpMyAdmin
-        :8888"]
-        RedisInsight["Redis Insight
-        :5540"]
-        Mailpit["Mailpit
-        :8025"]
+        phpMyAdmin[phpMyAdmin<br/>:8888]
+        RedisInsight[Redis Insight<br/>:5540]
+        Mailpit[Mailpit<br/>:8025]
     end
 
     subgraph Monitoring["Observability Stack"]
-        Prometheus["Prometheus
-        :9090"]
-        Grafana["Grafana
-        :3000"]
-        AlertManager["Alertmanager
-        :9093"]
-        cAdvisor["cAdvisor
-        Container Metrics"]
-        NodeExporter["Node Exporter
-        Host Metrics"]
-        RedisExporter["Redis Exporter
-        Redis Metrics"]
-        MySQLExporter["MySQL Exporter
-        DB Metrics"]
+        Prometheus[Prometheus<br/>:9090]
+        Grafana[Grafana<br/>:3000]
+        AlertManager[Alertmanager<br/>:9093]
+        cAdvisor[cAdvisor<br/>Container Metrics]
+        NodeExporter[Node Exporter<br/>Host Metrics]
+        RedisExporter[Redis Exporter<br/>Redis Metrics]
+        MySQLExporter[MySQL Exporter<br/>DB Metrics]
     end
 
     User --> Nginx
@@ -2652,7 +2105,7 @@ sequenceDiagram
     participant Cache as Redis Cache
     participant Q as Queue
 
-    C->>N: HTTP Request (GET /admin/users)
+    C->>N: HTTP Request<br/>(GET /admin/users)
     N->>N: Apply Security Headers
     N->>P: Forward to PHP-FPM
     P->>L: Bootstrap Application
@@ -2705,38 +2158,31 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    Start([User Login Attempt]) --> ValidateCredentials{"Valid
-    Credentials?"}
+    Start([User Login Attempt]) --> ValidateCredentials{Valid<br/>Credentials?}
 
     ValidateCredentials -->|No| LogFailure[Log Failed Attempt]
     LogFailure --> IncrementAttempts{Attempts >= 5?}
-    IncrementAttempts -->|Yes| LockAccount["Lock Account
-    15 minutes"]
+    IncrementAttempts -->|Yes| LockAccount[Lock Account<br/>15 minutes]
     IncrementAttempts -->|No| ReturnError1[Return Error]
     LockAccount --> ReturnError1
     ReturnError1 --> End1([Login Failed])
 
-    ValidateCredentials -->|Yes| CheckPassword{"Password
-    Valid?"}
-    CheckPassword -->|No| CheckHIBP{"In HIBP
-    Breach DB?"}
+    ValidateCredentials -->|Yes| CheckPassword{Password<br/>Valid?}
+    CheckPassword -->|No| CheckHIBP{In HIBP<br/>Breach DB?}
     CheckHIBP -->|Yes| ForceReset[Force Password Reset]
-    CheckHIBP -->|No| CheckExpiry{"Password
-    Expired?"}
+    CheckHIBP -->|No| CheckExpiry{Password<br/>Expired?}
     CheckExpiry -->|Yes| ForceReset
     CheckExpiry -->|No| CreateSession
     ForceReset --> End2([Redirect to Reset])
 
-    CheckPassword -->|Yes| CheckAccount{"Account
-    Active?"}
+    CheckPassword -->|Yes| CheckAccount{Account<br/>Active?}
     CheckAccount -->|No| ReturnError2[Return Suspended Error]
     ReturnError2 --> End3([Access Denied])
 
     CheckAccount -->|Yes| CreateSession[Create Session]
     CreateSession --> GenerateStamp[Generate Session Stamp]
     GenerateStamp --> StoreDevice[Store Device Fingerprint]
-    StoreDevice --> CheckRole{"User
-    Role?"}
+    StoreDevice --> CheckRole{User<br/>Role?}
 
     CheckRole -->|Super Admin| GrantAllPerms[Grant All Permissions]
     CheckRole -->|Admin| GrantAdminPerms[Grant Admin Permissions]
@@ -2750,8 +2196,7 @@ flowchart TD
     GrantSupervisorPerms --> LogActivity
     GrantBasicPerms --> LogActivity[Log Login Activity]
 
-    LogActivity --> AuditLog["Create Tamper-Evident
-    Audit Entry"]
+    LogActivity --> AuditLog[Create Tamper-Evident<br/>Audit Entry]
     AuditLog --> Success([✅ Login Successful])
 
     style Start fill:#e1f5fe
@@ -2768,46 +2213,26 @@ flowchart TD
 
 ```mermaid
 graph TD
-    SA["🔴 Super Admin
-    Level 1"]
-    A["🟠 Admin
-    Level 2"]
-    M["🟡 Manager
-    Level 3"]
-    S["🟢 Supervisor
-    Level 4"]
-    U["🔵 User
-    Level 5"]
+    SA[🔴 Super Admin<br/>Level 1]
+    A[🟠 Admin<br/>Level 2]
+    M[🟡 Manager<br/>Level 3]
+    S[🟢 Supervisor<br/>Level 4]
+    U[🔵 User<br/>Level 5]
 
     SA --> A
     A --> M
     M --> S
     S --> U
 
-    SA -.->|All Permissions| P1["✅ System Settings
-    ✅ User Management
-    ✅ Role Assignment
-    ✅ Audit Log Access
-    ✅ AI Configuration
-    ✅ Maintenance Mode"]
+    SA -.->|All Permissions| P1[✅ System Settings<br/>✅ User Management<br/>✅ Role Assignment<br/>✅ Audit Log Access<br/>✅ AI Configuration<br/>✅ Maintenance Mode]
 
-    A -.->|Admin Scope| P2["✅ User CRUD
-    ✅ Reports Access
-    ✅ Notification Management
-    ⛔ System Settings"]
+    A -.->|Admin Scope| P2[✅ User CRUD<br/>✅ Reports Access<br/>✅ Notification Management<br/>⛔ System Settings]
 
-    M -.->|Manager Scope| P3["✅ Team Management
-    ✅ Approval Workflows
-    ✅ Department Reports
-    ⛔ Role Assignment"]
+    M -.->|Manager Scope| P3[✅ Team Management<br/>✅ Approval Workflows<br/>✅ Department Reports<br/>⛔ Role Assignment]
 
-    S -.->|Supervisor Scope| P4["✅ Task Assignment
-    ✅ Basic Approvals
-    ⛔ User Management"]
+    S -.->|Supervisor Scope| P4[✅ Task Assignment<br/>✅ Basic Approvals<br/>⛔ User Management]
 
-    U -.->|Basic Access| P5["✅ Own Profile
-    ✅ Assigned Tasks
-    ⛔ Admin Features"]
+    U -.->|Basic Access| P5[✅ Own Profile<br/>✅ Assigned Tasks<br/>⛔ Admin Features]
 
     style SA fill:#ef5350,color:#fff
     style A fill:#ff9800,color:#fff
@@ -2819,42 +2244,29 @@ graph TD
 ### Audit Log Hash Chain
 
 ```mermaid
-graph LR
-    G["Genesis Entry
-    hash: sha256('initial')"]
+flowchart LR
+    G[Genesis Entry<br/>hash: sha256('initial')]
 
-    E1["Entry 1
-    Previous: Genesis
-    Data: User Login
-    hash: sha256(Genesis + Data1)"]
+    E1[Entry 1<br/>Previous: Genesis<br/>Data: User Login<br/>hash: sha256(Genesis + Data1)]
 
-    E2["Entry 2
-    Previous: Entry 1
-    Data: Profile Update
-    hash: sha256(Entry1 + Data2)"]
+    E2[Entry 2<br/>Previous: Entry 1<br/>Data: Profile Update<br/>hash: sha256(Entry1 + Data2)]
 
-    E3["Entry 3
-    Previous: Entry 2
-    Data: Permission Change
-    hash: sha256(Entry2 + Data3)"]
+    E3[Entry 3<br/>Previous: Entry 2<br/>Data: Permission Change<br/>hash: sha256(Entry2 + Data3)]
 
-    E4["Entry N
-    Previous: Entry N-1
-    Data: Action
-    hash: sha256(EntryN-1 + DataN)"]
+    E4[Entry N<br/>Previous: Entry N-1<br/>Data: Action<br/>hash: sha256(EntryN-1 + DataN)]
 
     G -->|Link| E1
     E1 -->|Link| E2
     E2 -->|Link| E3
     E3 -.->|Link| E4
 
-    V{"Verification"}
+    V{Verification}
     V -.->|Recalculate| E1
     V -.->|Recalculate| E2
     V -.->|Recalculate| E3
 
-    V -->|If hash mismatch| T["🚨 TAMPER DETECTED"]
-    V -->|All hashes valid| OK["✅ Integrity Verified"]
+    V -->|If hash mismatch| T[🚨 TAMPER DETECTED]
+    V -->|All hashes valid| OK[✅ Integrity Verified]
 
     style G fill:#e1f5fe
     style E1 fill:#c8e6c9
@@ -2871,20 +2283,16 @@ graph LR
 flowchart TD
     Request[AI Request Initiated]
 
-    Request --> Primary{"Primary Provider
-    OpenAI"}
+    Request --> Primary{Primary Provider<br/>OpenAI}
 
     Primary -->|Success| Return1[✅ Return Response]
-    Primary -->|Timeout/Error| Secondary{"Secondary Provider
-    Anthropic"}
+    Primary -->|Timeout/Error| Secondary{Secondary Provider<br/>Anthropic}
 
     Secondary -->|Success| Return2[✅ Return Response]
-    Secondary -->|Timeout/Error| Tertiary{"Tertiary Provider
-    Groq"}
+    Secondary -->|Timeout/Error| Tertiary{Tertiary Provider<br/>Groq}
 
     Tertiary -->|Success| Return3[✅ Return Response]
-    Tertiary -->|Timeout/Error| Fallback{"Fallback Provider
-    DeepSeek"}
+    Tertiary -->|Timeout/Error| Fallback{Fallback Provider<br/>DeepSeek}
 
     Fallback -->|Success| Return4[✅ Return Response]
     Fallback -->|All Failed| Log[📝 Log Failure]
@@ -5215,21 +4623,16 @@ graph TB
 
     subgraph "Metrics Collection"
         PE[Prometheus Exporters]
-        CA["cAdvisor
-        Container Metrics"]
-        NE["Node Exporter
-        System Metrics"]
+        CA[cAdvisor<br/>Container Metrics]
+        NE[Node Exporter<br/>System Metrics]
         RE[Redis Exporter]
         ME[MySQL Exporter]
     end
 
     subgraph "Monitoring Platform"
-        P["Prometheus
-        :9090"]
-        G["Grafana
-        :3000"]
-        AM["Alertmanager
-        :9093"]
+        P[Prometheus<br/>:9090]
+        G[Grafana<br/>:3000]
+        AM[Alertmanager<br/>:9093]
     end
 
     subgraph "Notification Channels"
@@ -5595,22 +4998,17 @@ graph LR
     end
 
     subgraph "Backup Copy 1 - Local"
-        L1["Daily Backups
-        Last 7 Days"]
-        L2["Weekly Backups
-        Last 4 Weeks"]
+        L1[Daily Backups<br/>Last 7 Days]
+        L2[Weekly Backups<br/>Last 4 Weeks]
     end
 
     subgraph "Backup Copy 2 - Network Storage"
-        NAS["NAS/Network Drive
-        Monthly Archives"]
+        NAS[NAS/Network Drive<br/>Monthly Archives]
     end
 
     subgraph "Backup Copy 3 - Offsite/Cloud"
-        S3["AWS S3
-        Glacier Deep Archive"]
-        GD["Google Drive
-        Long-term Storage"]
+        S3[AWS S3<br/>Glacier Deep Archive]
+        GD[Google Drive<br/>Long-term Storage]
     end
 
     DB --> L1
@@ -6159,13 +5557,13 @@ echo "Please verify your application at: http://localhost"
 
 ### Disaster Recovery Plan
 
-| **Scenario**                   | **RTO** | **RPO** | **Recovery Steps**                                                                   |
-| ------------------------------ | ------- | ------- | ------------------------------------------------------------------------------------ |
-| **Database Corruption**        | 15 min  | 1 day   | 1. Restore from last backup → 2. Apply binary logs → 3. Verify data integrity        |
-| **Application Server Failure** | 30 min  | 1 day   | 1. Provision new server → 2. Restore from backup → 3. Update DNS                     |
-| **Complete Data Center Loss**  | 4 hours | 1 day   | 1. Activate DR site → 2. Restore from S3/GDrive → 3. Update DNS to DR                |
-| **Ransomware Attack**          | 2 hours | 1 day   | 1. Isolate affected systems → 2. Restore from immutable backup → 3. Scan for malware |
-| **Accidental Data Deletion**   | 5 min   | 1 hour  | 1. Restore specific table → 2. Verify restored data → 3. Update application          |
+| **Scenario**                   | **RTO** | **RPO** | **Recovery Steps**                                                                       |
+| ------------------------------ | ------- | ------- | ---------------------------------------------------------------------------------------- |
+| **Database Corruption**        | 15 min  | 1 day   | 1. Restore from last backup<br/>2. Apply binary logs<br/>3. Verify data integrity        |
+| **Application Server Failure** | 30 min  | 1 day   | 1. Provision new server<br/>2. Restore from backup<br/>3. Update DNS                     |
+| **Complete Data Center Loss**  | 4 hours | 1 day   | 1. Activate DR site<br/>2. Restore from S3/GDrive<br/>3. Update DNS to DR                |
+| **Ransomware Attack**          | 2 hours | 1 day   | 1. Isolate affected systems<br/>2. Restore from immutable backup<br/>3. Scan for malware |
+| **Accidental Data Deletion**   | 5 min   | 1 hour  | 1. Restore specific table<br/>2. Verify restored data<br/>3. Update application          |
 
 ### DR Testing Schedule
 
@@ -6776,37 +6174,6 @@ A: Set `BACKUP_S3_ENABLED=true` and `BACKUP_S3_BUCKET=your-bucket` in `.env`.
 ---
 
 ## 📝 Changelog
-
-### v1.2.8 (Current - February 2026)
-
-**🌟 Major Documentation Overhaul**
-
-- Added comprehensive "Step 0: Complete Beginner Installation" guide
-- Full installation from zero for Windows/macOS/Linux
-- Detailed Git, Docker Desktop, Node.js installation instructions
-- OS-specific configuration guides with screenshots
-- Verification checklists for each platform
-- Common issues troubleshooting per OS
-- Enhanced installation decision tree
-
-**📚 Documentation Improvements**
-
-- 6,700+ lines of enterprise-grade documentation
-- Complete prerequisites installation guide
-- Platform-specific setup instructions (Windows WSL2, macOS Homebrew, Ubuntu)
-- Visual Studio Code configuration for Laravel development
-- Extended troubleshooting section
-- Enhanced FAQ with real-world scenarios
-
-**🔧 Developer Experience**
-
-- Beginner-friendly installation from scratch
-- No assumptions about pre-installed software
-- Step-by-step verification commands
-- Installation checklist for quality assurance
-- Multi-platform support (Windows/macOS/Linux)
-
-### v1.2.6
 
 - Docker enterprise setup with 16 services
 - PHP 8.4-FPM with custom extensions
